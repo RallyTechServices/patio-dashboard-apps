@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 12 2016 17:36:16 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Apr 12 2016 18:39:01 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 12 2016 17:36:16 GMT-0700 (PDT)";
-        var CHECKSUM = 11210841143;
+        var APP_BUILD_DATE = "Tue Apr 12 2016 18:39:01 GMT-0700 (PDT)";
+        var CHECKSUM = 13593703665;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -228,6 +228,35 @@ Ext.define('TSUtilities', {
         return this.currentUserIsAdmin();
     }
 });
+Ext.define("CA.apps.charts.Colors", {
+    
+    singleton: true, 
+    
+    // RGB values obtained from here: http://ux-blog.rallydev.com/?cat=23
+    grey4: "#C0C0C0",  // $grey4
+    orange: "#FF8200",  // $orange
+    gold: "#F6A900",  // $gold
+    yellow: "#FAD200",  // $yellow
+    lime: "#8DC63F",  // $lime
+    green_dk: "#1E7C00",  // $green_dk
+    blue_link: "#337EC6",  // $blue_link
+    blue: "#005EB8",  // $blue
+    purple : "#7832A5",  // $purple,
+    pink : "#DA1884",   // $pink,
+    grey7 : "#666",
+
+    cumulativeFlowColors : function() {
+        return [
+            this.grey4, this.orange, this.gold, this.yellow, this.lime, this.green_dk, this.blue_link, this.blue, this.purple, this.pink
+        ];
+    },
+
+    burnLineColor : function (){ return this.blue; },
+    burnColumnColor : function() { return this.lime; },
+    
+    getConsistentBarColors: function() { return [this.grey4, this.blue_link, this.blue ]; }
+});
+
 /**
  * A link that pops up a version dialog box
  */
@@ -424,6 +453,7 @@ Ext.define("TSSplitStoryPerSprint", {
             success: function(parsed_sprints){
                 this._makeRawGrid(parsed_sprints);
                 this._makePercentageGrid(parsed_sprints);
+                this._makeRawChart(parsed_sprints);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem Gathering Data', msg);
@@ -601,7 +631,6 @@ Ext.define("TSSplitStoryPerSprint", {
                     Ext.Array.each(row[sprint_name], function(story){
                         var value = story.get('PlanEstimate') || 0;
                         type_total = type_total + value;
-
                     });
                     
                     var total = 0;
@@ -626,6 +655,56 @@ Ext.define("TSSplitStoryPerSprint", {
         return Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
             return sprint;
         });
+    },
+    
+    _getSeriesFromRows: function(rows) {
+        var series = [];
+        
+        Ext.Array.each(rows, function(row) {
+            var type = row.Type;
+            var data = [];
+            Ext.Object.each(row, function(key,value) {
+                if ( key != "Type" && key != "Name"  && !Ext.isArray(value) ) {
+                    data.push(value);
+                }
+            });
+            
+            series.push({ name: row.Name, data: data });
+        });
+        return series;
+    },
+    
+    _makeRawChart: function(sprint_objects) {
+        var me = this;
+        
+        var categories = this._getCategories(sprint_objects);
+        var sprints = this._getRawRows(sprint_objects);
+        var series = this._getSeriesFromRows(sprints);
+                
+        this.down('#chart_box').add({
+            xtype:'rallychart',
+            chartColors: CA.apps.charts.Colors.getConsistentBarColors(),
+
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getChartConfig()
+        });
+    },
+    
+    _getChartConfig: function() {
+        return {
+            chart: { type:'column' },
+            title: { text: '' },
+            xAxis: {},
+            yAxis: { 
+                min: 0,
+                title: { text: this.getSetting('metric') }
+            },
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            }
+        }
     },
     
     _makeRawGrid: function(sprint_objects) {

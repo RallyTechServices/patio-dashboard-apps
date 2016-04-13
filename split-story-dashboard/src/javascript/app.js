@@ -33,6 +33,7 @@ Ext.define("TSSplitStoryPerSprint", {
             success: function(parsed_sprints){
                 this._makeRawGrid(parsed_sprints);
                 this._makePercentageGrid(parsed_sprints);
+                this._makeRawChart(parsed_sprints);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem Gathering Data', msg);
@@ -210,7 +211,6 @@ Ext.define("TSSplitStoryPerSprint", {
                     Ext.Array.each(row[sprint_name], function(story){
                         var value = story.get('PlanEstimate') || 0;
                         type_total = type_total + value;
-
                     });
                     
                     var total = 0;
@@ -235,6 +235,56 @@ Ext.define("TSSplitStoryPerSprint", {
         return Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
             return sprint;
         });
+    },
+    
+    _getSeriesFromRows: function(rows) {
+        var series = [];
+        
+        Ext.Array.each(rows, function(row) {
+            var type = row.Type;
+            var data = [];
+            Ext.Object.each(row, function(key,value) {
+                if ( key != "Type" && key != "Name"  && !Ext.isArray(value) ) {
+                    data.push(value);
+                }
+            });
+            
+            series.push({ name: row.Name, data: data });
+        });
+        return series;
+    },
+    
+    _makeRawChart: function(sprint_objects) {
+        var me = this;
+        
+        var categories = this._getCategories(sprint_objects);
+        var sprints = this._getRawRows(sprint_objects);
+        var series = this._getSeriesFromRows(sprints);
+                
+        this.down('#chart_box').add({
+            xtype:'rallychart',
+            chartColors: CA.apps.charts.Colors.getConsistentBarColors(),
+
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getChartConfig()
+        });
+    },
+    
+    _getChartConfig: function() {
+        return {
+            chart: { type:'column' },
+            title: { text: '' },
+            xAxis: {},
+            yAxis: { 
+                min: 0,
+                title: { text: this.getSetting('metric') }
+            },
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            }
+        }
     },
     
     _makeRawGrid: function(sprint_objects) {

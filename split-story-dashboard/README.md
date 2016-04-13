@@ -1,5 +1,7 @@
 #Split Story Per Sprint
 
+![Screen Shot](images/screenshot.png)
+
 ## Development Notes
 
 ### First Load
