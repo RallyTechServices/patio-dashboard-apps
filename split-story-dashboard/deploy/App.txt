@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Split Story Per Sprint</title>
+    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Tue Apr 12 2016 17:09:12 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Apr 12 2016 17:09:12 GMT-0700 (PDT)";
+        var CHECKSUM = 8600143344;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+Ext.define('TSUtilities', {
+    singleton: true,
+    
+    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
+    pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
+
+    archiveSuffix: '~archived',
+    
+    loadWsapiRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+     
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        console.log(editor_permissions);
+        return ( editor_permissions.length > 0 );
+    },
+    
+    getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
+    },
+    
+    // true if sub or workspace admin
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
+        
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    is_workspace_admin = true;
+                }
+            });
+        }
+        
+        return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
+    },
+    
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+        
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        return can_unlock;
+    },
+    
+    _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    }
+});
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define("TSSplitStoryPerSprint", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    items: [
+        {xtype:'container',itemId:'chart_box'},
+        {xtype:'container',itemId:'raw_grid_box'},
+        {xtype:'container',itemId:'ratio_grid_box'}
+    ],
+
+    config: {
+        defaultSettings: {
+            metric: 'size' // count or size
+        }
+    },
+    
+    integrationHeaders : {
+        name : "TSSplitStoryPerSprint"
+    },
+                        
+    launch: function() {
+        var me = this;
+        
+        Deft.Chain.pipeline([
+            this._fetchLastTenIterations,
+            this._sortIterations,
+            this._fetchStoriesFromIterations,
+            this._setStoryType,
+            this._buildIterationObjects
+        ],this).then({
+            scope: this,
+            success: function(parsed_sprints){
+                this._makeRawGrid(parsed_sprints);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem Gathering Data', msg);
+            }
+        }).always(function() { me.setLoading(false); });
+    },
+    
+    _buildIterationObjects: function(stories) {
+        var iteration_objects = {};
+        Ext.Array.each(this.iterations, function(iteration){
+            iteration_objects[iteration.get('Name')] = {
+                iteration: iteration,
+                unfinished: [],
+                continued: [],
+                standard: [],
+                stories: []
+            }
+        });
+        
+        Ext.Array.each(stories, function(story){
+            var iteration_name = story.get('Iteration').Name;
+            var type = story.get('__Type');
+            iteration_objects[iteration_name].stories.push(story);
+            iteration_objects[iteration_name][type].push(story);
+        });
+        
+        return iteration_objects;
+    },
+    
+    _setStoryType: function(stories) {
+        Ext.Array.each(stories, function(story){
+            story.set('__Type', this._getTypeFromName(story.get('Name')));
+        },this);
+        
+        return stories;
+    },
+    
+    _getTypeFromName: function(name) {
+        if ( /\[Continued\]/.test(name) ) {
+            return 'continued';
+        }
+        
+        if ( /\[Unfinished\]/.test(name) ) {
+            return 'unfinished';
+        }
+        
+        return 'standard';
+    },
+    
+    _sortIterations: function(iterations) {
+        
+        Ext.Array.sort(iterations, function(a,b){
+            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+            return 0;
+        });
+        
+        return iterations;
+    },
+    
+    _fetchLastTenIterations: function() {
+        this.setLoading("Fetching iterations...");
+        var config = {
+            model:'Iteration',
+            limit: 10,
+            pageSize: 10,
+            fetch: ['Name','StartDate','EndDate'],
+            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:'EndDate', direction:'DESC'}],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false
+            }
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _fetchStoriesFromIterations: function(iterations) {
+        this.setLoading("Fetching Stories...");
+        this.iterations = iterations;
+        
+        if ( iterations.length === 0 ) { return []; }
+        
+        var first_iteration = iterations[0];
+        var last_iteration = iterations[iterations.length-1];
+        
+        var filters = [
+            {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_iteration.get('StartDate'))},
+            {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_iteration.get('EndDate'))},
+            {property:'AcceptedDate',       operator:'!=', value: null }
+        ];
+        
+        var config = {
+            model: 'HierarchicalRequirement',
+            filters: filters,
+            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate']
+        }
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _makeRawGrid: function(sprint_objects) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        var row_fields = Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
+            return sprint;
+        });
+                
+        var rows = [
+            {Type:'unfinished', Name: 'Unfinished Story'},
+            {Type:'continued',  Name: 'Continued Story' },
+            {Type:'standard',   Name: 'Story'}
+        ];
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(sprint_objects, function(sprint_name,value){
+                row[sprint_name] = value[type];
+                
+                if (me.getSetting('metric') == 'count') {
+                    row[sprint_name + "_number"] = row[sprint_name].length; 
+                } else {
+                    var total = 0;
+                    Ext.Array.each(row[sprint_name], function(story){
+                        var value = story.get('PlanEstimate') || 0;
+                        total = total + value;
+                    });
+                    
+                    row[sprint_name + "_number"] = total; 
+                }
+            });
+        });
+        
+        var columns = [{dataIndex:'Name',text:'Story Type'}];
+        Ext.Array.each(row_fields, function(field){            
+            columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
+        });
+        
+        this.down('#raw_grid_box').add({
+            xtype:'rallygrid',
+            showPagingToolbar: false,
+            store: Ext.create('Rally.data.custom.Store',{ data: rows }),
+            columnCfgs: columns
+        }); 
+
+    },
+    
+    getSettingsFields: function() {
+        return [
+        {
+            name: 'metric',
+            xtype: 'rallycombobox',
+            fieldLabel: 'Measure',
+            labelWidth: 100,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10,
+            displayField:'Name',
+            valueField: 'Value',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: [
+                    {Name:'Count', Value:'count'},
+                    {Name:'Size', Value:'size'}
+                ]
+            }),
+            readyEvent: 'ready'
+        }
+        ];
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('TSSplitStoryPerSprint', {
+                   name: 'Split Story Per Sprint'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>

@@ -1,2 +1,4 @@
 # patio-dashboard-apps
-A set of apps with similar style
+A set of apps with similar style.
+
+

@@ -1,0 +1,5 @@
+{
+    "name": "Split Story Per Sprint",
+    "sdk": "2.0",
+    "className": "TSSplitStoryPerSprint"
+}
