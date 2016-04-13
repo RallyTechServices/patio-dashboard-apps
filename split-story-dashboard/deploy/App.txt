@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 12 2016 17:09:12 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Apr 12 2016 17:36:16 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 12 2016 17:09:12 GMT-0700 (PDT)";
-        var CHECKSUM = 8600143344;
+        var APP_BUILD_DATE = "Tue Apr 12 2016 17:36:16 GMT-0700 (PDT)";
+        var CHECKSUM = 11210841143;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -423,6 +423,7 @@ Ext.define("TSSplitStoryPerSprint", {
             scope: this,
             success: function(parsed_sprints){
                 this._makeRawGrid(parsed_sprints);
+                this._makePercentageGrid(parsed_sprints);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem Gathering Data', msg);
@@ -525,12 +526,10 @@ Ext.define("TSSplitStoryPerSprint", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _makeRawGrid: function(sprint_objects) {
+    _getRawRows: function(sprint_objects) {
         var me = this;
         // sprint objects have key = name of sprint
-        var row_fields = Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
-            return sprint;
-        });
+        var row_fields = this._getCategories(sprint_objects);
                 
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
@@ -564,13 +563,112 @@ Ext.define("TSSplitStoryPerSprint", {
                 }
             });
         });
+        return rows;
+    },
+    
+    _getPercentageRows: function(sprint_objects) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        var row_fields = this._getCategories(sprint_objects);
+                
+        var rows = [
+            {Type:'unfinished', Name: 'Unfinished Story'},
+            {Type:'continued',  Name: 'Continued Story' },
+            {Type:'standard',   Name: 'Story'}
+        ];
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(sprint_objects, function(sprint_name,value){
+                row[sprint_name] = value[type];
+                var all_stories = value.stories;
+                
+                if (me.getSetting('metric') == 'count') {
+                    if ( all_stories.length === 0 ) {
+                        row[sprint_name + "_number"] = "N/A";
+                    }
+                    row[sprint_name + "_number"] = row[sprint_name].length / all_stories.length; 
+                } else {
+                    var type_total = 0;
+                    Ext.Array.each(row[sprint_name], function(story){
+                        var value = story.get('PlanEstimate') || 0;
+                        type_total = type_total + value;
+
+                    });
+                    
+                    var total = 0;
+                    
+                    Ext.Array.each(all_stories, function(story){
+                        var value = story.get('PlanEstimate') || 0;
+                        total = total + value;
+                    });
+                    
+                    if ( total === 0 ) {
+                        row[sprint_name + "_number"] = "N/A";
+                    } else {
+                        row[sprint_name + "_number"] = type_total / total; 
+                    }
+                }
+            });
+        });
+        return rows;
+    },
+    
+    _getCategories: function(sprint_objects) {
+        return Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
+            return sprint;
+        });
+    },
+    
+    _makeRawGrid: function(sprint_objects) {
+        var me = this;
         
         var columns = [{dataIndex:'Name',text:'Story Type'}];
-        Ext.Array.each(row_fields, function(field){            
+        Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
         });
         
+        var rows = this._getRawRows(sprint_objects);
+        
         this.down('#raw_grid_box').add({
+            xtype:'rallygrid',
+            showPagingToolbar: false,
+            store: Ext.create('Rally.data.custom.Store',{ data: rows }),
+            columnCfgs: columns
+        }); 
+
+    },
+    
+    _makePercentageGrid: function(sprint_objects) {
+        var me = this;
+        
+        var columns = [{dataIndex:'Name',text:'Story Type'}];
+        Ext.Array.each(this._getCategories(sprint_objects), function(field){   
+            columns.push({ 
+                dataIndex: field + "_number", 
+                text: field, 
+                align: 'center',
+                renderer: function(value,meta,record) {
+                    if ( !Ext.isNumber(value) ) {
+                        return 'N/A';
+                    }
+                    return parseInt(100*value,10) + "%";
+                }
+            });
+                
+        });
+        
+        var rows = this._getPercentageRows(sprint_objects);
+        
+        this.down('#ratio_grid_box').add({
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
