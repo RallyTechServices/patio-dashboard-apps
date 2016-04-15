@@ -297,18 +297,35 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getSeriesFromRows: function(rows) {
+        var me = this;
         var series = [];
         
         Ext.Array.each(rows, function(row) {
             var type = row.Type;
             var data = [];
+            var records = [];
+            
             Ext.Object.each(row, function(key,value) {
-                if ( key != "Type" && key != "Name"  && !Ext.isArray(value) ) {
-                    data.push(value);
+                if ( Ext.isArray(value) ) {
+                    //data.push(value);
+                    data.push({ 
+                        y: row[key + "_number"],
+                        _records: value,
+                        events: {
+                            click: function() {
+                                
+                                me._showDrillDown(this._records, "" + row.Type);
+                            }
+                        }
+                    });
                 }
+               
             });
             
-            series.push({ name: row.Name, data: data });
+            series.push({ 
+                name: row.Name, 
+                data: data
+            });
         });
         return series;
     },
@@ -335,6 +352,7 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getChartConfig: function() {
+        var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Split Stories by Sprint' },
@@ -370,7 +388,7 @@ Ext.define("TSSplitStoryPerSprint", {
             columnCfgs: columns,
             listeners: {
                 scope: this,
-                itemclick: this._showDrillDown
+                itemclick: this._makeGridDrilldown
             }
         }); 
 
@@ -408,7 +426,7 @@ Ext.define("TSSplitStoryPerSprint", {
 
     },
     
-    _showDrillDown: function(view, record, item, index, evt) {
+    _makeGridDrilldown: function(view, record, item, index, evt) {
         var me = this;
         var column_index = view.getPositionByEvent(evt).column;
         if ( column_index < 2 ) {
@@ -433,9 +451,14 @@ Ext.define("TSSplitStoryPerSprint", {
                 
         var stories = record.get(new_dataindex);
                 
-        console.log('record', record);
         var title = column.text + " (type: " + record.get('Type') + ")";
         
+        this._showDrillDown(stories, title);
+    },
+    
+    _showDrillDown: function(stories, title) {
+        var me = this;
+
         var store = Ext.create('Rally.data.custom.Store', {
             data: stories,
             pageSize: 2000
