@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 12 2016 18:39:01 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Apr 15 2016 14:23:30 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 12 2016 18:39:01 GMT-0700 (PDT)";
-        var CHECKSUM = 13593703665;
+        var APP_BUILD_DATE = "Fri Apr 15 2016 14:23:30 GMT-0700 (PDT)";
+        var CHECKSUM = 13716489218;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -241,6 +241,8 @@ Ext.define("CA.apps.charts.Colors", {
     green_dk: "#1E7C00",  // $green_dk
     blue_link: "#337EC6",  // $blue_link
     blue: "#005EB8",  // $blue
+    blue_dark: '#00386e', 
+    blue_light: '#b2cee9',
     purple : "#7832A5",  // $purple,
     pink : "#DA1884",   // $pink,
     grey7 : "#666",
@@ -254,7 +256,7 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_link, this.blue ]; }
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; }
 });
 
 /**
@@ -693,7 +695,7 @@ Ext.define("TSSplitStoryPerSprint", {
     _getChartConfig: function() {
         return {
             chart: { type:'column' },
-            title: { text: '' },
+            title: { text: 'Split Stories by Sprint' },
             xAxis: {},
             yAxis: { 
                 min: 0,

@@ -11,6 +11,8 @@ Ext.define("CA.apps.charts.Colors", {
     green_dk: "#1E7C00",  // $green_dk
     blue_link: "#337EC6",  // $blue_link
     blue: "#005EB8",  // $blue
+    blue_dark: '#00386e', 
+    blue_light: '#b2cee9',
     purple : "#7832A5",  // $purple,
     pink : "#DA1884",   // $pink,
     grey7 : "#666",
@@ -24,5 +26,5 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_link, this.blue ]; }
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; }
 });

@@ -273,7 +273,7 @@ Ext.define("TSSplitStoryPerSprint", {
     _getChartConfig: function() {
         return {
             chart: { type:'column' },
-            title: { text: '' },
+            title: { text: 'Split Stories by Sprint' },
             xAxis: {},
             yAxis: { 
                 min: 0,
