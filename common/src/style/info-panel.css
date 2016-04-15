@@ -1,0 +1,22 @@
+.x-panel-body-info-box {
+    color: black;
+    font-size: 10px;
+    background: white;
+    padding: 5px;
+}
+
+.x-panel-info-box {
+    border: 0px dashed blue;
+}
+    
+.x-panel-header-info-box {
+    background-color: #ddd;
+    color: white;
+    font-size: 14px;
+}
+
+.x-panel-header-info-box-vertical {
+    padding: 3px;
+    color: white;
+}
+

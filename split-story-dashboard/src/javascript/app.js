@@ -5,8 +5,8 @@ Ext.define("TSSplitStoryPerSprint", {
     defaults: { margin: 10 },
     items: [
         {xtype:'container', itemId: 'selector_box' },
-        {xtype:'container', items: [
-            {xtype:'container', itemId:'chart_box'},
+        {xtype:'container', layout: 'hbox', items: [
+            {xtype:'container', itemId:'chart_box', flex: 1},
             {xtype:'container', itemId:'description_box'}
         ]},
         {xtype:'container',itemId:'raw_grid_box'},
@@ -19,8 +19,41 @@ Ext.define("TSSplitStoryPerSprint", {
 
     launch: function() {
         this._addSelectors(this.down('#selector_box'));
+        this._addDescription(this.down('#description_box'));
         this._updateData();
     }, 
+    
+    _addDescription: function(container) {
+        container.add({
+            xtype:'panel',
+            ui: 'info-box',
+            title: '<span class="icon-info-circle"> </span>',
+            collapsible: true,
+            collapsed: true,
+            collapseDirection: 'right',
+            headerPosition: 'left',
+            width: 375,
+            height: 375,
+            margin: 5,
+            
+            html: '<strong>Split Stories By Sprint</strong>' +
+                '<p/>' + 
+                'The stacked bar chart displays the total points (or count) of stories accepted in a sprint, grouped by Story Type.' +
+                '<p/>' + 
+                'The top table shows the total points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
+                '<p/>' + 
+                'The bottom table shows the total percentage of points (or count) of stories grouped by Story Type.' +
+                '<p/>' + 
+                'There are four types of stories:' + 
+                '<ul>' + 
+                '<li>Unfinished: Stories that were split and left behind.</li>' +
+                '<li>Continued: Stories that were split and moved to a new sprint.</li>' +
+                '<li>Multiple Moves: Stories that have been split more than once.</li>' + 
+                '<li>Story: Stories that have not been split</li>' + 
+                '</ul>'
+            
+        });
+    },
     
     _addSelectors: function(container) {
         container.add({
