@@ -367,7 +367,11 @@ Ext.define("TSSplitStoryPerSprint", {
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
-            columnCfgs: columns
+            columnCfgs: columns,
+            listeners: {
+                scope: this,
+                itemclick: this._showDrillDown
+            }
         }); 
 
     },
@@ -402,6 +406,77 @@ Ext.define("TSSplitStoryPerSprint", {
             columnCfgs: columns
         }); 
 
+    },
+    
+    _showDrillDown: function(view, record, item, index, evt) {
+        var me = this;
+        var column_index = view.getPositionByEvent(evt).column;
+        if ( column_index < 2 ) {
+            return;
+        }
+        var grid = view.ownerCt;
+        var columns = grid.getColumnCfgs();
+        var column = columns[column_index-1];
+        
+        this.logger.log('column:', column);
+        if ( !/_number/.test(column.dataIndex) ) {
+            return;
+        }
+        
+        this.logger.log('count/size', record.get(column.dataIndex));
+        
+        if ( record.get(column.dataIndex) === 0 ) {
+            return;
+        }
+        
+        var new_dataindex = column.dataIndex.replace(/_number/,'');
+                
+        var stories = record.get(new_dataindex);
+                
+        console.log('record', record);
+        var title = column.text + " (type: " + record.get('Type') + ")";
+        
+        var store = Ext.create('Rally.data.custom.Store', {
+            data: stories,
+            pageSize: 2000
+        });
+        
+        Ext.create('Rally.ui.dialog.Dialog', {
+            id        : 'detailPopup',
+            title     : title,
+            width     : Ext.getBody().getWidth() - 25,
+            height    : Ext.getBody().getHeight() - 25,
+            closable  : true,
+            layout    : 'border',
+            items     : [
+            {
+                xtype                : 'rallygrid',
+                region               : 'center',
+                sortableColumns      : true,
+                showRowActionsColumn : false,
+                showPagingToolbar    : false,
+                columnCfgs           : [
+                    {
+                        dataIndex : 'FormattedID',
+                        text: "id"
+                    },
+                    {
+                        dataIndex : 'Name',
+                        text: "Name",
+                        flex: 1
+                    },
+                    {
+                        dataIndex: 'ScheduleState',
+                        text: 'Schedule State'
+                    },
+                    {
+                        dataIndex: 'PlanEstimate',
+                        text: 'Plan Estimate'
+                    }
+                ],
+                store : store
+            }]
+        }).show();
     },
     
     getOptions: function() {
