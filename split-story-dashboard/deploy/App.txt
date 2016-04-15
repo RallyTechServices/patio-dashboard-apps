@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 15 2016 16:11:57 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Apr 15 2016 16:14:41 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 15 2016 16:11:57 GMT-0700 (PDT)";
-        var CHECKSUM = 21637246488;
+        var APP_BUILD_DATE = "Fri Apr 15 2016 16:14:41 GMT-0700 (PDT)";
+        var CHECKSUM = 21650376649;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -821,7 +821,7 @@ Ext.define("TSSplitStoryPerSprint", {
                         events: {
                             click: function() {
                                 
-                                me._showDrillDown(this._records, "" + row.Type);
+                                me._showDrillDown(this._records,  key + " (" + row.Type + ")");
                             }
                         }
                     });

@@ -314,7 +314,7 @@ Ext.define("TSSplitStoryPerSprint", {
                         events: {
                             click: function() {
                                 
-                                me._showDrillDown(this._records, "" + row.Type);
+                                me._showDrillDown(this._records,  key + " (" + row.Type + ")");
                             }
                         }
                     });
