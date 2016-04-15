@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 15 2016 14:23:30 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Apr 15 2016 14:28:30 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 15 2016 14:23:30 GMT-0700 (PDT)";
-        var CHECKSUM = 13716489218;
+        var APP_BUILD_DATE = "Fri Apr 15 2016 14:28:30 GMT-0700 (PDT)";
+        var CHECKSUM = 13982345121;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -468,6 +468,7 @@ Ext.define("TSSplitStoryPerSprint", {
         Ext.Array.each(this.iterations, function(iteration){
             iteration_objects[iteration.get('Name')] = {
                 iteration: iteration,
+                multiple: [],
                 unfinished: [],
                 continued: [],
                 standard: [],
@@ -494,6 +495,9 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getTypeFromName: function(name) {
+        if ( /\[Continued\]/.test(name) &&  /\[Unfinished\]/.test(name) ) {
+            return 'multiple';
+        }
         if ( /\[Continued\]/.test(name) ) {
             return 'continued';
         }
@@ -566,6 +570,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
+            {Type:'multiple', Name: 'Multiple Moves' },
             {Type:'standard',   Name: 'Story'}
         ];
         // set up fields
@@ -606,6 +611,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
+            {Type:'multiple', Name: 'Multiple Moves' },
             {Type:'standard',   Name: 'Story'}
         ];
         // set up fields

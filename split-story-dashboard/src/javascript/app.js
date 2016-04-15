@@ -46,6 +46,7 @@ Ext.define("TSSplitStoryPerSprint", {
         Ext.Array.each(this.iterations, function(iteration){
             iteration_objects[iteration.get('Name')] = {
                 iteration: iteration,
+                multiple: [],
                 unfinished: [],
                 continued: [],
                 standard: [],
@@ -72,6 +73,9 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getTypeFromName: function(name) {
+        if ( /\[Continued\]/.test(name) &&  /\[Unfinished\]/.test(name) ) {
+            return 'multiple';
+        }
         if ( /\[Continued\]/.test(name) ) {
             return 'continued';
         }
@@ -144,6 +148,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
+            {Type:'multiple', Name: 'Multiple Moves' },
             {Type:'standard',   Name: 'Story'}
         ];
         // set up fields
@@ -184,6 +189,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
+            {Type:'multiple', Name: 'Multiple Moves' },
             {Type:'standard',   Name: 'Story'}
         ];
         // set up fields
