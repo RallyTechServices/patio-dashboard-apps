@@ -3,11 +3,11 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 15 2016 14:28:30 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Apr 15 2016 14:45:38 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 15 2016 14:28:30 GMT-0700 (PDT)";
-        var CHECKSUM = 13982345121;
+        var APP_BUILD_DATE = "Fri Apr 15 2016 14:45:38 GMT-0700 (PDT)";
+        var CHECKSUM = 16730731320;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -420,29 +420,134 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('CA.techservices.ToggleButton', {
+    extend: Ext.Container ,
+    alias:'widget.tstogglebutton',
+
+    componentCls: 'rui-gridboard-toggle toggle-button-group',
+    layout: 'hbox',
+    border: 1,
+    activeButtonCls: 'rly-active hide-tooltip',
+
+    toggleState: 'size',
+
+    defaultType: 'rallybutton',
+    items: [
+        {
+            itemId: 'size',
+            cls: 'toggle rly-left',
+            frame: false,
+            text: 'S',
+            toolTipConfig: {
+                html: 'Switch to Count View',
+                anchor: 'top',
+                hideDelay: 0,
+                constrainPosition: false,
+                anchorOffset: 45,
+                mouseOffset: [-45, 0]
+            }
+        },
+        {
+            itemId: 'count',
+            cls: 'toggle rly-right',
+            frame: false,
+            text: 'C',
+            toolTipConfig: {
+                html: 'Switch to Size View',
+                anchor: 'top',
+                hideDelay: 0,
+                constrainPosition: false,
+                anchorOffset: 65,
+                mouseOffset: [-65, 0]
+            }
+        }
+    ],
+
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents([
+            /**
+             * @event toggle
+             * Fires when the toggle value is changed.
+             * @param {String} toggleState 'Hours' or 'Days'.
+             */
+            'toggle'
+        ]);
+
+        this.items.each(function(item) {
+            this.mon(item, 'click', this._onButtonClick, this);
+        }, this);
+
+        this.down('#' + this.toggleState).addCls(this.activeButtonCls);
+    },
+
+    _onButtonClick: function(btn) {
+        var btnId = btn.getItemId();
+        if (btnId !== this.toggleState) {
+            this.toggleState = btnId;
+
+            this.items.each(function(item) {
+                if (item === btn) {
+                    if (!item.hasCls(this.activeButtonCls.split(' ')[0])) {
+                        item.addCls(this.activeButtonCls);
+                    }
+                } else {
+                    item.removeCls(this.activeButtonCls);
+                }
+            }, this);
+
+            this.fireEvent('toggle', this, this.toggleState);
+        }
+    },
+    
+    getValue: function() {
+        return this.toggleState;
+    }
+});
 Ext.define("TSSplitStoryPerSprint", {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
-        {xtype:'container',itemId:'chart_box'},
+        {xtype:'container', itemId: 'selector_box' },
+        {xtype:'container', items: [
+            {xtype:'container', itemId:'chart_box'},
+            {xtype:'container', itemId:'description_box'}
+        ]},
         {xtype:'container',itemId:'raw_grid_box'},
         {xtype:'container',itemId:'ratio_grid_box'}
     ],
-
-    config: {
-        defaultSettings: {
-            metric: 'size' // count or size
-        }
-    },
     
     integrationHeaders : {
         name : "TSSplitStoryPerSprint"
     },
-                        
+
     launch: function() {
+        this._addSelectors(this.down('#selector_box'));
+        this._updateData();
+    }, 
+    
+    _addSelectors: function(container) {
+        container.add({
+            xtype: 'tstogglebutton',
+            toggleState: 'size',
+            itemId: 'metric_selector',
+            margin: '3 0 0 0',
+            stateful: true,
+            stateId: 'techservices-timeinstate-metriccombo',
+            stateEvents:['change'],
+            listeners: {
+                scope: this,
+                toggle: this._updateData
+            }
+        });
+    },
+    
+    _updateData: function() {
         var me = this;
+        this.metric = this.down('#metric_selector').getValue();
         
         Deft.Chain.pipeline([
             this._fetchLastTenIterations,
@@ -587,7 +692,7 @@ Ext.define("TSSplitStoryPerSprint", {
             Ext.Object.each(sprint_objects, function(sprint_name,value){
                 row[sprint_name] = value[type];
                 
-                if (me.getSetting('metric') == 'count') {
+                if (me.metric == 'count') {
                     row[sprint_name + "_number"] = row[sprint_name].length; 
                 } else {
                     var total = 0;
@@ -629,7 +734,7 @@ Ext.define("TSSplitStoryPerSprint", {
                 row[sprint_name] = value[type];
                 var all_stories = value.stories;
                 
-                if (me.getSetting('metric') == 'count') {
+                if (me.metric == 'count') {
                     if ( all_stories.length === 0 ) {
                         row[sprint_name + "_number"] = "N/A";
                     }
@@ -685,12 +790,17 @@ Ext.define("TSSplitStoryPerSprint", {
     _makeRawChart: function(sprint_objects) {
         var me = this;
         
+        var container = this.down('#chart_box');
+        
+        container.removeAll();
+        
         var categories = this._getCategories(sprint_objects);
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
-                
-        this.down('#chart_box').add({
+        
+        container.add({
             xtype:'rallychart',
+            loadMask: false,
             chartColors: CA.apps.charts.Colors.getConsistentBarColors(),
 
             chartData: { series: series, categories: categories },
@@ -705,7 +815,7 @@ Ext.define("TSSplitStoryPerSprint", {
             xAxis: {},
             yAxis: { 
                 min: 0,
-                title: { text: this.getSetting('metric') }
+                title: { text: this.metric }
             },
             plotOptions: {
                 column: {
@@ -717,7 +827,9 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makeRawGrid: function(sprint_objects) {
         var me = this;
-        
+        var container = this.down('#raw_grid_box');
+        container.removeAll();
+
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
@@ -725,7 +837,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getRawRows(sprint_objects);
         
-        this.down('#raw_grid_box').add({
+        container.add({
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
@@ -736,6 +848,8 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makePercentageGrid: function(sprint_objects) {
         var me = this;
+        var container = this.down('#ratio_grid_box');
+        container.removeAll();
         
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
@@ -755,36 +869,13 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getPercentageRows(sprint_objects);
         
-        this.down('#ratio_grid_box').add({
+        container.add({
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
             columnCfgs: columns
         }); 
 
-    },
-    
-    getSettingsFields: function() {
-        return [
-        {
-            name: 'metric',
-            xtype: 'rallycombobox',
-            fieldLabel: 'Measure',
-            labelWidth: 100,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10,
-            displayField:'Name',
-            valueField: 'Value',
-            store: Ext.create('Rally.data.custom.Store',{
-                data: [
-                    {Name:'Count', Value:'count'},
-                    {Name:'Size', Value:'size'}
-                ]
-            }),
-            readyEvent: 'ready'
-        }
-        ];
     },
     
     getOptions: function() {

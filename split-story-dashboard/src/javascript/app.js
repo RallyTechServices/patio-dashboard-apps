@@ -4,23 +4,43 @@ Ext.define("TSSplitStoryPerSprint", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
-        {xtype:'container',itemId:'chart_box'},
+        {xtype:'container', itemId: 'selector_box' },
+        {xtype:'container', items: [
+            {xtype:'container', itemId:'chart_box'},
+            {xtype:'container', itemId:'description_box'}
+        ]},
         {xtype:'container',itemId:'raw_grid_box'},
         {xtype:'container',itemId:'ratio_grid_box'}
     ],
-
-    config: {
-        defaultSettings: {
-            metric: 'size' // count or size
-        }
-    },
     
     integrationHeaders : {
         name : "TSSplitStoryPerSprint"
     },
-                        
+
     launch: function() {
+        this._addSelectors(this.down('#selector_box'));
+        this._updateData();
+    }, 
+    
+    _addSelectors: function(container) {
+        container.add({
+            xtype: 'tstogglebutton',
+            toggleState: 'size',
+            itemId: 'metric_selector',
+            margin: '3 0 0 0',
+            stateful: true,
+            stateId: 'techservices-timeinstate-metriccombo',
+            stateEvents:['change'],
+            listeners: {
+                scope: this,
+                toggle: this._updateData
+            }
+        });
+    },
+    
+    _updateData: function() {
         var me = this;
+        this.metric = this.down('#metric_selector').getValue();
         
         Deft.Chain.pipeline([
             this._fetchLastTenIterations,
@@ -165,7 +185,7 @@ Ext.define("TSSplitStoryPerSprint", {
             Ext.Object.each(sprint_objects, function(sprint_name,value){
                 row[sprint_name] = value[type];
                 
-                if (me.getSetting('metric') == 'count') {
+                if (me.metric == 'count') {
                     row[sprint_name + "_number"] = row[sprint_name].length; 
                 } else {
                     var total = 0;
@@ -207,7 +227,7 @@ Ext.define("TSSplitStoryPerSprint", {
                 row[sprint_name] = value[type];
                 var all_stories = value.stories;
                 
-                if (me.getSetting('metric') == 'count') {
+                if (me.metric == 'count') {
                     if ( all_stories.length === 0 ) {
                         row[sprint_name + "_number"] = "N/A";
                     }
@@ -263,12 +283,17 @@ Ext.define("TSSplitStoryPerSprint", {
     _makeRawChart: function(sprint_objects) {
         var me = this;
         
+        var container = this.down('#chart_box');
+        
+        container.removeAll();
+        
         var categories = this._getCategories(sprint_objects);
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
-                
-        this.down('#chart_box').add({
+        
+        container.add({
             xtype:'rallychart',
+            loadMask: false,
             chartColors: CA.apps.charts.Colors.getConsistentBarColors(),
 
             chartData: { series: series, categories: categories },
@@ -283,7 +308,7 @@ Ext.define("TSSplitStoryPerSprint", {
             xAxis: {},
             yAxis: { 
                 min: 0,
-                title: { text: this.getSetting('metric') }
+                title: { text: this.metric }
             },
             plotOptions: {
                 column: {
@@ -295,7 +320,9 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makeRawGrid: function(sprint_objects) {
         var me = this;
-        
+        var container = this.down('#raw_grid_box');
+        container.removeAll();
+
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
@@ -303,7 +330,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getRawRows(sprint_objects);
         
-        this.down('#raw_grid_box').add({
+        container.add({
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
@@ -314,6 +341,8 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makePercentageGrid: function(sprint_objects) {
         var me = this;
+        var container = this.down('#ratio_grid_box');
+        container.removeAll();
         
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
@@ -333,36 +362,13 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getPercentageRows(sprint_objects);
         
-        this.down('#ratio_grid_box').add({
+        container.add({
             xtype:'rallygrid',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
             columnCfgs: columns
         }); 
 
-    },
-    
-    getSettingsFields: function() {
-        return [
-        {
-            name: 'metric',
-            xtype: 'rallycombobox',
-            fieldLabel: 'Measure',
-            labelWidth: 100,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10,
-            displayField:'Name',
-            valueField: 'Value',
-            store: Ext.create('Rally.data.custom.Store',{
-                data: [
-                    {Name:'Count', Value:'count'},
-                    {Name:'Size', Value:'size'}
-                ]
-            }),
-            readyEvent: 'ready'
-        }
-        ];
     },
     
     getOptions: function() {
