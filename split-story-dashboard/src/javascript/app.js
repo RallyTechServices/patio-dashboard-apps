@@ -1,42 +1,7 @@
 Ext.define("TSSplitStoryPerSprint", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
-    defaults: { margin: 10 },
-    items: [
-        {xtype:'container', itemId: 'selector_box' },
-        {xtype:'container', layout: 'hbox', items: [
-            {xtype:'container', itemId:'chart_box', flex: 1},
-            {xtype:'container', itemId:'description_box'}
-        ]},
-        {xtype:'container',itemId:'raw_grid_box'},
-        {xtype:'container',itemId:'ratio_grid_box'}
-    ],
+    extend: 'CA.techservices.app.ChartApp',
     
-    integrationHeaders : {
-        name : "TSSplitStoryPerSprint"
-    },
-
-    launch: function() {
-        this._addSelectors(this.down('#selector_box'));
-        this._addDescription(this.down('#description_box'));
-        this._updateData();
-    }, 
-    
-    _addDescription: function(container) {
-        container.add({
-            xtype:'panel',
-            ui: 'info-box',
-            title: '<span class="icon-info-circle"> </span>',
-            collapsible: true,
-            collapsed: true,
-            collapseDirection: 'right',
-            headerPosition: 'left',
-            width: 375,
-            height: 375,
-            margin: 5,
-            
-            html: '<strong>Split Stories By Sprint</strong>' +
+    description: '<strong>Split Stories By Sprint</strong>' +
                 '<p/>' + 
                 'The stacked bar chart displays the total points (or count) of stories accepted in a sprint, grouped by Story Type.' +
                 '<p/>' + 
@@ -50,13 +15,23 @@ Ext.define("TSSplitStoryPerSprint", {
                 '<li>Continued: Stories that were split and moved to a new sprint.</li>' +
                 '<li>Multiple Moves: Stories that have been split more than once.</li>' + 
                 '<li>Story: Stories that have not been split</li>' + 
-                '</ul>'
-            
-        });
-    },
+                '</ul>',
     
-    _addSelectors: function(container) {
-        container.add({
+    integrationHeaders : {
+        name : "TSSplitStoryPerSprint"
+    },
+
+    launch: function() {
+        this.callParent();
+
+        this._addSelectors();
+        this._updateData();
+    }, 
+    
+    
+    _addSelectors: function() {
+        
+        this.metric_selector = this.addToBanner({
             xtype: 'tstogglebutton',
             toggleState: 'size',
             itemId: 'metric_selector',
@@ -73,7 +48,7 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _updateData: function() {
         var me = this;
-        this.metric = this.down('#metric_selector').getValue();
+        this.metric = this.metric_selector.getValue();
         
         Deft.Chain.pipeline([
             this._fetchLastTenIterations,
@@ -84,6 +59,8 @@ Ext.define("TSSplitStoryPerSprint", {
         ],this).then({
             scope: this,
             success: function(parsed_sprints){
+                this.clearAdditionalDisplay();
+                
                 this._makeRawGrid(parsed_sprints);
                 this._makePercentageGrid(parsed_sprints);
                 this._makeRawChart(parsed_sprints);
@@ -116,6 +93,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         return iteration_objects;
     },
+    
     
     _setStoryType: function(stories) {
         Ext.Array.each(stories, function(story){
@@ -192,6 +170,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         return TSUtilities.loadWsapiRecords(config);
     },
+    
     
     _getRawRows: function(sprint_objects) {
         var me = this;
@@ -313,8 +292,7 @@ Ext.define("TSSplitStoryPerSprint", {
                         _records: value,
                         events: {
                             click: function() {
-                                
-                                me._showDrillDown(this._records,  key + " (" + row.Type + ")");
+                                me.showDrillDown(this._records,  key + " (" + row.Type + ")");
                             }
                         }
                     });
@@ -332,20 +310,12 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makeRawChart: function(sprint_objects) {
         var me = this;
-        
-        var container = this.down('#chart_box');
-        
-        container.removeAll();
-        
+
         var categories = this._getCategories(sprint_objects);
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
         
-        container.add({
-            xtype:'rallychart',
-            loadMask: false,
-            chartColors: CA.apps.charts.Colors.getConsistentBarColors(),
-
+        this.setChart({
             chartData: { series: series, categories: categories },
             chartConfig: this._getChartConfig()
         });
@@ -371,9 +341,7 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makeRawGrid: function(sprint_objects) {
         var me = this;
-        var container = this.down('#raw_grid_box');
-        container.removeAll();
-
+       
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
@@ -381,8 +349,9 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getRawRows(sprint_objects);
         
-        container.add({
+        this.addToAdditionalDisplay({
             xtype:'rallygrid',
+            padding: 5,
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
             columnCfgs: columns,
@@ -396,8 +365,6 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makePercentageGrid: function(sprint_objects) {
         var me = this;
-        var container = this.down('#ratio_grid_box');
-        container.removeAll();
         
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
@@ -417,8 +384,10 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getPercentageRows(sprint_objects);
         
-        container.add({
+        this.addToAdditionalDisplay({
             xtype:'rallygrid',
+            padding: 5,
+            margin: '10 0 0 0',
             showPagingToolbar: false,
             store: Ext.create('Rally.data.custom.Store',{ data: rows }),
             columnCfgs: columns
@@ -453,78 +422,6 @@ Ext.define("TSSplitStoryPerSprint", {
                 
         var title = column.text + " (type: " + record.get('Type') + ")";
         
-        this._showDrillDown(stories, title);
-    },
-    
-    _showDrillDown: function(stories, title) {
-        var me = this;
-
-        var store = Ext.create('Rally.data.custom.Store', {
-            data: stories,
-            pageSize: 2000
-        });
-        
-        Ext.create('Rally.ui.dialog.Dialog', {
-            id        : 'detailPopup',
-            title     : title,
-            width     : Ext.getBody().getWidth() - 25,
-            height    : Ext.getBody().getHeight() - 25,
-            closable  : true,
-            layout    : 'border',
-            items     : [
-            {
-                xtype                : 'rallygrid',
-                region               : 'center',
-                sortableColumns      : true,
-                showRowActionsColumn : false,
-                showPagingToolbar    : false,
-                columnCfgs           : [
-                    {
-                        dataIndex : 'FormattedID',
-                        text: "id"
-                    },
-                    {
-                        dataIndex : 'Name',
-                        text: "Name",
-                        flex: 1
-                    },
-                    {
-                        dataIndex: 'ScheduleState',
-                        text: 'Schedule State'
-                    },
-                    {
-                        dataIndex: 'PlanEstimate',
-                        text: 'Plan Estimate'
-                    }
-                ],
-                store : store
-            }]
-        }).show();
-    },
-    
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
-    
-    _launchInfo: function() {
-        if ( this.about_dialog ) { this.about_dialog.destroy(); }
-        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
-    },
-    
-    isExternal: function(){
-        return typeof(this.getAppId()) == 'undefined';
-    },
-    
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
+        this.showDrillDown(stories, title);
     }
 });
