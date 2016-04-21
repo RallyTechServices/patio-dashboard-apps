@@ -1,10 +1,6 @@
-#Split Story Per Sprint
-
-![Screen Shot](images/screenshot.png)
+#Validation App
 
 ## Development Notes
-
-This app is a part of a set of apps that depend on files in the ../common directory.  In addition, this one inherits from the chart app so that we have a consistent presentation.
 
 ### First Load
 
