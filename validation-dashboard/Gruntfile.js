@@ -13,7 +13,7 @@ module.exports = function(grunt) {
     
         config = grunt.file.readJSON('config.json');
 
-        config.js_files = grunt.file.expand(['../common/src/javascript/*.js','src/javascript/utils/*.js','src/javascript/*.js']);
+        config.js_files = grunt.file.expand(['../common/src/javascript/*.js','src/javascript/utils/*.js','src/javascript/rules/*.js','src/javascript/*.js']);
 
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
         
@@ -129,29 +129,39 @@ module.exports = function(grunt) {
         }
     });
     
-    grunt.registerTask('setChecksum', 'Make a sloppy checksum', function() {
-        var fs = require('fs');
-        var chk = 0x12345678,
-            i;
-        var deploy_file = 'deploy/App.txt';
-
-        var file = grunt.file.read(deploy_file);
-        string = file.replace(/var CHECKSUM = .*;/,"");
-        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+    grunt.registerTask('setPostBuildInfo', 'Make a sloppy checksum', function() {
+        var fs = require('fs'),
+            username = require('username');
+            chk = 0x12345678,
+            i,
+            deploy_file_name = 'deploy/App.txt';
+                                                                   
+        var deploy_file = grunt.file.read(deploy_file_name);
+        
+        string = deploy_file.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove whitespace from the string.
         
         for (i = 0; i < string.length; i++) {
             chk += (string.charCodeAt(i) * i);
         }
+        var builder = username.sync();
+        grunt.log.writeln('setting builder:', builder);
+       
         grunt.log.writeln('sloppy checksum: ' + chk);
         grunt.log.writeln('length: ' + string.length);
-// 
+       //
         grunt.template.addDelimiters('square-brackets','[%','%]');
         
-        var output = grunt.template.process(file, { data: { checksum: chk },  delimiters: 'square-brackets' });
-        grunt.file.write(deploy_file,output);
+        var data = { checksum: chk, builder: builder };
+        var output = grunt.template.process(deploy_file, {
+            data: data, 
+            delimiters: 'square-brackets'
+        });
         
-    });
-    
+        grunt.file.write(deploy_file_name,output);
+    }); 
+
     grunt.registerTask('install', 'Deploy the app to a rally instance', function() {
         
         if ( ! config.auth ) { 
@@ -358,7 +368,7 @@ module.exports = function(grunt) {
     grunt.registerTask('default', ['debug','build','ugly','apikey']);
     
     // (uses all the files in src/javascript)
-    grunt.registerTask('build', "Create the html for deployment",['template:prod','setChecksum']);
+    grunt.registerTask('build', "Create the html for deployment",['template:prod','setPostBuildInfo']);
     // 
     grunt.registerTask('debug', "Create an html file that can run in its own tab", ['template:dev','template:devApiKey']);
     //

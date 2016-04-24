@@ -1,6 +1,12 @@
 #Validation App
 
+Will display a chart with results of various registered validation rules.
+
 ## Development Notes
+
+A validation rule is a class that provides a label name, a query and fields to fetch, and a function to apply the rule.  The application will provide a string of text for each failure.
+
+Each validation class is associated with a model.
 
 ### First Load
 

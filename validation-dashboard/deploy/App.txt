@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 20 2016 20:34:49 GMT-0700 (MST) -->
+    <!--  Build Date: Sun Apr 24 2016 11:01:04 GMT-0700 (MST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 20 2016 20:34:49 GMT-0700 (MST)";
-        var CHECKSUM = 30979496878;
+        var APP_BUILD_DATE = "Sun Apr 24 2016 11:01:04 GMT-0700 (MST)";
+        var CHECKSUM = 21532637032;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -17,14 +17,7 @@
              
 Ext.define('TSUtilities', {
     singleton: true,
-    
-    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
-    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
-    pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
-    archiveSuffix: '~archived',
-    
+      
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -270,6 +263,7 @@ Ext.define('Rally.technicalservices.InfoLink',{
         var chk = 0x12345678,
             i;
         string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
         string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
         
         for (i = 0; i < string.length; i++) {
@@ -589,264 +583,345 @@ Ext.define("CA.techservices.app.ChartApp", {
     
 });
 
-Ext.define('Rally.technicalservices.ValidationRules',{
-
-    ruleFnPrefix: 'ruleFn_',
-    requiredFields: undefined,
-
-    constructor: function(config){
-        Ext.apply(this, config);
+Ext.define('CA.techservices.validation.BaseRule',{
+    extend: 'Ext.Base',
+    /**
+     * 
+     * @cfg
+     * {String} model The name of a record type that this rule applies to 
+     */
+    model: null,
+    /**
+     * 
+     * @cfg {String} a human-readable label for the chart that will be made from the rule
+     */
+    label: 'No label supplied for this rule',
+    
+    constructor: function(config) {
+        Ext.apply(this,config);
     },
-
-    getRules: function(){
-        var ruleFns = [],
-            ruleRe = new RegExp('^' + this.ruleFnPrefix);
-
-        for (var fn in this)
-        {
-            if (ruleRe.test(fn)){
-                ruleFns.push(fn);
-            }
-        }
-        return ruleFns;
+    
+    getFetchFields: function() {
+        return [];
     },
-    //ruleFn_missingFields: function(r) {
-    //    var missingFields = [];
-    //
-    //    _.each(this.requiredFields, function (f) {
-    //        if (!r.get(f)) {
-    //            missingFields.push(f);
-    //        }
-    //    });
-    //    if (missingFields.length === 0) {
-    //        return null;
-    //    }
-    //    return Ext.String.format('Missing fields: {0}', missingFields.join(','));
-    //},
-
-    statics: {
-        getUserFriendlyRuleLabel: function(ruleName){
-            switch(ruleName){
-                case 'ruleFn_missingFields':
-                    return 'Required Fields are missing';
-                case 'ruleFn_unscheduledIterationScheduleState':
-                    return 'Story is In-Progress with unscheduled Iteration';
-                case 'ruleFn_blockedNotInProgress':
-                    return 'Story is Blocked but not In-Progress';
-                case 'ruleFn_sprintCompleteNotAccepted':
-                    return 'Story in past Iteration not complete';
-                case 'ruleFn_noStoriesForFeature':
-                    return 'Feature has no Stories';
-                case 'ruleFn_FeatureHasNotBeenStarted':
-                    return 'Feature not started';
-                case 'ruleFn_featureHasNotBeenCompleted':
-                    return 'Feature not completed.';
-                case 'ruleFn_featureMissingFields':
-                    return 'Feature fields Missing';
-                case 'ruleFn_storyMissingFields':
-                    return 'Story fields Missing';
-                case 'ruleFn_FeatureHasNoParent':
-                    return 'Feature has no parent';
-                case 'ruleFn_storyHasNoFeature':
-                    return 'Story has no parent Feature';
-                case 'ruleFn_storyHasIterationWithoutRelease':
-                    return 'Story has Iteration without Release';
-                case 'ruleFn_storyBlockedWithoutReason':
-                    return 'Story Blocked without Reason';
-                case 'ruleFn_storyRelaseDoesNotMatchFeatureRelease':
-                    return 'Story Release is not Feature Release';
-                case 'ruleFn_storyPlanEstimate':
-                    return 'Story has no points';
-                case 'ruleFn_featureHasNoPoints':
-                    return 'Feature has no points';
-                case 'ruleFn_storyRiskDescription':
-                    return 'Story Risk has no Description';
-                case 'ruleFn_featureRiskDescription':
-                    return 'Feature Risk has no Description';
-                case 'ruleFn_taskMissingFields':
-                    return 'Task fields Missing';
-                case 'ruleFn_projectMissingWIP':
-                    return 'Project Missing WIP';
-                case 'ruleFn_iterationMissingFields':
-                    return 'Iteration fields Missing';
-                case 'ruleFn_FeatureDateIssue':
-                    return 'Feature Date Issue';
-                case 'ruleFn_isProgramRisk':
-                    return 'Feature is program level risk';
-            }
-            return ruleName;
-        }
+    
+    getModel: function() {
+        console.error('getModel not implemented in subclass ', this.self.getName());
+        throw 'getModel not implemented in subclass ' + this.self.getName();
+        
+        return null;
+    },
+    
+    // return false if the record doesn't match
+    // return string if record fails the rule
+    applyRuleToRecord: function(record) {
+        console.error('applyRuleToRecord not implemented in subclass ', this.self.getName());
+        throw 'applyRuleToRecord not implemented in subclass ' + this.self.getName();
+        
+        return record;
+    },
+    
+    getUserFriendlyRuleLabel: function() {        
+        return this.label;
     }
 });
-Ext.define('Rally.technicalservices.UserStoryValidationRules',{
-    extend: 'Rally.technicalservices.ValidationRules',
-    //ruleFnPrefix: 'ruleFn_',
-    requiredFields: undefined, //
-    features: undefined,
-    orderedScheduleStates: undefined,
-    definedScheduleStateIndex: undefined,
-
-    constructor: function(config){
-        Ext.apply(this, config);
-        this.requiredFields = ['Owner','Description'];
+Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsstoryrequiredfieldrule',
+    
+   
+    config: {
+        model: 'HierarchicalRequirement',
+        requiredFields: [],
+        label: 'Required Fields are missing (user story)'
     },
-//    ruleFn_unscheduledIterationScheduleState: function(r){
-//        /**
-//         * If Iteration = unscheduled and state In-Progress raise flag
-//         */
-//        var scheduleStateIdx = _.indexOf(this.orderedScheduleStates, r.get('ScheduleState'));
-//
-//        if (!r.get('Iteration') && scheduleStateIdx > this.definedScheduleStateIndex){
-//            return {
-//                rule: 'ruleFn_unscheduledIterationScheduleState',
-//                text: Ext.String.format('<li>Story is In-Progress with unscheduled Iteration', r.get('ScheduleState'))
-//            };
-//        }
-//        return null;
-//    },
-//    ruleFn_blockedNotInProgress: function(r){
-//        /**
-//         * Story is blocked, schedulestate must be In-Progress
-//         */
-//        if (r.get('Blocked')){
-//            if (r.get('ScheduleState') != 'In-Progress'){
-//                return Ext.String.format('<li>Story is Blocked but not In-Progress ({0})', r.get('ScheduleState'));
-//            }
-//        }
-//        return null;
-//    },
-    ruleFn_storyMissingFields: function(r) {
+//    
+    getFetchFields: function() {
+        return this.requiredFields;
+    },
+    
+    getModel: function() {
+        return this.model;
+    },
+    
+    applyRuleToRecord: function(record) {
         var missingFields = [];
 
-        _.each(this.requiredFields, function (f) {
-            if (!r.get(f) && r.getField(f)) {
-                var name = r.getField(f).displayName;
-                missingFields.push(name);
+        Ext.Array.each(this.requiredFields, function (field_name) {
+            var field_defn = record.getField(field_name);
+            var value = record.get(field_name);
+            
+            if ( !Ext.isEmpty(field_defn) && Ext.isEmpty(value) ) {
+                missingFields.push(record.getField(field_name).displayName);
             }
         });
         if (missingFields.length === 0) {
-            return null;
+            return false;
         }
-        return {
-            rule: 'ruleFn_storyMissingFields',
-            text: Ext.String.format('<li>Story fields Missing: {0}', missingFields.join(','))
-        };
-    },
-    ruleFn_storyHasNoFeature: function(r){
-        if (!r.get('Feature')){
-            return {
-                rule: 'ruleFn_storyHasNoFeature',
-                text: '<li>Story has no parent Feature.'
-            };
-        }
-        return null;
-    },
-    ruleFn_storyPlanEstimate: function(r){
-        if (r.get('PlanEstimate')==0){
-            return {
-                rule: 'ruleFn_storyPlanEstimate',
-                text: '<li>Story has no points'
-            };
-        }
-        return null;
-    },
-//    ruleFn_storyHasIterationWithoutRelease: function(r){
-//        if (!r.get('Release') && r.get('Iteration')){
-//            return {
-//                rule: 'ruleFn_storyHasIterationWithoutRelease',
-//                text: Ext.String.format('<li>Story has Iteration [{0}] without a Release.', r.get('Iteration').Name)
-//            };
-//        }
-//        return null;
-//    },
-//    ruleFn_storyBlockedWithoutReason: function(r){
-//        if (r.get('Blocked') && !r.get('BlockedReason')){
-//            return {
-//                rule: 'ruleFn_storyBlockedWithoutReason',
-//                text: '<li>Story is blocked without reason.'
-//            };
-//            //if (r.get('Blocker')){
-//            //    return '<li>Story is blocked without reason.';
-//            //} else {
-//            //    return '<li>Story is blocked without a reason.';
-//            //}
-//        }
-//        return null;
-//    },
-//    ruleFn_storyRelaseDoesNotMatchFeatureRelease: function(r){
-//        var msg = null;
-//
-//        var release = r.get('Release');
-//        if (r.get('Feature') && release){
-//
-//            if (!r.get('Feature').Release || r.get('Feature').Release.Name != release.Name ||
-//                r.get('Feature').Release.ReleaseStartDate != release.ReleaseStartDate ||
-//                r.get('Feature').Release.ReleaseDate != release.ReleaseDate){
-//                return {
-//                    rule: 'ruleFn_storyRelaseDoesNotMatchFeatureRelease',
-//                    text: '<li>Story Release is not Feature Release'
-//                };
-//            }
-//        }
-//        return msg;
-//    },
-//    ruleFn_storyRiskDescription: function(r){
-//        if (r.get('c_Risk') && !r.get('c_RiskStatement')){
-//            return {
-//                rule: 'ruleFn_storyRiskDescription',
-//                text: '<li>Story Risk has no Description'
-//            };
-//        }
-//        return null;
-//    }
+        return Ext.String.format('Fields Missing: {0}', missingFields.join(','))
+    }
 });
-
-Ext.define('Rally.technicalservices.Validator',{
-
-    validationRuleObj: undefined,
-    records: undefined,
-
-    ruleViolationData: undefined,
-
-    constructor: function(config){
-        Ext.apply(this,config);
-        this._validate();
+Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tstaskrequiredfieldrule',
+    
+   
+    config: {
+        model: 'Task',
+        requiredFields: [],
+        label: 'Required Fields are missing (task)'
     },
+//    
+    getFetchFields: function() {
+        return this.requiredFields;
+    },
+    
+    getModel: function() {
+        return this.model;
+    },
+    
+    applyRuleToRecord: function(record) {
+        var missingFields = [];
 
-    _validate: function(){
-        if (this.validationRuleObj && this.records){
-            var validationRuleObj = this.validationRuleObj,
-                ruleViolationRecords = [],
-                totalRecords = 0,
-                rules = validationRuleObj.getRules();
-
-            _.each(this.records, function(r){
-                totalRecords ++;
-                var violations = [];
-                Ext.Array.each(rules, function(rule){
-                    var v = validationRuleObj[rule](r);
-                    if (v && !_.isEmpty(v)){
-                        violations.push(v);
-                        if (v.stopProcessing == true){
-                            return false;
-                        }
-                        //violations.push({rule: rule, text: v});
-                    }
-                });
-
-                if (violations.length > 0){
-                    ruleViolationRecords.push({
-                        _ref: r.get('_ref'),
-                        FormattedID: r.get('FormattedID'),
-                        Name: r.get('Name'),
-                        violations: violations,
-                        Project: r.get('Project').Name,
-                        _type: r.get('_type')
-                    });
-                }
-            });
-            this.ruleViolationData = ruleViolationRecords;
+        Ext.Array.each(this.requiredFields, function (field_name) {
+            var field_defn = record.getField(field_name);
+            var value = record.get(field_name);
+            
+            if ( !Ext.isEmpty(field_defn) && Ext.isEmpty(value) ) {
+                missingFields.push(record.getField(field_name).displayName);
+            }
+        });
+        if (missingFields.length === 0) {
+            return false;
         }
+        return Ext.String.format('Fields Missing: {0}', missingFields.join(','))
+    }
+});
+Ext.define('CA.techservices.validator.Validator',{
+    alias: 'widget.tsvalidator',
+    
+    
+    /**
+     * 
+     * [{rule}] An array of validation rules
+     */
+    rules: [],
+    
+    recordsByModel: {},
+    
+    categoryField: 'Project',
+    
+    // fields that all rules should fetch
+    fetchFields: [],
+    /**
+     * 
+     * a hash containing events for a data point e.g.,
+     * 
+     * points will include a field called _records holding the associated records
+     * and each record will have a field called __ruleText holding a statement about
+     * its violation
+     * 
+     *     {
+     *          click: function() {
+     *          me.showDrillDown(this._records,'');
+     *      }
+     */
+    pointEvents: null,
+    
+    constructor: function(config) {
+        Ext.apply(this,config);
+        
+        var rules = [];
+        
+        Ext.Array.each(this.rules, function(rule){
+            var name = rule.xtype;
+            if ( !Ext.isEmpty(name) ) {
+                delete rule.xtype;
+                console.log('Initializing ', name);
+                rules.push(Ext.createByAlias('widget.' + name, rule));
+            }
+        });
+        
+        this.rules = rules;
+    },
+    
+    getFetchFieldsByModel: function() {
+        var me = this,
+            fields_by_model = {};
+            
+        Ext.Array.each(this.rules, function(rule){
+            var model = rule.getModel();
+            var fields = rule.getFetchFields();
+
+            if ( !Ext.isEmpty(model) && !Ext.isEmpty(fields) && fields.length > 0 ) {
+                if ( Ext.isEmpty(fields_by_model[model]) ) {
+                    fields_by_model[model] = [me.categoryField,'Name'];
+                }
+                fields_by_model[model].push(fields);
+            }
+        });
+        
+        Ext.Object.each(fields_by_model, function(model, fields){
+            fields = Ext.Array.flatten(fields);
+            fields = Ext.Array.push(fields, me.fetchFields);
+            
+            fields_by_model[model] = Ext.Array.unique(fields);
+        });
+        
+        return fields_by_model;
+    },
+    
+    // returns a promise, promise fulfilled by hash of results by model type
+    gatherData: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var fetch_by_model = this.getFetchFieldsByModel();
+        
+        var promises = [];
+        Ext.Object.each(fetch_by_model, function(model, fetch){
+            var config = {
+                model: model,
+                fetch: fetch,
+                limit: Infinity
+            };
+            
+            promise = function() {
+                return this._loadWsapiRecords(config);
+            };
+            promises.push(promise);
+        },this);
+        
+        Deft.Chain.sequence(promises,this).then({
+            success: function(results) {
+                me.recordsByModel = {};
+                Ext.Array.each(results, function(result) {
+                    me.recordsByModel = Ext.apply(me.recordsByModel, result);
+                });
+                deferred.resolve(results);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getChartData: function() {
+        if ( this.recordsByModel == {} ) {
+            console.log('No search results');
+            return {};
+        }
+        
+        var categories = this.getCategories();
+        var series = this.getSeries(categories);
+        
+        return { series: series, categories: categories };
+        
+    },
+    
+    getCategories: function() {
+        var me = this,
+            records = Ext.Array.flatten(Ext.Object.getValues(this.recordsByModel));
+        
+        var category_field = this.categoryField;
+        
+        var possible_categories = Ext.Array.map(records, function(record) {
+            return me.getCategoryFromRecord(record,category_field);
+        });
+        
+        return Ext.Array.unique(possible_categories);
+    },
+    
+    getCategoryFromRecord: function(record,category_field) {
+        if ( Ext.isEmpty(record.get(category_field)) ) { return ""; }
+        if ( Ext.isString(record.get(category_field)) ) { return record.get(category_field); }
+        return record.get(category_field)._refObjectName;
+    },
+    
+    getSeries: function(categories) {
+        var me = this,
+            category_field = me.categoryField,
+            series = [];
+            
+        // one series per rule, one stack per model type
+        Ext.Array.each(this.rules, function(rule){
+            var series_name = rule.getUserFriendlyRuleLabel();
+            var model = rule.getModel();
+            var records = me.recordsByModel[model];
+            
+            var failed_records = me.getFailedRecordsForRule(records, rule);
+
+            var records_by_category = me.getRecordsByCategory(failed_records, categories, category_field);
+            
+            var data = [];
+            Ext.Array.each(categories, function(category){
+                var count = records_by_category[category].length || 0;
+                var datum = { 
+                    y: count,
+                    _records: records_by_category[category]
+                };
+                
+                if ( !Ext.isEmpty(me.pointEvents) ) {
+                    datum.events = me.pointEvents
+                }
+                data.push(datum);
+            });
+            series.push({
+                name: series_name,
+                records: failed_records,
+                data: data,
+                stack: model
+            });
+        });
+        
+        return series;
+    },
+    
+    getFailedRecordsForRule: function(records, rule) {
+        var failed_records = [];
+        Ext.Array.each(records, function(record) {
+            var failure = rule.applyRuleToRecord(record);
+            if ( failure ) {
+                var texts = record.get('__ruleText') || [];
+                texts.push(failure);
+                record.set('__ruleText', texts);
+                failed_records.push(record);
+            }
+        });
+        
+        return failed_records;
+    },
+    
+    getRecordsByCategory: function(records, categories, category_field) {
+        var me = this,
+            record_hash = {};
+            
+        Ext.Array.each(records, function(record){
+            var category = me.getCategoryFromRecord(record,category_field);
+            if ( Ext.isEmpty(record_hash[category]) ) {
+                record_hash[category] = [];
+            }
+            record_hash[category].push(record);
+        });
+        
+        return record_hash;
+    },
+    
+    _loadWsapiRecords: function(config) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(results) {
+                var result = {};
+                result[config.model] = results;
+                deferred.resolve(result);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
     }
 });
 Ext.define("TSValidationApp", {
@@ -857,246 +932,72 @@ extend: 'CA.techservices.app.ChartApp',
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
                 'represents a team.' +
                 '<p/>' + 
-                'Click on a column on the chart to see a list of records that failed a validation test, along with a ' +
-                'list of other validation issues for the same issues',
+                'The table below the grid will show the items that failed one or more validation rules, grouped by team',
     
     integrationHeaders : {
         name : "TSValidationApp"
     },
-    
-    /**
-     * Configurations
-     */
-    allReleasesText: 'All Releases',
-    portfolioItemFeature: 'PortfolioItem/Feature',
-    featureFetchFields: ['FormattedID','Name','Project','Release','State','AcceptedLeafStoryCount','LeafStoryCount','PlannedStartDate','PlannedEndDate','Owner','ActualStartDate','Parent','ValueScore','c_ValueMetricKPI','c_Risk','c_RiskDescription','LeafStoryPlanEstimateTotal'],
-    storyFetchFields: ['FormattedID','Name','Project','Iteration','Release','ScheduleState','Feature','Owner','PlanEstimate','Blocked','BlockedReason','Blocker','c_Risk','c_RiskStatement'],
-    taskFetchFields: ['FormattedID','Name','Project','Iteration','Release','State','Owner'],
 
-
-    typeMapping: {
-        'portfolioitem/feature': 'Feature',
-        'hierarchicalrequirement': 'User Story',
-        'task'                   : 'Task'
-    },
-
-    chartColors: [ '#2f7ed8', '#8bbc21', '#910000',
-        '#492970', '#f28f43', '#145499','#77a1e5', '#c42525', '#a6c96a',
-        '#7cb5ec', '#434348', '#90ed7d', '#f7a35c', '#8085e9','#aa1925',
-        '#f15c80', '#e4d354', '#2b908f', '#f45b5b', '#91e8e1','#1aadce',
-        '#4572A7', '#AA4643', '#89A54E', '#80699B', '#3D96AE',
-        '#DB843D', '#92A8CD', '#A47D7C', '#B5CA92'],
-
-    selectedRelease: null,
-    selectedIteration: null,
-
+    rules: [ 
+        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature']},
+        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']}
+    ],
     
     launch: function() {
         this.callParent();
+        var me = this;
         
-        this._addSelectors();
+        //this._addSelectors();
+        
+        var validator = Ext.create('CA.techservices.validator.Validator',{
+            rules: this.rules,
+            fetchFields: ['FormattedID','ObjectID'],
+            pointEvents: {
+                click: function() {
+                    me.showDrillDown(this._records,'');
+                }
+            }
+        });
+        
+        this.setLoading("Loading data...");
+        
+        Deft.Chain.pipeline([
+            function() { 
+                me.setLoading("Gathering data...");
+                return validator.gatherData(); 
+            },
+            function() { 
+                me.setLoading("Analyzing data...");
+                return validator.getChartData(); 
+            }
+        ]).then({
+            scope: this,
+            success: function(results) {
+                
+                this._makeChart(results);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading data', msg);
+            }
+        }).always(function() { me.setLoading(false); });
+        
+        
     }, 
     
     _addSelectors: function() {
         
-        this.timebox_selector = this.addToBanner({
-            xtype: 'rallyreleasecombobox',
-            margin: 5,
-            stateful: true,
-            stateId: this.getContext().getScopedStateId('ts-validation-timebox'),
-            stateEvents:['change'],
-            listeners: {
-                scope: this,
-                change: this._updateData
-            }
-        });
-    },
         
-    getIterationFiltersForIterations:function(release){
-        if (!release){
-            return [];
-        }
-
-        return [{
-            property: 'StartDate',
-            operator: '>=',
-            value: Rally.util.DateTime.toIsoString(release.get('ReleaseStartDate'))
-        },{
-            property: 'EndDate',
-            operator: '<=',
-            value: Rally.util.DateTime.toIsoString(release.get('ReleaseDate'))
-        }];
-        
-    },
-
-    getReleaseFilters: function(release){
-
-        if (!release){
-            return [];
-        }
-
-        return [{
-            property: 'Release.Name',
-            value: release.get('Name')
-        },{
-            property: 'Release.ReleaseStartDate',
-            value: Rally.util.DateTime.toIsoString(release.get('ReleaseStartDate'))
-        },{
-            property: 'Release.ReleaseDate',
-            value: Rally.util.DateTime.toIsoString(release.get('ReleaseDate'))
-        }];
     },
     
-    _updateData: function() {
-        this.setLoading('Loading data...');
-        this.timebox = this.timebox_selector.getRecord();
+    _makeChart: function(data) {
+        var me = this;
         
-        var release = this.timebox;
-        
-        var promises = [
-            //this._fetchData(this.portfolioItemFeature, this.featureFetchFields, this.getReleaseFilters(release)),
-            this._fetchData('HierarchicalRequirement', this.storyFetchFields, this.getReleaseFilters(release)),
-            this._fetchScheduleStates(),
-        //    this._fetchData('Task', this.taskFetchFields, this.getReleaseFilters(release).concat(this.getIterationFilters(iteration))),
-        //    this._fetchData('Project', ['Name'], this.getProjectFilters()),
-        //    this._fetchData('Preference',['Name','Value'], [{property:'Name',operator:'contains',value:'project-wip:'}]),
-        //    this._fetchData('Iteration',['Name','PlannedVelocity','Project'], this.getIterationFiltersForIterations(release))
-        ];
-        
-        Deft.Promise.all(promises).then({
-            scope: this,
-            success: function(results) {
-                this.setLoading(false);
-                var stories          = results[0];
-                var schedule_states  = results[1];
-                
-                var storyRules = Ext.create('Rally.technicalservices.UserStoryValidationRules',{
-                    orderedScheduleStates: schedule_states,
-                    definedScheduleStateIndex: _.indexOf(schedule_states, 'Defined')
-                });
-                                
-                var storyValidator = Ext.create('Rally.technicalservices.Validator',{
-                    validationRuleObj: storyRules,
-                    records: stories
-                });
-                
-                this.validatorData = storyValidator.ruleViolationData;
-                this._makeChart(this.validatorData);
-            },
-            failure: function(msg) {
-                this.setLoading(false);
-                Ext.Msg.alert('Problem Loading Data', msg);
-            }
+        this.logger.log('_makeChart', data);
+       
+        this.setChart({
+            chartData: data,
+            chartConfig: this._getChartConfig()
         });
-    },
-    
-    _fetchData: function(modelType, fetchFields, filters){
-
-        var deferred = Ext.create('Deft.Deferred'),
-            store = Ext.create('Rally.data.wsapi.Store',{
-                model: modelType,
-                limit: 'Infinity',
-                fetch: fetchFields,
-                filters: filters
-            });
-
-        store.load({
-            scope: this,
-            callback: function(records, operation, success){
-                if (success){
-                    deferred.resolve(records);
-                } else {
-                    deferred.reject(operation);
-                }
-            }
-        });
-        return deferred;
-    },
-    
-    _fetchScheduleStates: function(){
-        var deferred = Ext.create('Deft.Deferred');
-        var scheduleStates = [];
-        Rally.data.ModelFactory.getModel({
-            type: 'UserStory',
-            fetch: ['ValueIndex','StringValue'],
-            sorters: [{
-                property: 'ValueIndex',
-                direction: 'ASC'
-            }],
-            success: function(model) {
-                model.getField('ScheduleState').getAllowedValueStore().load({
-                    callback: function(records, operation, success) {
-                        Ext.Array.each(records, function(allowedValue) {
-                            //each record is an instance of the AllowedAttributeValue model
-                            scheduleStates.push(allowedValue.get('StringValue'));
-                        });
-                        deferred.resolve(scheduleStates);
-                    }
-                });
-            }
-        });
-
-        return deferred;
-    },
-    
-    _getCategories: function(data) {
-        return Ext.Array.unique(
-            Ext.Array.map(
-                data, function(datum) { return datum.Project; }
-            )
-        ).sort();
-    },
-    
-    _getSeries: function(data, projects) {
-        var me = this;        
-        var violations = Ext.Array.flatten(
-            Ext.Array.map(data, function(datum){
-                return datum.violations;
-            })
-        );
-        
-        var rules = Ext.Array.map(violations, function(violation){ return violation.rule; });
-        
-        console.log('rules', rules);
-        
-        var series = Ext.Array.map(Ext.Array.unique(rules), function(rule){
-            return {
-                name: Rally.technicalservices.ValidationRules.getUserFriendlyRuleLabel(rule),
-                data: [],
-                stack: 1,
-                rule: rule
-            };
-        });
-        
-        console.log('series', series);
-        
-        Ext.Array.each(series, function(s) {
-            var counts = [];
-            Ext.Array.each(projects, function(project){
-                var count_in_project = 0;
-                var records = [];
-                Ext.Array.each(data, function(datum){
-                    Ext.Array.each(datum.violations, function(violation){
-                        if ( violation.rule == s.rule && datum.Project == project ) {
-                            count_in_project = count_in_project + 1;
-                            records.push(datum);
-                        }
-                    });
-                });
-                counts.push({ 
-                    y: count_in_project,
-                    _records: records,
-                    events: {
-                        click: function() {
-                            me.showDrillDown(this._records,'');
-                        }
-                    }
-                });
-            });
-            s.data = counts;
-        });
-        
-        return series;
     },
     
     _getChartConfig: function() {
@@ -1117,24 +1018,9 @@ extend: 'CA.techservices.app.ChartApp',
         }
     },
     
-    _makeChart: function(data) {
-        var me = this;
-        
-        this.logger.log('_makeChart', data);
-
-        var categories = this._getCategories(data);
-        var series = this._getSeries(data,categories);
-        
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig()
-        });
-    },
-    
     showDrillDown: function(records, title) {
         var me = this;
 
-        console.log(records);
         var store = Ext.create('Rally.data.custom.Store', {
             data: records,
             pageSize: 2000
@@ -1143,7 +1029,7 @@ extend: 'CA.techservices.app.ChartApp',
         Ext.create('Rally.ui.dialog.Dialog', {
             id        : 'detailPopup',
             title     : title,
-            width     : 400,
+            width     : 500,
             height    : 400,
             closable  : true,
             layout    : 'border',
@@ -1166,19 +1052,17 @@ extend: 'CA.techservices.app.ChartApp',
                         flex: 1
                     },
                     {
-                        dataIndex: 'violations',
+                        dataIndex: '__ruleText',
                         text: 'Violations',
                         flex: 1,
                         renderer: function(value, meta, record) {
-                            console.log('value', value);
                             if ( Ext.isEmpty(value) ) { return ""; }
-                            var display_value = "<ul>";
+                            var display_value = "";
                             Ext.Array.each(value, function(violation){
-                                display_value = display_value + violation.text;
+                                display_value = display_value + Ext.String.format("<li>{0}</li>", violation);
                             });
-                            display_value = display_value + "</ul>";
-                            console.log('display-value', display_value);
-                            return display_value;
+
+                            return Ext.String.format("<ul>{0}</ul>", display_value);
                         }
                     }
                 ],
@@ -1186,7 +1070,6 @@ extend: 'CA.techservices.app.ChartApp',
             }]
         }).show();
     }
-    
 });
 
             
