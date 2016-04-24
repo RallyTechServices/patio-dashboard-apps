@@ -1,13 +1,6 @@
 Ext.define('TSUtilities', {
     singleton: true,
-    
-    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
-    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
-    pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
-    archiveSuffix: '~archived',
-    
+      
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;

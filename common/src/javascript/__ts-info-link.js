@@ -40,6 +40,7 @@ Ext.define('Rally.technicalservices.InfoLink',{
         var chk = 0x12345678,
             i;
         string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
         string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
         
         for (i = 0; i < string.length; i++) {
