@@ -405,8 +405,9 @@ Ext.define("TSSplitStoryPerSprint", {
 
     },
     
-    getDrillDownColumns: function() {
-        return [
+    getDrillDownColumns: function(title) {
+        console.log('title:', title);
+        var columns = [
             {
                 dataIndex : 'FormattedID',
                 text: "id"
@@ -425,6 +426,20 @@ Ext.define("TSSplitStoryPerSprint", {
                 text: 'Plan Estimate'
             }
         ];
+        
+        if ( /\(multiple\)/.test(title)) {
+            columns.push({
+                dataIndex: 'Name',
+                text: 'Count of Moves',
+                renderer: function(value, meta, record) {
+                    
+                    return value.split('[Continued]').length;
+                }
+            });
+        }
+        
+        
+        return columns;
     },
     
     _makeGridDrilldown: function(view, record, item, index, evt) {

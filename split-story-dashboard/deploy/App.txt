@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 12:44:52 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 13:01:32 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 12:44:52 GMT-0700 (PDT)";
-        var CHECKSUM = 33578588617;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 13:01:32 GMT-0700 (PDT)";
+        var CHECKSUM = 34153037197;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -713,7 +713,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('tschartwithdescription').setChart(config);
     },
     
-    getDrillDownColumns: function() {
+    getDrillDownColumns: function(title) {
         return [
             {
                 dataIndex : 'FormattedID',
@@ -758,7 +758,7 @@ Ext.define("CA.techservices.app.ChartApp", {
                 sortableColumns      : true,
                 showRowActionsColumn : false,
                 showPagingToolbar    : false,
-                columnCfgs           : this.getDrillDownColumns(),
+                columnCfgs           : this.getDrillDownColumns(title),
                 store : store
             }]
         }).show();
@@ -1286,8 +1286,9 @@ Ext.define("TSSplitStoryPerSprint", {
 
     },
     
-    getDrillDownColumns: function() {
-        return [
+    getDrillDownColumns: function(title) {
+        console.log('title:', title);
+        var columns = [
             {
                 dataIndex : 'FormattedID',
                 text: "id"
@@ -1306,6 +1307,20 @@ Ext.define("TSSplitStoryPerSprint", {
                 text: 'Plan Estimate'
             }
         ];
+        
+        if ( /\(multiple\)/.test(title)) {
+            columns.push({
+                dataIndex: 'Name',
+                text: 'Count of Moves',
+                renderer: function(value, meta, record) {
+                    
+                    return value.split('[Continued]').length;
+                }
+            });
+        }
+        
+        
+        return columns;
     },
     
     _makeGridDrilldown: function(view, record, item, index, evt) {

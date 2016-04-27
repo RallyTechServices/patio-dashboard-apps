@@ -43,7 +43,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('tschartwithdescription').setChart(config);
     },
     
-    getDrillDownColumns: function() {
+    getDrillDownColumns: function(title) {
         return [
             {
                 dataIndex : 'FormattedID',
@@ -88,7 +88,7 @@ Ext.define("CA.techservices.app.ChartApp", {
                 sortableColumns      : true,
                 showRowActionsColumn : false,
                 showPagingToolbar    : false,
-                columnCfgs           : this.getDrillDownColumns(),
+                columnCfgs           : this.getDrillDownColumns(title),
                 store : store
             }]
         }).show();
