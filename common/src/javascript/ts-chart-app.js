@@ -15,6 +15,12 @@ Ext.define("CA.techservices.app.ChartApp", {
         ]}
     ],
 
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
     launch: function() {
         this.setDescription();
     }, 
@@ -118,6 +124,19 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.logger.log('onSettingsUpdate',settings);
         // Ext.apply(this, settings);
         this.launch();
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
     }
     
     

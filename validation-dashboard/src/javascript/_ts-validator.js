@@ -157,10 +157,12 @@ Ext.define('CA.techservices.validator.Validator',{
             
             var data = [];
             Ext.Array.each(categories, function(category){
-                var count = records_by_category[category].length || 0;
+                var category_records = records_by_category[category] || [];
+                
+                var count = category_records.length;
                 var datum = { 
                     y: count,
-                    _records: records_by_category[category]
+                    _records: category_records
                 };
                 
                 if ( !Ext.isEmpty(me.pointEvents) ) {

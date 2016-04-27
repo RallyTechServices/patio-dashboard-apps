@@ -12,6 +12,7 @@ extend: 'CA.techservices.app.ChartApp',
         name : "TSValidationApp"
     },
 
+    
     rules: [ 
         {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']}
@@ -67,10 +68,16 @@ extend: 'CA.techservices.app.ChartApp',
         var me = this;
         
         this.logger.log('_makeChart', data);
-       
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        
         this.setChart({
             chartData: data,
-            chartConfig: this._getChartConfig()
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
         });
     },
     
