@@ -26,5 +26,19 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; }
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; },
+    
+    getConsistentBarPatterns: function() { 
+        return [
+            'url(#circles)',
+            'url(#diagonal-down)',
+            'url(#diagonal-up)',
+            'url(#vertical)',
+            'url(#horizontal)',
+            'url(#squares)',
+            'url(#diamonds)',
+            'url(#highcharts-default-pattern-6)',
+            'url(#highcharts-default-pattern-7)'
+        ];
+    }
 });

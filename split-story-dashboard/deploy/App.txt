@@ -3,28 +3,24 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 20 2016 16:34:26 GMT-0700 (MST) -->
+    <!--  Build Date: Wed Apr 27 2016 12:44:52 GMT-0700 (PDT) -->
+    
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 20 2016 16:34:26 GMT-0700 (MST)";
-        var CHECKSUM = 23601772143;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 12:44:52 GMT-0700 (PDT)";
+        var CHECKSUM = 33578588617;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+    <!-- our highcharts (needed so that we can add patterns) -->
+    <script type="text/javascript" src="/apps/2.0/lib/analytics/analytics-all.js"></script>
 
     <script type="text/javascript">
         Rally.onReady(function() {
              
 Ext.define('TSUtilities', {
     singleton: true,
-    
-    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
-    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
-    pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
-    archiveSuffix: '~archived',
-    
+      
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -270,6 +266,7 @@ Ext.define('Rally.technicalservices.InfoLink',{
         var chk = 0x12345678,
             i;
         string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
         string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
         
         for (i = 0; i < string.length; i++) {
@@ -389,6 +386,195 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+(function() {
+
+    'use strict';
+
+    var idCounter = 0,
+        wrap = Highcharts.wrap,
+        each = Highcharts.each;
+
+    /**
+     * Exposed method to add a pattern to the renderer.
+     */
+    Highcharts.SVGRenderer.prototype.addPattern = function (id, options) {
+        var pattern,
+            path,
+            w = options.width || 10,
+            h = options.height || 10,
+            ren = this;
+
+        /**
+         * Add a rectangle for solid color
+         */
+        function rect (fill) {
+            ren.rect(0, 0, w, h)
+                .attr({
+                    fill: fill
+                })
+                .add(pattern);
+        }
+
+        if (!id) {
+            id = 'highcharts-pattern-' + idCounter;
+            idCounter += 1;
+        }
+
+        pattern = this.createElement('pattern').attr({
+            id: id,
+            patternUnits: 'userSpaceOnUse',
+            width: options.width || 10,
+            height: options.height || 10
+        }).add(this.defs);
+
+        // Get id
+        pattern.id = pattern.element.id;
+
+        // Use an SVG path for the pattern
+        if (options.path) {
+            path = options.path;
+
+            // The background
+            if (path.fill) {
+                rect(path.fill);
+            }
+
+            // The pattern
+            this.createElement('path').attr({
+                'd': path.d || path,
+                'stroke': path.stroke || options.color || '#343434',
+                'stroke-width': path.strokeWidth || 2
+            }).add(pattern);
+            pattern.color = options.color;
+
+        // Image pattern
+        } else if (options.image) {
+
+            this.image(options.image, 0, 0, options.width, options.height).add(pattern);
+
+        // A solid color
+        } else if (options.color) {
+
+            rect(options.color);
+
+        }
+
+        if (options.opacity !== undefined) {
+            each(pattern.element.children, function (child) {
+                child.setAttribute('opacity', options.opacity);
+            });
+        }
+
+        return pattern;
+    };
+
+    if (Highcharts.VMLElement) {
+
+        Highcharts.VMLRenderer.prototype.addPattern = function (id, options) {
+
+            var patterns;
+            if (!id) {
+                id = 'highcharts-pattern-' + idCounter;
+                idCounter += 1;
+            }
+            patterns = this.patterns || {};
+            patterns[id] = options;
+            this.patterns = patterns;
+        };
+
+        Highcharts.wrap(Highcharts.VMLRenderer.prototype.Element.prototype, 'fillSetter', function (proceed, color, prop, elem) {
+            if (typeof color === 'string' && color.substring(0, 5) === 'url(#') {
+                var id = color.substring(5, color.length - 1),
+                    pattern = this.renderer.patterns[id],
+                    markup;
+
+                if (pattern.image) {
+                    // Remove Previous fills                    
+                    if (elem.getElementsByTagName('fill').length) {
+                        elem.removeChild(elem.getElementsByTagName('fill')[0]);
+                    }
+
+                    markup = this.renderer.prepVML(['<', prop, ' type="tile" src="', pattern.image, '" />']);
+                    elem.appendChild(document.createElement(markup));
+
+                    // Work around display bug on updating attached nodes
+                    if (elem.parentNode.nodeType === 1) {
+                        elem.outerHTML = elem.outerHTML;
+                    }
+
+                } else if (pattern.color) {
+                    proceed.call(this, pattern.color, prop, elem);
+                } else {
+                    proceed.call(this, '#A0A0A0', prop, elem);
+                }
+            } else {
+                proceed.call(this, color, prop, elem);
+            }
+        });
+    }
+
+    /**
+     * Add the predefined patterns
+     */
+    function addPredefinedPatterns(renderer) {
+        var colors = Highcharts.getOptions().colors;
+
+        each([
+            'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11',
+            'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9',
+            'M 3 0 L 3 10 M 8 0 L 8 10',
+            'M 0 3 L 10 3 M 0 8 L 10 8',
+            'M 0 3 L 5 3 L 5 0 M 5 10 L 5 7 L 10 7',
+            'M 3 3 L 8 3 L 8 8 L 3 8 Z',
+            'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0',
+            'M 10 3 L 5 3 L 5 0 M 5 10 L 5 7 L 0 7',
+            'M 2 5 L 5 2 L 8 5 L 5 8 Z',
+            'M 0 0 L 5 10 L 10 0'
+        ], function (pattern, i) {
+            renderer.addPattern('highcharts-default-pattern-' + i, {
+                path: pattern,
+                color: colors[i]
+            });
+        });
+        
+        var patterns = {
+            'diagonal-down': {path: 'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11', color: 'black' },
+            'diagonal-up':   {path: 'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9', color: 'black' },
+            'vertical':      {path: 'M 3 0 L 3 10 M 8 0 L 8 10', color: 'black' },
+            'horizontal':    {path: 'M 0 3 L 10 3 M 0 8 L 10 8', color: 'black' },
+            'circles':       {path: 'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0', color: 'white' },
+            'squares':       {path: 'M 3 3 L 8 3 L 8 8 L 3 8 Z', color: 'black' },
+            'diamonds':      {path: 'M 0 0 L 5 10 L 10 0', color: 'black' }
+
+        };
+        
+        Ext.Object.each(patterns, function(name,config) { 
+            renderer.addPattern(name, config);
+        });
+    }
+
+    // Add patterns to the defs element
+    wrap(Highcharts.Chart.prototype, 'getContainer', function (proceed) {
+        proceed.apply(this);
+
+        var chart = this,
+            renderer = chart.renderer,
+            options = chart.options,
+            patterns = options.defs && options.defs.patterns;
+
+        // First add default patterns
+        addPredefinedPatterns(renderer);
+
+        // Add user defined patterns
+        if (patterns) {
+            each(patterns, function (pattern) {
+                renderer.addPattern(pattern.id, pattern);
+            });
+        }
+
+    });
+
+}());
 Ext.define("CA.apps.charts.Colors", {
     
     singleton: true, 
@@ -417,7 +603,21 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; }
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; },
+    
+    getConsistentBarPatterns: function() { 
+        return [
+            'url(#circles)',
+            'url(#diagonal-down)',
+            'url(#diagonal-up)',
+            'url(#vertical)',
+            'url(#horizontal)',
+            'url(#squares)',
+            'url(#diamonds)',
+            'url(#highcharts-default-pattern-6)',
+            'url(#highcharts-default-pattern-7)'
+        ];
+    }
 });
 
 Ext.define('CA.techservices.container.ChartWithDescription',{
@@ -457,6 +657,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
     setChart: function(config) {
         var box = this.down('#chart_box');
         box.removeAll();
+        
         
         var chart_config = Ext.apply({
             xtype:'rallychart',
@@ -512,6 +713,28 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('tschartwithdescription').setChart(config);
     },
     
+    getDrillDownColumns: function() {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
     showDrillDown: function(stories, title) {
         var me = this;
 
@@ -535,25 +758,7 @@ Ext.define("CA.techservices.app.ChartApp", {
                 sortableColumns      : true,
                 showRowActionsColumn : false,
                 showPagingToolbar    : false,
-                columnCfgs           : [
-                    {
-                        dataIndex : 'FormattedID',
-                        text: "id"
-                    },
-                    {
-                        dataIndex : 'Name',
-                        text: "Name",
-                        flex: 1
-                    },
-                    {
-                        dataIndex: 'ScheduleState',
-                        text: 'Schedule State'
-                    },
-                    {
-                        dataIndex: 'PlanEstimate',
-                        text: 'Plan Estimate'
-                    }
-                ],
+                columnCfgs           : this.getDrillDownColumns(),
                 store : store
             }]
         }).show();
@@ -696,14 +901,19 @@ Ext.define("TSSplitStoryPerSprint", {
     integrationHeaders : {
         name : "TSSplitStoryPerSprint"
     },
-
+    
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
     launch: function() {
         this.callParent();
 
         this._addSelectors();
         this._updateData();
     }, 
-    
     
     _addSelectors: function() {
         
@@ -990,10 +1200,15 @@ Ext.define("TSSplitStoryPerSprint", {
         var categories = this._getCategories(sprint_objects);
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig()
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
         });
     },
     
@@ -1071,6 +1286,28 @@ Ext.define("TSSplitStoryPerSprint", {
 
     },
     
+    getDrillDownColumns: function() {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
     _makeGridDrilldown: function(view, record, item, index, evt) {
         var me = this;
         var column_index = view.getPositionByEvent(evt).column;
@@ -1085,9 +1322,7 @@ Ext.define("TSSplitStoryPerSprint", {
         if ( !/_number/.test(column.dataIndex) ) {
             return;
         }
-        
-        this.logger.log('count/size', record.get(column.dataIndex));
-        
+                
         if ( record.get(column.dataIndex) === 0 ) {
             return;
         }
@@ -1099,6 +1334,19 @@ Ext.define("TSSplitStoryPerSprint", {
         var title = column.text + " (type: " + record.get('Type') + ")";
         
         this.showDrillDown(stories, title);
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
     }
 });
 

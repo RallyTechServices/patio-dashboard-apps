@@ -36,6 +36,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         var box = this.down('#chart_box');
         box.removeAll();
         
+        
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,

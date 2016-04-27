@@ -20,14 +20,19 @@ Ext.define("TSSplitStoryPerSprint", {
     integrationHeaders : {
         name : "TSSplitStoryPerSprint"
     },
-
+    
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
     launch: function() {
         this.callParent();
 
         this._addSelectors();
         this._updateData();
     }, 
-    
     
     _addSelectors: function() {
         
@@ -314,10 +319,15 @@ Ext.define("TSSplitStoryPerSprint", {
         var categories = this._getCategories(sprint_objects);
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig()
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
         });
     },
     
@@ -395,6 +405,28 @@ Ext.define("TSSplitStoryPerSprint", {
 
     },
     
+    getDrillDownColumns: function() {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
     _makeGridDrilldown: function(view, record, item, index, evt) {
         var me = this;
         var column_index = view.getPositionByEvent(evt).column;
@@ -409,9 +441,7 @@ Ext.define("TSSplitStoryPerSprint", {
         if ( !/_number/.test(column.dataIndex) ) {
             return;
         }
-        
-        this.logger.log('count/size', record.get(column.dataIndex));
-        
+                
         if ( record.get(column.dataIndex) === 0 ) {
             return;
         }
@@ -423,5 +453,18 @@ Ext.define("TSSplitStoryPerSprint", {
         var title = column.text + " (type: " + record.get('Type') + ")";
         
         this.showDrillDown(stories, title);
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
     }
 });

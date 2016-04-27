@@ -43,6 +43,28 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('tschartwithdescription').setChart(config);
     },
     
+    getDrillDownColumns: function() {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
     showDrillDown: function(stories, title) {
         var me = this;
 
@@ -66,25 +88,7 @@ Ext.define("CA.techservices.app.ChartApp", {
                 sortableColumns      : true,
                 showRowActionsColumn : false,
                 showPagingToolbar    : false,
-                columnCfgs           : [
-                    {
-                        dataIndex : 'FormattedID',
-                        text: "id"
-                    },
-                    {
-                        dataIndex : 'Name',
-                        text: "Name",
-                        flex: 1
-                    },
-                    {
-                        dataIndex: 'ScheduleState',
-                        text: 'Schedule State'
-                    },
-                    {
-                        dataIndex: 'PlanEstimate',
-                        text: 'Plan Estimate'
-                    }
-                ],
+                columnCfgs           : this.getDrillDownColumns(),
                 store : store
             }]
         }).show();
