@@ -24,7 +24,7 @@ Ext.define('CA.techservices.validator.Validator',{
      * 
      *     {
      *          click: function() {
-     *          me.showDrillDown(this._records,'');
+     *          me.showDrillDown(this._records,this._name);
      *      }
      */
     pointEvents: null,
@@ -189,7 +189,8 @@ Ext.define('CA.techservices.validator.Validator',{
                 var count = category_records.length;
                 var datum = { 
                     y: count,
-                    _records: category_records
+                    _records: category_records,
+                    _name: series_name
                 };
                 
                 if ( !Ext.isEmpty(me.pointEvents) ) {
@@ -199,6 +200,7 @@ Ext.define('CA.techservices.validator.Validator',{
             });
             series.push({
                 name: series_name,
+                
                 records: failed_records,
                 data: data,
                 stack: model

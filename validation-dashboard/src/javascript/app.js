@@ -33,7 +33,7 @@ extend: 'CA.techservices.app.ChartApp',
             fetchFields: ['FormattedID','ObjectID'],
             pointEvents: {
                 click: function() {
-                    me.showDrillDown(this._records,'');
+                    me.showDrillDown(this._records,this._name);
                 }
             }
         });
@@ -63,7 +63,6 @@ extend: 'CA.techservices.app.ChartApp',
                 Ext.Msg.alert('Problem loading data', msg);
             }
         }).always(function() { me.setLoading(false); });
-        
         
     }, 
     

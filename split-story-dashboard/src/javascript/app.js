@@ -406,7 +406,6 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     getDrillDownColumns: function(title) {
-        console.log('title:', title);
         var columns = [
             {
                 dataIndex : 'FormattedID',
