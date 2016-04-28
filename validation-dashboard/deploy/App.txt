@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 17:12:08 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 18:14:19 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 17:12:08 GMT-0700 (PDT)";
-        var CHECKSUM = 38414115465;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 18:14:19 GMT-0700 (PDT)";
+        var CHECKSUM = 38472848863;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1279,7 +1279,8 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     rules: [ 
-        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature','c_AcceptanceCriteria']},
+        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature',
+            'c_AcceptanceCriteria','c_Type','c_IsTestable']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
         {xtype:'tstasktodonoestimate'},
         {xtype:'tstaskactivenotodo'}

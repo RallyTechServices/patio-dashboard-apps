@@ -13,7 +13,8 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     rules: [ 
-        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature','c_AcceptanceCriteria']},
+        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature',
+            'c_AcceptanceCriteria','c_Type','c_IsTestable']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
         {xtype:'tstasktodonoestimate'},
         {xtype:'tstaskactivenotodo'}
