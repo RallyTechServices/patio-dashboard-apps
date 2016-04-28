@@ -28,6 +28,12 @@ Ext.define('CA.techservices.validator.Validator',{
      *      }
      */
     pointEvents: null,
+    /**
+     * 
+     * a hash of filters by model type.  Filter will be ANDed to the filters we get from the validation rules 
+     * (which are themselves ORed together).
+     */
+    baseFilters: {},
     
     constructor: function(config) {
         Ext.apply(this,config);
@@ -64,8 +70,11 @@ Ext.define('CA.techservices.validator.Validator',{
         
         Ext.Object.each(filters_by_model, function(model, filters){
             filters = Ext.Array.unique( Ext.Array.flatten(filters) );
-            
             filters_by_model[model] = Rally.data.wsapi.Filter.or(filters);
+            
+            if ( me.baseFilters && me.baseFilters != {} && me.baseFilters[model] != {} ) {
+                filters_by_model[model] = filters_by_model[model].and(me.baseFilters[model]);
+            }
         });
         
         return filters_by_model;

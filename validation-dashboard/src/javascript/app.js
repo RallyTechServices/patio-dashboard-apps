@@ -4,9 +4,10 @@ extend: 'CA.techservices.app.ChartApp',
     description: '<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
-                'represents a team.' +
+                'represents a team.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
+                'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
-                'The table below the grid will show the items that failed one or more validation rules, grouped by team',
+                '',
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -29,9 +30,35 @@ extend: 'CA.techservices.app.ChartApp',
         
         //this._addSelectors();
         
+        var story_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'ScheduleState', value:'Completed' },
+            {property:'ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var story_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'ScheduleState', value: 'Defined' },
+            {property:'Ready', value: true }
+        ]);
+        
+        var task_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'WorkProduct.ScheduleState', value:'Completed' },
+            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var task_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'WorkProduct.ScheduleState', value: 'Defined' },
+            {property:'WorkProduct.Ready', value: true }
+        ]);
+        
+        
+        
         var validator = Ext.create('CA.techservices.validator.Validator',{
             rules: this.rules,
             fetchFields: ['FormattedID','ObjectID'],
+            baseFilters: {
+                HierarchicalRequirement: story_base_filter.or(story_ready_filter),
+                Task: task_base_filter.or(task_ready_filter)
+            },
             pointEvents: {
                 click: function() {
                     me.showDrillDown(this._records,this._name);
