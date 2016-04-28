@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 13:36:04 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 17:03:09 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 13:36:04 GMT-0700 (PDT)";
-        var CHECKSUM = 31383629649;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 17:03:09 GMT-0700 (PDT)";
+        var CHECKSUM = 36443737960;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -835,12 +835,13 @@ Ext.define('CA.techservices.validation.BaseRule',{
     },
     
     getModel: function() {
-        console.error('getModel not implemented in subclass ', this.self.getName());
-        throw 'getModel not implemented in subclass ' + this.self.getName();
-        
-        return null;
+        return this.model;
     },
     
+    getFilters: function() {
+        console.error('getFilters not implemented in subclass ', this.self.getName());
+        throw 'getFilters not implemented in subclass ' + this.self.getName();
+    },
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {
@@ -864,30 +865,37 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         requiredFields: [],
         label: 'Required Fields are missing (user story)'
     },
-//    
+    
     getFetchFields: function() {
         return this.requiredFields;
     },
     
-    getModel: function() {
-        return this.model;
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
     },
     
     applyRuleToRecord: function(record) {
         var missingFields = [];
 
         Ext.Array.each(this.requiredFields, function (field_name) {
-            var field_defn = record.getField(field_name);
-            var value = record.get(field_name);
-            
-            if ( !Ext.isEmpty(field_defn) && Ext.isEmpty(value) ) {
+            if ( this.isValidField(record, field_name) ) {
+                var value = record.get(field_name);
                 missingFields.push(record.getField(field_name).displayName);
             }
-        });
+        },this);
         if (missingFields.length === 0) {
             return false;
         }
         return Ext.String.format('Fields Missing: {0}', missingFields.join(','))
+    },
+    
+    getFilters: function() {        
+        var filters = Ext.Array.map(this.requiredFields, function(field) {
+            return { property: field, value: "" };
+        });
+        
+        return Rally.data.wsapi.Filter.or(filters);
     }
 });
 Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
@@ -900,30 +908,68 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
         requiredFields: [],
         label: 'Required Fields are missing (task)'
     },
-//    
+    
     getFetchFields: function() {
         return this.requiredFields;
     },
     
-    getModel: function() {
-        return this.model;
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
     },
     
     applyRuleToRecord: function(record) {
         var missingFields = [];
 
         Ext.Array.each(this.requiredFields, function (field_name) {
-            var field_defn = record.getField(field_name);
-            var value = record.get(field_name);
-            
-            if ( !Ext.isEmpty(field_defn) && Ext.isEmpty(value) ) {
+            if ( this.isValidField(record, field_name) ) {
+                var value = record.get(field_name);
                 missingFields.push(record.getField(field_name).displayName);
             }
-        });
+        },this);
         if (missingFields.length === 0) {
             return false;
         }
         return Ext.String.format('Fields Missing: {0}', missingFields.join(','))
+    },
+    
+    getFilters: function() {        
+        var filters = Ext.Array.map(this.requiredFields, function(field) {
+            return { property: field, value: "" };
+        });
+        
+        return Rally.data.wsapi.Filter.or(filters);
+    }
+});
+Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias: 'widget.tstasktodonoestimate',
+    config: {
+        model: 'Task',
+        label: 'Task With ToDo But No Estimate'
+    },
+    
+    getFetchFields: function() {
+        return ['ToDo','Estimate'];
+    },
+    
+    getFilters: function() {
+        return Rally.data.wsapi.Filter.and([
+            {property:'ToDo',operator:'>',value:0},
+            {property:'Estimate',operator: '<', value: .0000001 }
+        ]);
+    },
+    // return false if the record doesn't match
+    // return string if record fails the rule
+    applyRuleToRecord: function(record) {
+        if ( !record.get('ToDo') > 0 || record.get('Estimate') > 0 ) {
+            return false; 
+        }
+        return Ext.String.format('Has Task ToDo But No Estimate (ToDo:{0})', record.get('ToDo'));
+    },
+    
+    getUserFriendlyRuleLabel: function() {        
+        return this.label;
     }
 });
 Ext.define('CA.techservices.validator.Validator',{
@@ -974,6 +1020,31 @@ Ext.define('CA.techservices.validator.Validator',{
         this.rules = rules;
     },
     
+    getFiltersByModel: function() {
+        var me = this,
+            filters_by_model = {};
+            
+        Ext.Array.each(this.rules, function(rule){
+            var model = rule.getModel();
+            var filters = rule.getFilters();
+
+            if ( !Ext.isEmpty(model) && !Ext.isEmpty(filters) ) {
+                if ( Ext.isEmpty(filters_by_model[model]) ) {
+                    filters_by_model[model] = [];
+                }
+                filters_by_model[model].push(filters);
+            }
+        });
+        
+        Ext.Object.each(filters_by_model, function(model, filters){
+            filters = Ext.Array.unique( Ext.Array.flatten(filters) );
+            
+            filters_by_model[model] = Rally.data.wsapi.Filter.or(filters);
+        });
+        
+        return filters_by_model;
+    },
+    
     getFetchFieldsByModel: function() {
         var me = this,
             fields_by_model = {};
@@ -982,6 +1053,7 @@ Ext.define('CA.techservices.validator.Validator',{
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
+            console.log(model,fields);
             if ( !Ext.isEmpty(model) && !Ext.isEmpty(fields) && fields.length > 0 ) {
                 if ( Ext.isEmpty(fields_by_model[model]) ) {
                     fields_by_model[model] = [me.categoryField,'Name'];
@@ -1002,17 +1074,21 @@ Ext.define('CA.techservices.validator.Validator',{
     
     // returns a promise, promise fulfilled by hash of results by model type
     gatherData: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        console.log('gatherData');
         
         var fetch_by_model = this.getFetchFieldsByModel();
+        var filters_by_model = this.getFiltersByModel();
         
         var promises = [];
         Ext.Object.each(fetch_by_model, function(model, fetch){
             var config = {
                 model: model,
                 fetch: fetch,
-                limit: Infinity
+                limit: Infinity,
+                filters: filters_by_model[model]
             };
             
             promise = function() {
@@ -1021,6 +1097,7 @@ Ext.define('CA.techservices.validator.Validator',{
             promises.push(promise);
         },this);
         
+        console.log('promises', promises);
         Deft.Chain.sequence(promises,this).then({
             success: function(results) {
                 me.recordsByModel = {};
@@ -1141,6 +1218,7 @@ Ext.define('CA.techservices.validator.Validator',{
     
     _loadWsapiRecords: function(config) {
         var deferred = Ext.create('Deft.Deferred');
+        console.log("loading ", config);
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(results) {
@@ -1169,10 +1247,10 @@ extend: 'CA.techservices.app.ChartApp',
         name : "TSValidationApp"
     },
 
-    
     rules: [ 
-        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature']},
-        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']}
+        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature','c_AcceptanceCriteria']},
+        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
+        {xtype:'tstasktodonoestimate'}
     ],
     
     launch: function() {
@@ -1206,6 +1284,10 @@ extend: 'CA.techservices.app.ChartApp',
             scope: this,
             success: function(results) {
                 
+                if ( results.categories && results.categories.length === 0 ) {
+                    Ext.Msg.alert('','No violations found');
+                    return;
+                }
                 this._makeChart(results);
             },
             failure: function(msg) {

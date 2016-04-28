@@ -21,12 +21,13 @@ Ext.define('CA.techservices.validation.BaseRule',{
     },
     
     getModel: function() {
-        console.error('getModel not implemented in subclass ', this.self.getName());
-        throw 'getModel not implemented in subclass ' + this.self.getName();
-        
-        return null;
+        return this.model;
     },
     
+    getFilters: function() {
+        console.error('getFilters not implemented in subclass ', this.self.getName());
+        throw 'getFilters not implemented in subclass ' + this.self.getName();
+    },
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {

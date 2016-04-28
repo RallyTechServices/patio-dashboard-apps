@@ -8,4 +8,6 @@ deploy/app.min.js
 .project
 .settings
 deploy/ConfluenceApp.txt
+deploy/Ugly.txt
 deploy/ExternalApp.txt
+App-debug-apikey.html

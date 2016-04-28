@@ -12,10 +12,10 @@ extend: 'CA.techservices.app.ChartApp',
         name : "TSValidationApp"
     },
 
-    
     rules: [ 
-        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature']},
-        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']}
+        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature','c_AcceptanceCriteria']},
+        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
+        {xtype:'tstasktodonoestimate'}
     ],
     
     launch: function() {
@@ -49,6 +49,10 @@ extend: 'CA.techservices.app.ChartApp',
             scope: this,
             success: function(results) {
                 
+                if ( results.categories && results.categories.length === 0 ) {
+                    Ext.Msg.alert('','No violations found');
+                    return;
+                }
                 this._makeChart(results);
             },
             failure: function(msg) {
