@@ -11,6 +11,13 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
         return ['Actuals','State'];
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are Completed but do not have any hours in the Actuals field."
+        );
+    },
+    
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'State',operator:'=',value:'Completed'},

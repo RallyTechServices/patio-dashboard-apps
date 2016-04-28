@@ -6,6 +6,14 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
         label: 'Story without EPMS ID'
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Stories that don't trace to a EPMS Project with an EPMS ID.  This can be because the EPMS Project doesn't have" +
+            " an ID, because the Feature isn't related to an EPMS Project, or because there's no Feature for the story."
+        );
+    },
+    
     getFetchFields: function() {
         return ['Feature','Parent','c_EPMSid'];
     },

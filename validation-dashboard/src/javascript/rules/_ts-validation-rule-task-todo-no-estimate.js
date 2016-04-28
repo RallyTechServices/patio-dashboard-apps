@@ -6,6 +6,13 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
         label: 'Task With ToDo But No Estimate'
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong> : {1}",
+            this.label,
+            "Tasks that have hours left in the To Do field but no Estimate."
+        );
+    },
+    
     getFetchFields: function() {
         return ['ToDo','Estimate'];
     },

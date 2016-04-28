@@ -9,6 +9,13 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
         label: 'Required Fields are missing (task)'
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are missing expected fields."
+        );
+    },
+    
     getFetchFields: function() {
         return this.requiredFields;
     },

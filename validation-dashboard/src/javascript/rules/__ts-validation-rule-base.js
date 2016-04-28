@@ -16,6 +16,11 @@ Ext.define('CA.techservices.validation.BaseRule',{
         Ext.apply(this,config);
     },
     
+    getDescription: function() {
+        console.error('getRuleDescription is not implemented in subclass ', this.self.getName());
+        return null;
+    },
+    
     getFetchFields: function() {
         return [];
     },

@@ -7,7 +7,8 @@ extend: 'CA.techservices.app.ChartApp',
                 'represents a team.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
-                '',
+                '<strong>Rules</strong>' +
+                '<p/>',
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -50,8 +51,6 @@ extend: 'CA.techservices.app.ChartApp',
             {property:'WorkProduct.Ready', value: true }
         ]);
         
-        
-        
         var validator = Ext.create('CA.techservices.validator.Validator',{
             rules: this.rules,
             fetchFields: ['FormattedID','ObjectID'],
@@ -65,6 +64,11 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
+        
+        this.description = this.description + validator.getRuleDescriptions();
+        
+
+        this.setDescription();
         
         this.setLoading("Loading data...");
         

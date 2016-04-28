@@ -52,6 +52,20 @@ Ext.define('CA.techservices.validator.Validator',{
         this.rules = rules;
     },
     
+    getRuleDescriptions: function() {
+        var text = "<ul>";
+        
+        Ext.Array.each(this.rules, function(rule){
+            var rule_description = rule.getDescription() || "";
+            if ( !Ext.isEmpty(rule_description) ) {
+                text = text + "<li>" + rule_description + "</li>";
+            }
+        });
+        text = text + "</ul>";
+        
+        return text;
+    },
+    
     getFiltersByModel: function() {
         var me = this,
             filters_by_model = {};

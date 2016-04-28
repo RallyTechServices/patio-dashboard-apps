@@ -10,6 +10,13 @@ Ext.define('CA.techservices.validation.TaskActiveNoToDo',{
         return ['ToDo','State'];
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are not yet complete but don't have hours in the To Do field."
+        );
+    },
+    
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'ToDo',operator: '<', value: .0000001 },

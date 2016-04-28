@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 19:12:35 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 19:33:41 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 19:12:35 GMT-0700 (PDT)";
-        var CHECKSUM = 48834401721;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 19:33:41 GMT-0700 (PDT)";
+        var CHECKSUM = 53999535841;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -830,6 +830,11 @@ Ext.define('CA.techservices.validation.BaseRule',{
         Ext.apply(this,config);
     },
     
+    getDescription: function() {
+        console.error('getRuleDescription is not implemented in subclass ', this.self.getName());
+        return null;
+    },
+    
     getFetchFields: function() {
         return [];
     },
@@ -864,6 +869,13 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
         completedStates: ['Completed','Accepted']
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Stories that have reached the Completed state but have nothing in the Actuals field on their tasks."
+        );
+    },
+    
     getFetchFields: function() {
         return ['TaskActualTotal','ScheduleState'];
     },
@@ -896,6 +908,13 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         model: 'HierarchicalRequirement',
         requiredFields: [],
         label: 'Required Fields are missing (user story)'
+    },
+    
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Stories that are missing expected fields."
+        );
     },
     
     getFetchFields: function() {
@@ -936,6 +955,14 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     config: {
         model: 'HierarchicalRequirement',
         label: 'Story without EPMS ID'
+    },
+    
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Stories that don't trace to a EPMS Project with an EPMS ID.  This can be because the EPMS Project doesn't have" +
+            " an ID, because the Feature isn't related to an EPMS Project, or because there's no Feature for the story."
+        );
     },
     
     getFetchFields: function() {
@@ -980,6 +1007,13 @@ Ext.define('CA.techservices.validation.TaskActiveNoToDo',{
         return ['ToDo','State'];
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are not yet complete but don't have hours in the To Do field."
+        );
+    },
+    
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'ToDo',operator: '<', value: .0000001 },
@@ -1012,6 +1046,13 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
         return ['Actuals','State'];
     },
     
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are Completed but do not have any hours in the Actuals field."
+        );
+    },
+    
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'State',operator:'=',value:'Completed'},
@@ -1040,6 +1081,13 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
         model: 'Task',
         requiredFields: [],
         label: 'Required Fields are missing (task)'
+    },
+    
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong>{1}",
+            this.label,
+            "Tasks that are missing expected fields."
+        );
     },
     
     getFetchFields: function() {
@@ -1080,6 +1128,13 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
     config: {
         model: 'Task',
         label: 'Task With ToDo But No Estimate'
+    },
+    
+    getDescription: function() {
+        return Ext.String.format("<strong>{0}</strong> : {1}",
+            this.label,
+            "Tasks that have hours left in the To Do field but no Estimate."
+        );
     },
     
     getFetchFields: function() {
@@ -1157,6 +1212,20 @@ Ext.define('CA.techservices.validator.Validator',{
         });
         
         this.rules = rules;
+    },
+    
+    getRuleDescriptions: function() {
+        var text = "<ul>";
+        
+        Ext.Array.each(this.rules, function(rule){
+            var rule_description = rule.getDescription() || "";
+            if ( !Ext.isEmpty(rule_description) ) {
+                text = text + "<li>" + rule_description + "</li>";
+            }
+        });
+        text = text + "</ul>";
+        
+        return text;
     },
     
     getFiltersByModel: function() {
@@ -1381,7 +1450,8 @@ extend: 'CA.techservices.app.ChartApp',
                 'represents a team.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
-                '',
+                '<strong>Rules</strong>' +
+                '<p/>',
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -1424,8 +1494,6 @@ extend: 'CA.techservices.app.ChartApp',
             {property:'WorkProduct.Ready', value: true }
         ]);
         
-        
-        
         var validator = Ext.create('CA.techservices.validator.Validator',{
             rules: this.rules,
             fetchFields: ['FormattedID','ObjectID'],
@@ -1439,6 +1507,11 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
+        
+        this.description = this.description + validator.getRuleDescriptions();
+        
+
+        this.setDescription();
         
         this.setLoading("Loading data...");
         
