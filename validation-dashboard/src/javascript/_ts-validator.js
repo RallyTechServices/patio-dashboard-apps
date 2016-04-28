@@ -79,7 +79,6 @@ Ext.define('CA.techservices.validator.Validator',{
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
-            console.log(model,fields);
             if ( !Ext.isEmpty(model) && !Ext.isEmpty(fields) && fields.length > 0 ) {
                 if ( Ext.isEmpty(fields_by_model[model]) ) {
                     fields_by_model[model] = [me.categoryField,'Name'];
@@ -102,9 +101,7 @@ Ext.define('CA.techservices.validator.Validator',{
     gatherData: function() {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-        
-        console.log('gatherData');
-        
+                
         var fetch_by_model = this.getFetchFieldsByModel();
         var filters_by_model = this.getFiltersByModel();
         
@@ -123,7 +120,6 @@ Ext.define('CA.techservices.validator.Validator',{
             promises.push(promise);
         },this);
         
-        console.log('promises', promises);
         Deft.Chain.sequence(promises,this).then({
             success: function(results) {
                 me.recordsByModel = {};
@@ -244,7 +240,6 @@ Ext.define('CA.techservices.validator.Validator',{
     
     _loadWsapiRecords: function(config) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log("loading ", config);
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(results) {

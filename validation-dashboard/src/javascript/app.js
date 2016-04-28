@@ -17,7 +17,8 @@ extend: 'CA.techservices.app.ChartApp',
             'c_AcceptanceCriteria','c_Type','c_IsTestable']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
         {xtype:'tstasktodonoestimate'},
-        {xtype:'tstaskactivenotodo'}
+        {xtype:'tstaskactivenotodo'},
+        {xtype:'tsstorycompletednoactuals'}
     ],
     
     launch: function() {

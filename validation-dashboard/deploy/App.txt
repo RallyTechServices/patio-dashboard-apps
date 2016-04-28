@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 18:14:19 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 18:25:31 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 18:14:19 GMT-0700 (PDT)";
-        var CHECKSUM = 38472848863;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 18:25:31 GMT-0700 (PDT)";
+        var CHECKSUM = 40721208906;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -855,6 +855,38 @@ Ext.define('CA.techservices.validation.BaseRule',{
         return this.label;
     }
 });
+Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias: 'widget.tsstorycompletednoactuals',
+    config: {
+        model: 'HierarchicalRequirement',
+        label: 'Completed without Actuals (User Story)',
+        completedStates: ['Completed','Accepted']
+    },
+    
+    getFetchFields: function() {
+        return ['Actuals','ScheduleState'];
+    },
+    
+    getFilters: function() {
+        return Rally.data.wsapi.Filter.and([
+            {property:'ScheduleState',operator:'>=',value:'Completed'},
+            {property:'TaskActualTotal',operator: '<', value: .0000001 }
+        ]);
+    },
+    // return false if the record doesn't match
+    // return string if record fails the rule
+    applyRuleToRecord: function(record) {
+        if ( record.get('TaskActualTotal') > 0 || !Ext.Array.contains(this.completedStates, record.get('ScheduleState')) ) {
+            return false; 
+        }
+        return Ext.String.format('Completed but has no Actuals (State:{0})', record.get('ScheduleState'));
+    },
+    
+    getUserFriendlyRuleLabel: function() {        
+        return this.label;
+    }
+});
 Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     extend: 'CA.techservices.validation.BaseRule',
     alias:  'widget.tsstoryrequiredfieldrule',
@@ -1084,7 +1116,6 @@ Ext.define('CA.techservices.validator.Validator',{
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
-            console.log(model,fields);
             if ( !Ext.isEmpty(model) && !Ext.isEmpty(fields) && fields.length > 0 ) {
                 if ( Ext.isEmpty(fields_by_model[model]) ) {
                     fields_by_model[model] = [me.categoryField,'Name'];
@@ -1107,9 +1138,7 @@ Ext.define('CA.techservices.validator.Validator',{
     gatherData: function() {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-        
-        console.log('gatherData');
-        
+                
         var fetch_by_model = this.getFetchFieldsByModel();
         var filters_by_model = this.getFiltersByModel();
         
@@ -1128,7 +1157,6 @@ Ext.define('CA.techservices.validator.Validator',{
             promises.push(promise);
         },this);
         
-        console.log('promises', promises);
         Deft.Chain.sequence(promises,this).then({
             success: function(results) {
                 me.recordsByModel = {};
@@ -1249,7 +1277,6 @@ Ext.define('CA.techservices.validator.Validator',{
     
     _loadWsapiRecords: function(config) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log("loading ", config);
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(results) {
@@ -1283,7 +1310,8 @@ extend: 'CA.techservices.app.ChartApp',
             'c_AcceptanceCriteria','c_Type','c_IsTestable']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
         {xtype:'tstasktodonoestimate'},
-        {xtype:'tstaskactivenotodo'}
+        {xtype:'tstaskactivenotodo'},
+        {xtype:'tsstorycompletednoactuals'}
     ],
     
     launch: function() {
