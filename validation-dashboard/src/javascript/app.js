@@ -19,7 +19,8 @@ extend: 'CA.techservices.app.ChartApp',
         {xtype:'tstasktodonoestimate'},
         {xtype:'tstaskactivenotodo'},
         {xtype:'tsstorycompletednoactuals'},
-        {xtype:'tstaskcompletednoactuals'}
+        {xtype:'tstaskcompletednoactuals'},
+        {xtype:'tsstorywithoutepmsid'}
     ],
     
     launch: function() {

@@ -3,11 +3,11 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 18:38:44 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Apr 27 2016 18:58:38 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 18:38:44 GMT-0700 (PDT)";
-        var CHECKSUM = 43226650938;
+        var APP_BUILD_DATE = "Wed Apr 27 2016 18:58:38 GMT-0700 (PDT)";
+        var CHECKSUM = 45636262199;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -930,6 +930,44 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         return Rally.data.wsapi.Filter.or(filters);
     }
 });
+Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias: 'widget.tsstorywithoutepmsid',
+    config: {
+        model: 'HierarchicalRequirement',
+        label: 'Story without EPMS ID'
+    },
+    
+    getFetchFields: function() {
+        return ['Feature','Parent','c_EPMSid'];
+    },
+    
+    getFilters: function() {
+        return Rally.data.wsapi.Filter.and([
+            {property:'Feature.Parent.c_EPMSid',operator:'=',value:''}
+        ]);
+    },
+    // return false if the record doesn't match
+    // return string if record fails the rule
+    applyRuleToRecord: function(record) {
+        if ( Ext.isEmpty(record.get('Feature')) ) {
+            return 'Has no EPMS ID (no Feature)';
+        }
+        
+        if ( Ext.isEmpty(record.get('Feature').Parent )) {
+            return 'Has no EPMS ID (no EPMS Project)';
+        }
+        
+        if ( Ext.isEmpty(record.get('Feature').Parent.c_EPMSid) ) {
+            return 'Has no EPMS ID';
+        }
+        return false;
+    },
+    
+    getUserFriendlyRuleLabel: function() {        
+        return this.label;
+    }
+});
 Ext.define('CA.techservices.validation.TaskActiveNoToDo',{
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tstaskactivenotodo',
@@ -1346,7 +1384,8 @@ extend: 'CA.techservices.app.ChartApp',
         {xtype:'tstasktodonoestimate'},
         {xtype:'tstaskactivenotodo'},
         {xtype:'tsstorycompletednoactuals'},
-        {xtype:'tstaskcompletednoactuals'}
+        {xtype:'tstaskcompletednoactuals'},
+        {xtype:'tsstorywithoutepmsid'}
     ],
     
     launch: function() {
