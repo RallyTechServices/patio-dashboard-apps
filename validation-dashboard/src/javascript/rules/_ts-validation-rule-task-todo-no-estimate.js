@@ -22,7 +22,7 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
         if ( !record.get('ToDo') > 0 || record.get('Estimate') > 0 ) {
             return false; 
         }
-        return Ext.String.format('Has Task ToDo But No Estimate (ToDo:{0})', record.get('ToDo'));
+        return Ext.String.format('Has ToDo But No Estimate (ToDo:{0})', record.get('ToDo'));
     },
     
     getUserFriendlyRuleLabel: function() {        

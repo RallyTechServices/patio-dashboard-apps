@@ -15,7 +15,8 @@ extend: 'CA.techservices.app.ChartApp',
     rules: [ 
         {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature','c_AcceptanceCriteria']},
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
-        {xtype:'tstasktodonoestimate'}
+        {xtype:'tstasktodonoestimate'},
+        {xtype:'tstaskactivenotodo'}
     ],
     
     launch: function() {
@@ -139,7 +140,7 @@ extend: 'CA.techservices.app.ChartApp',
                     {
                         dataIndex: '__ruleText',
                         text: 'Violations',
-                        flex: 1,
+                        flex: 2,
                         renderer: function(value, meta, record) {
                             if ( Ext.isEmpty(value) ) { return ""; }
                             var display_value = "";
