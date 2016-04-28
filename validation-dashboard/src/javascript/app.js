@@ -29,7 +29,7 @@ extend: 'CA.techservices.app.ChartApp',
         this.callParent();
         var me = this;
         
-        //this._addSelectors();
+        this._addSelectors();
         
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
@@ -89,7 +89,11 @@ extend: 'CA.techservices.app.ChartApp',
                     Ext.Msg.alert('','No violations found');
                     return;
                 }
+                
+                this.display_rows = Ext.Object.getValues( validator.recordsByModel );
+                
                 this._makeChart(results);
+                this.down('#export_button').setDisabled(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading data', msg);
@@ -99,8 +103,24 @@ extend: 'CA.techservices.app.ChartApp',
     }, 
     
     _addSelectors: function() {
+        var container = this.down('#banner_box');
+        container.removeAll();
         
+        container.add({xtype:'container',flex: 1});
         
+        container.add({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: function() {
+                    this._export();
+                }
+            }
+        });
     },
     
     _makeChart: function(data) {
@@ -189,5 +209,74 @@ extend: 'CA.techservices.app.ChartApp',
                 store : store
             }]
         }).show();
+    },
+    
+    _export: function(){
+        var me = this;
+        this.logger.log('_export');
+        
+        var grid = this.down('rallygrid');
+        var rows = Ext.Array.flatten( this.display_rows );
+        
+        rows = Ext.Array.map(rows, function(row) { return row.data; });
+        
+        this.logger.log('number of rows:', rows.length);
+        
+        if (!rows ) { return; }
+        
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        if ( !grid ) {
+            grid = Ext.create('Rally.ui.grid.Grid',{
+                store: store,
+                columnCfgs: [{
+                    dataIndex: 'FormattedID',
+                    text: 'ID'
+                },
+                {
+                    dataIndex: 'Name',
+                    text: 'Name'
+                },
+                {
+                    dataIndex: 'Project',
+                    text: 'Project',
+                    renderer: function(value,meta,record){
+                        if ( Ext.isEmpty(value) ) { 
+                            return "";
+                        }
+                        return value._refObjectName
+                    }
+                },
+                {
+                    dataIndex: '__ruleText',
+                    text:'Rules',
+                    renderer: function(value,meta,record){                        
+                        return value.join('\r\n');
+                    }
+                }
+                
+                ]
+            });
+        }
+        
+        var filename = 'timesheet-report.csv';
+
+        this.logger.log('saving file:', filename);
+        
+        this.setLoading("Generating CSV");
+        Deft.Chain.sequence([
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromRows(this,grid,rows); } 
+        ]).then({
+            scope: this,
+            success: function(csv){
+                this.logger.log('got back csv ', csv.length);
+                if (csv && csv.length > 0){
+                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
+                } else {
+                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
+                }
+                
+            }
+        }).always(function() { me.setLoading(false); });
     }
 });

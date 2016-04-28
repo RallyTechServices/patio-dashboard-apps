@@ -9,7 +9,7 @@ Ext.define("CA.techservices.app.ChartApp", {
     
     items: [
         {xtype:'container', width:'98%', items:[
-            {xtype:'container',itemId:'banner_box'},
+            {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
             {xtype:'tschartwithdescription' },
             {xtype:'container',itemId:'additional_display_box'}
         ]}
