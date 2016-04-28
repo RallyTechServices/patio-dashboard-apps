@@ -4,7 +4,7 @@ extend: 'CA.techservices.app.ChartApp',
     description: '<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
-                'represents a team.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
+                'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
                 '<strong>Rules</strong>' +
@@ -14,16 +14,28 @@ extend: 'CA.techservices.app.ChartApp',
         name : "TSValidationApp"
     },
 
-    rules: [ 
-        {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature',
-            'c_AcceptanceCriteria','c_Type','c_IsTestable']},
-        {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
-        {xtype:'tstasktodonoestimate'},
-        {xtype:'tstaskactivenotodo'},
-        {xtype:'tsstorycompletednoactuals'},
-        {xtype:'tstaskcompletednoactuals'},
-        {xtype:'tsstorywithoutepmsid'}
-    ],
+    config: {
+        defaultSettings: {
+            showPatterns: false,
+            showStoryRules: true,
+            showTaskRules: false
+        }
+    },
+
+    rulesByType: {
+        Task: [
+            {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
+            {xtype:'tstasktodonoestimate'},
+            {xtype:'tstaskactivenotodo'},
+            {xtype:'tstaskcompletednoactuals'}
+        ],
+        HierarchicalRequirement: [
+            {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature',
+                'c_AcceptanceCriteria','c_Type','c_IsTestable']},
+            {xtype:'tsstorycompletednoactuals'},
+            {xtype:'tsstorywithoutepmsid'}
+        ]
+    },
     
     launch: function() {
         this.callParent();
@@ -51,8 +63,17 @@ extend: 'CA.techservices.app.ChartApp',
             {property:'WorkProduct.Ready', value: true }
         ]);
         
+        
+        var rules = [];
+        if ( this.getSetting('showStoryRules') ) {
+            rules = Ext.Array.push(rules, this.rulesByType['HierarchicalRequirement']);
+        }
+        if ( this.getSetting('showTaskRules') ) {
+            rules = Ext.Array.push(rules, this.rulesByType['Task']);
+        }
+        
         var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: this.rules,
+            rules: rules,
             fetchFields: ['FormattedID','ObjectID'],
             baseFilters: {
                 HierarchicalRequirement: story_base_filter.or(story_ready_filter),
@@ -278,5 +299,34 @@ extend: 'CA.techservices.app.ChartApp',
                 
             }
         }).always(function() { me.setLoading(false); });
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 200',
+            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        },
+        { 
+            name: 'showStoryRules',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 200',
+            boxLabel: 'Show Story Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Stories.</i></span>'
+        },
+        { 
+            name: 'showTaskRules',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 200',
+            boxLabel: 'Show Task Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Tasks.</i></span>'
+        }
+        ];
     }
 });
