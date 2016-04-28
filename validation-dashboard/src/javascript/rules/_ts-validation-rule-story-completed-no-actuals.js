@@ -8,7 +8,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     },
     
     getFetchFields: function() {
-        return ['Actuals','ScheduleState'];
+        return ['TaskActualTotal','ScheduleState'];
     },
     
     getFilters: function() {

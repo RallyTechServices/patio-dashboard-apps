@@ -18,7 +18,8 @@ extend: 'CA.techservices.app.ChartApp',
         {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
         {xtype:'tstasktodonoestimate'},
         {xtype:'tstaskactivenotodo'},
-        {xtype:'tsstorycompletednoactuals'}
+        {xtype:'tsstorycompletednoactuals'},
+        {xtype:'tstaskcompletednoactuals'}
     ],
     
     launch: function() {
