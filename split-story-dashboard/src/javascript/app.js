@@ -170,7 +170,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var config = {
             model: 'HierarchicalRequirement',
             filters: filters,
-            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate']
+            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate','Feature','Project']
         }
         
         return TSUtilities.loadWsapiRecords(config);
@@ -409,20 +409,39 @@ Ext.define("TSSplitStoryPerSprint", {
         var columns = [
             {
                 dataIndex : 'FormattedID',
-                text: "id"
+                text: "id",
+                flex:1
             },
             {
                 dataIndex : 'Name',
                 text: "Name",
-                flex: 1
+                flex: 3
             },
             {
                 dataIndex: 'ScheduleState',
-                text: 'Schedule State'
+                text: 'Schedule State',
+                flex:1
             },
             {
                 dataIndex: 'PlanEstimate',
-                text: 'Plan Estimate'
+                text: 'Plan Estimate',
+                flex: 1
+            },
+            {
+                dataIndex: 'Feature',
+                text: 'Feature',
+                renderer:function(Feature){
+                        return Feature ? Feature.FormattedID +' : '+Feature.Name : '';
+                },
+                flex: 1
+            },
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                renderer:function(Project){
+                        return Project.Name;
+                },
+                flex: 1
             }
         ];
         
