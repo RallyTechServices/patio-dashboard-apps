@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Apr 27 2016 13:01:32 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Apr 29 2016 15:32:25 GMT-0400 (EDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Apr 27 2016 13:01:32 GMT-0700 (PDT)";
-        var CHECKSUM = 34153037197;
+        var APP_BUILD_DATE = "Fri Apr 29 2016 15:32:25 GMT-0400 (EDT)";
+        var CHECKSUM = 35561196948;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -679,12 +679,18 @@ Ext.define("CA.techservices.app.ChartApp", {
     
     items: [
         {xtype:'container', width:'98%', items:[
-            {xtype:'container',itemId:'banner_box'},
+            {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
             {xtype:'tschartwithdescription' },
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
 
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
     launch: function() {
         this.setDescription();
     }, 
@@ -788,6 +794,19 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.logger.log('onSettingsUpdate',settings);
         // Ext.apply(this, settings);
         this.launch();
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
     }
     
     
@@ -1051,7 +1070,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var config = {
             model: 'HierarchicalRequirement',
             filters: filters,
-            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate']
+            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate','Feature','Project']
         }
         
         return TSUtilities.loadWsapiRecords(config);
@@ -1287,24 +1306,42 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     getDrillDownColumns: function(title) {
-        console.log('title:', title);
         var columns = [
             {
                 dataIndex : 'FormattedID',
-                text: "id"
+                text: "id",
+                flex:1
             },
             {
                 dataIndex : 'Name',
                 text: "Name",
-                flex: 1
+                flex: 3
             },
             {
                 dataIndex: 'ScheduleState',
-                text: 'Schedule State'
+                text: 'Schedule State',
+                flex:1
             },
             {
                 dataIndex: 'PlanEstimate',
-                text: 'Plan Estimate'
+                text: 'Plan Estimate',
+                flex: 1
+            },
+            {
+                dataIndex: 'Feature',
+                text: 'Feature',
+                renderer:function(Feature){
+                        return Feature ? Feature.FormattedID +' : '+Feature.Name : '';
+                },
+                flex: 1
+            },
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                renderer:function(Project){
+                        return Project.Name;
+                },
+                flex: 1
             }
         ];
         
