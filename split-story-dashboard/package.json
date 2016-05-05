@@ -11,6 +11,7 @@
     "underscore": "1.4.4",
     "grunt-contrib-uglify":"0.3.2",
     "request":"2.67",
-    "grunt-contrib-watch":"1.0.0"
+    "grunt-contrib-watch":"1.0.0",
+    "username":"2.1.0"
   }
 }

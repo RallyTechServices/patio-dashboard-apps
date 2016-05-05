@@ -129,6 +129,7 @@ module.exports = function(grunt) {
         }
     });
     
+       
     grunt.registerTask('setPostBuildInfo', 'Make a sloppy checksum', function() {
         var fs = require('fs'),
             username = require('username');
@@ -162,6 +163,7 @@ module.exports = function(grunt) {
         grunt.file.write(deploy_file_name,output);
     }); 
 
+    
     grunt.registerTask('install', 'Deploy the app to a rally instance', function() {
         
         if ( ! config.auth ) { 
