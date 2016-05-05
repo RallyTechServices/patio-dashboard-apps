@@ -1,6 +1,6 @@
 #Delivery Acceleration
 
-* Being developed
+![Screen Shot](images/chart.png)
 
 ## Development Notes
 
