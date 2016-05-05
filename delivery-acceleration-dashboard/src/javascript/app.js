@@ -7,9 +7,11 @@ Ext.define("TSDeliveryAcceleration", {
             "from this iteration will be used as a baseline for the following " +
             "iterations.  " +
             "<p/>" +
+            "Click on a bar or point on the line to see a table with the accepted items from that sprint." +
+            "<p/>" +
             "<ul>" +
             "<li>The line on the chart shows each iteration's velocity</li>" +
-            "<li>The bars on the chart show the difference from the baseline</li>" +
+            "<li>The bars on the chart show the percentage difference from the baseline velocity.</li>" +
             "</ul>",
     
     integrationHeaders : {
@@ -39,11 +41,13 @@ Ext.define("TSDeliveryAcceleration", {
         this.metric = "size";
         
         Deft.Chain.pipeline([
-            this._fetchIterationsAfterBaseline
+            this._fetchIterationsAfterBaseline,
+            this._fetchArtifactsInIterations
         ],this).then({
             scope: this,
             success: function(results) {
-                console.log('results', results);
+                var artifacts_by_iteration = this._collectArtifactsByIteration(results);
+                this._makeChart(artifacts_by_iteration);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -56,12 +60,10 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this,
             deferred = Ext.create('Deft.Deferred'),
             baseIterationRef = this.getSetting('baseIteration');
-            
-        console.log('base Iteration:', baseIterationRef);
+                    
+        var fetch = ['ObjectID','Name','StartDate','EndDate'];
         
-        var fields = ['ObjectID','Name','StartDate','EndDate'];
-        
-        this._getRecordByRef(baseIterationRef, fields).then({
+        this._getRecordByRef(baseIterationRef, fetch).then({
             scope: this,
             success: function(base_iteration) {
                 this.baseIterationObject = base_iteration;
@@ -70,6 +72,7 @@ Ext.define("TSDeliveryAcceleration", {
                     model:'Iteration',
                     limit: 10,
                     pageSize: 10,
+                    fetch: fetch,
                     context: {
                         projectScopeUp: false,
                         projectScopeDown: false
@@ -96,6 +99,206 @@ Ext.define("TSDeliveryAcceleration", {
         });
         
         return deferred.promise;
+    },
+    
+    _fetchArtifactsInIterations: function(iterations) {
+        if ( iterations.length === 0 ) { return; }
+        
+        var deferred = Ext.create('Deft.Deferred');
+        var first_date = iterations[0].get('StartDate');
+        var last_date = iterations[iterations.length - 1].get('StartDate');
+        
+        var filters = [
+            {property:'Iteration.StartDate', operator: '>=', value:first_date},
+            {property:'Iteration.StartDate', operator: '<=', value:last_date},
+            {property:'AcceptedDate', operator: '!=', value: null }
+        ];
+        
+        var config = {
+            model:'HierarchicalRequirement',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate']
+        };
+        
+        Deft.Chain.sequence([
+            function() { 
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "Defect";
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "TestSet";
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "DefectSuite";
+                return TSUtilities.loadWsapiRecords(config);
+            }
+        ],this).then({
+            success: function(results) {
+                deferred.resolve(Ext.Array.flatten(results));
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _collectArtifactsByIteration: function(items) {
+        var hash = {};
+        if ( items.length === 0 ) { return hash; }
+        
+        Ext.Array.each(items, function(item){
+            var iteration = item.get('Iteration').Name;
+            if ( Ext.isEmpty(hash[iteration])){
+                hash[iteration]={
+                    items: []
+                };
+            }
+            hash[iteration].items.push(item);
+        });
+        
+        Ext.Object.each(hash, function(iteration,value){
+            var items = value.items;
+            var estimates = Ext.Array.map(items, function(item){
+                return item.get('PlanEstimate') || 0;
+            });
+            value.velocity = Ext.Array.sum(estimates);
+        });
+        
+        var values = Ext.Object.getValues(hash);
+        var baseline = values[0].velocity;
+        
+        Ext.Object.each(hash, function(iteration, value) {
+            var velocity = value.velocity || 0;
+            var delta = 0;
+            if ( baseline > 0 ) {
+                delta = Math.round( 100 * ( velocity - baseline ) / baseline );
+            }
+            value.delta = delta;
+        });
+        return hash;
+    },
+    
+    _makeChart: function(artifacts_by_sprint) {
+        var me = this;
+
+        var categories = this._getCategories(artifacts_by_sprint);
+        var series = this._getSeries(artifacts_by_sprint);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
+        });
+    },
+    
+    _getSeries: function(artifacts_by_sprint) {
+        var series = [];
+        
+        series.push({
+            name: 'Acceleration',
+            data: this._getVelocityAcceleration(artifacts_by_sprint),
+            type:'column',
+            yAxis: "b",
+            tooltip: {
+                valueSuffix: ' %'
+            }
+        });
+        
+        series.push({
+            name: 'Velocity', 
+            data: this._getVelocityData(artifacts_by_sprint),
+            type:'line',
+            yAxis: "a"
+        });
+        
+        
+        return series;
+    },
+    
+    _getVelocityData: function(artifacts_by_sprint) {
+        var me = this,
+            data = [];
+        
+        Ext.Object.each(artifacts_by_sprint, function(iteration, value){
+            data.push({ 
+                y: value.velocity,
+                _records: value.items,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  iteration);
+                    }
+                }
+            });
+        });
+        
+        return data;
+        
+    },
+    
+    _getVelocityAcceleration: function(artifacts_by_sprint) {
+        var me = this,
+            data = [];
+        
+        Ext.Object.each(artifacts_by_sprint, function(iteration, value){
+            data.push({ 
+                y: value.delta,
+                _records: value.items,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  iteration);
+                    }
+                }
+            });
+        });
+        
+        return data;
+        
+    },
+    
+    _getCategories: function(artifacts_by_sprint) {
+        return Ext.Object.getKeys(artifacts_by_sprint);
+    },
+    
+    _getChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Delivery Acceleration' },
+            xAxis: {},
+            yAxis: [{ 
+                id: "a",
+                //min: 0,
+                title: { text: 'Velocity' }
+            },
+            {
+                id: "b",
+                title: { text: '' },
+                opposite: true
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            },
+            tooltip: {
+                formatter: function() {
+                    if ( this.series.name == "Acceleration" ) {
+                        return '<b>'+ this.series.name +'</b>: '+ this.point.y + "%";
+                    }
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
+            }
+        }
     },
     
     _getRecordByRef: function(ref, fields) {
@@ -136,7 +339,7 @@ Ext.define("TSDeliveryAcceleration", {
             name: 'baseIteration',
             xtype:'rallyiterationcombobox',
             fieldLabel: 'Base Iteration',
-            margin: '0 0 10 25',
+            margin: '0 0 10 25'
 //            storeConfig: {
 //            TODO: limit to past iterations
 //                fetch: ["Name", 'StartDate', 'EndDate', "ObjectID", "State", "PlannedVelocity"],
