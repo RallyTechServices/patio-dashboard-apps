@@ -2,6 +2,8 @@
 
 ![Screen Shot](images/chart.png)
 
+This chart shows the velocity of a series of sprints or releases as a line and the ratio of change in the velocity (as calculated from the initial one) as a series of columns.
+
 ## Development Notes
 
 ### First Load
