@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delivery Efficiency</title>
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed May 11 2016 14:13:03 GMT-0700 (PDT)";
+    </script>
+    
+    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            Rally.loadScripts(["../common/src/javascript/__ts-general-utils.js","../common/src/javascript/__ts-info-link.js","../common/src/javascript/__ts-logger.js","../common/src/javascript/_ts-patterns.js","../common/src/javascript/colors.js","../common/src/javascript/ts-chart-and-description.js","../common/src/javascript/ts-chart-app.js","src/javascript/app.js"],
+	            function() {
+	                Rally.launchApp('TSDeliveryEfficiency', {
+	                    name: 'Delivery Efficiency'
+	                })
+	            }, true);
+        });
+    </script>
+<link rel="stylesheet" type="text/css" href="../common/src/style/info-panel.css"><link rel="stylesheet" type="text/css" href="src/style/app.css">
+
+</head>
+<body></body>
+</html>

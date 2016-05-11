@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delivery Efficiency</title>
+    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed May 11 2016 16:31:29 GMT-0700 (PDT) -->
+    
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed May 11 2016 16:31:29 GMT-0700 (PDT)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 26069952747;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+    <!-- our highcharts (needed so that we can add patterns) -->
+    <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+Ext.define('TSUtilities', {
+    singleton: true,
+      
+    loadWsapiRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+     
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        console.log(editor_permissions);
+        return ( editor_permissions.length > 0 );
+    },
+    
+    getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
+    },
+    
+    // true if sub or workspace admin
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
+        
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    is_workspace_admin = true;
+                }
+            });
+        }
+        
+        return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
+    },
+    
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+        
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        return can_unlock;
+    },
+    
+    _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    }
+});
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+   
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: Ext.String.format("Build date/time: {0} ({1})",
+                    APP_BUILD_DATE,
+                    BUILDER)
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+(function() {
+
+    'use strict';
+
+    var idCounter = 0,
+        wrap = Highcharts.wrap,
+        each = Highcharts.each;
+
+    /**
+     * Exposed method to add a pattern to the renderer.
+     */
+    Highcharts.SVGRenderer.prototype.addPattern = function (id, options) {
+        var pattern,
+            path,
+            w = options.width || 10,
+            h = options.height || 10,
+            ren = this;
+
+        /**
+         * Add a rectangle for solid color
+         */
+        function rect (fill) {
+            ren.rect(0, 0, w, h)
+                .attr({
+                    fill: fill
+                })
+                .add(pattern);
+        }
+
+        if (!id) {
+            id = 'highcharts-pattern-' + idCounter;
+            idCounter += 1;
+        }
+
+        pattern = this.createElement('pattern').attr({
+            id: id,
+            patternUnits: 'userSpaceOnUse',
+            width: options.width || 10,
+            height: options.height || 10
+        }).add(this.defs);
+
+        // Get id
+        pattern.id = pattern.element.id;
+
+        // Use an SVG path for the pattern
+        if (options.path) {
+            path = options.path;
+
+            // The background
+            if (path.fill) {
+                rect(path.fill);
+            }
+
+            // The pattern
+            this.createElement('path').attr({
+                'd': path.d || path,
+                'stroke': path.stroke || options.color || '#343434',
+                'stroke-width': path.strokeWidth || 2
+            }).add(pattern);
+            pattern.color = options.color;
+
+        // Image pattern
+        } else if (options.image) {
+
+            this.image(options.image, 0, 0, options.width, options.height).add(pattern);
+
+        // A solid color
+        } else if (options.color) {
+
+            rect(options.color);
+
+        }
+
+        if (options.opacity !== undefined) {
+            each(pattern.element.children, function (child) {
+                child.setAttribute('opacity', options.opacity);
+            });
+        }
+
+        return pattern;
+    };
+
+    if (Highcharts.VMLElement) {
+
+        Highcharts.VMLRenderer.prototype.addPattern = function (id, options) {
+
+            var patterns;
+            if (!id) {
+                id = 'highcharts-pattern-' + idCounter;
+                idCounter += 1;
+            }
+            patterns = this.patterns || {};
+            patterns[id] = options;
+            this.patterns = patterns;
+        };
+
+        Highcharts.wrap(Highcharts.VMLRenderer.prototype.Element.prototype, 'fillSetter', function (proceed, color, prop, elem) {
+            if (typeof color === 'string' && color.substring(0, 5) === 'url(#') {
+                var id = color.substring(5, color.length - 1),
+                    pattern = this.renderer.patterns[id],
+                    markup;
+
+                if (pattern.image) {
+                    // Remove Previous fills                    
+                    if (elem.getElementsByTagName('fill').length) {
+                        elem.removeChild(elem.getElementsByTagName('fill')[0]);
+                    }
+
+                    markup = this.renderer.prepVML(['<', prop, ' type="tile" src="', pattern.image, '" />']);
+                    elem.appendChild(document.createElement(markup));
+
+                    // Work around display bug on updating attached nodes
+                    if (elem.parentNode.nodeType === 1) {
+                        elem.outerHTML = elem.outerHTML;
+                    }
+
+                } else if (pattern.color) {
+                    proceed.call(this, pattern.color, prop, elem);
+                } else {
+                    proceed.call(this, '#A0A0A0', prop, elem);
+                }
+            } else {
+                proceed.call(this, color, prop, elem);
+            }
+        });
+    }
+
+    /**
+     * Add the predefined patterns
+     */
+    function addPredefinedPatterns(renderer) {
+        var colors = Highcharts.getOptions().colors;
+
+        each([
+            'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11',
+            'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9',
+            'M 3 0 L 3 10 M 8 0 L 8 10',
+            'M 0 3 L 10 3 M 0 8 L 10 8',
+            'M 0 3 L 5 3 L 5 0 M 5 10 L 5 7 L 10 7',
+            'M 3 3 L 8 3 L 8 8 L 3 8 Z',
+            'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0',
+            'M 10 3 L 5 3 L 5 0 M 5 10 L 5 7 L 0 7',
+            'M 2 5 L 5 2 L 8 5 L 5 8 Z',
+            'M 0 0 L 5 10 L 10 0'
+        ], function (pattern, i) {
+            renderer.addPattern('highcharts-default-pattern-' + i, {
+                path: pattern,
+                color: colors[i]
+            });
+        });
+        
+        var patterns = {
+            'diagonal-down': {path: 'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11', color: 'black' },
+            'diagonal-up':   {path: 'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9', color: 'black' },
+            'vertical':      {path: 'M 3 0 L 3 10 M 8 0 L 8 10', color: 'black' },
+            'horizontal':    {path: 'M 0 3 L 10 3 M 0 8 L 10 8', color: 'black' },
+            'circles':       {path: 'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0', color: 'white' },
+            'squares':       {path: 'M 3 3 L 8 3 L 8 8 L 3 8 Z', color: 'black' },
+            'diamonds':      {path: 'M 0 0 L 5 10 L 10 0', color: 'black' }
+
+        };
+        
+        Ext.Object.each(patterns, function(name,config) { 
+            renderer.addPattern(name, config);
+        });
+    }
+
+    // Add patterns to the defs element
+    wrap(Highcharts.Chart.prototype, 'getContainer', function (proceed) {
+        proceed.apply(this);
+
+        var chart = this,
+            renderer = chart.renderer,
+            options = chart.options,
+            patterns = options.defs && options.defs.patterns;
+
+        // First add default patterns
+        addPredefinedPatterns(renderer);
+
+        // Add user defined patterns
+        if (patterns) {
+            each(patterns, function (pattern) {
+                renderer.addPattern(pattern.id, pattern);
+            });
+        }
+
+    });
+
+}());
+Ext.define("CA.apps.charts.Colors", {
+    
+    singleton: true, 
+    
+    // RGB values obtained from here: http://ux-blog.rallydev.com/?cat=23
+    grey4: "#C0C0C0",  // $grey4
+    orange: "#FF8200",  // $orange
+    gold: "#F6A900",  // $gold
+    yellow: "#FAD200",  // $yellow
+    lime: "#8DC63F",  // $lime
+    green_dk: "#1E7C00",  // $green_dk
+    blue_link: "#337EC6",  // $blue_link
+    blue: "#005EB8",  // $blue
+    blue_dark: '#00386e', 
+    blue_light: '#b2cee9',
+    purple : "#7832A5",  // $purple,
+    pink : "#DA1884",   // $pink,
+    grey7 : "#666",
+
+    cumulativeFlowColors : function() {
+        return [
+            this.grey4, this.orange, this.gold, this.yellow, this.lime, this.green_dk, this.blue_link, this.blue, this.purple, this.pink
+        ];
+    },
+
+    burnLineColor : function (){ return this.blue; },
+    burnColumnColor : function() { return this.lime; },
+    
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; },
+    
+    getConsistentBarPatterns: function() { 
+        return [
+            'url(#circles)',
+            'url(#diagonal-down)',
+            'url(#diagonal-up)',
+            'url(#vertical)',
+            'url(#horizontal)',
+            'url(#squares)',
+            'url(#diamonds)',
+            'url(#highcharts-default-pattern-6)',
+            'url(#highcharts-default-pattern-7)'
+        ];
+    }
+});
+
+Ext.define('CA.techservices.container.ChartWithDescription',{
+    extend: 'Ext.container.Container',
+    alias:  'widget.tschartwithdescription',
+    
+    layout: 'hbox',
+    
+    items: [
+        {xtype:'container', itemId:'chart_box', flex: 1},
+        {xtype:'container', itemId:'description_box'}
+    ],
+    
+    setDescription: function(description) {
+        var box = this.down('#description_box');
+        box.removeAll();
+        
+        if ( Ext.isEmpty(description) ) {
+            return;
+        }
+        box.add({
+            xtype:'panel',
+            ui: 'info-box',
+            title: '<span class="icon-info-circle"> </span>',
+            collapsible: true,
+            collapsed: true,
+            collapseDirection: 'right',
+            headerPosition: 'left',
+            width: 375,
+            height: 375,
+            margin: 5,
+            html: description
+            
+        });
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
+        box.removeAll();
+        
+        
+        var chart_config = Ext.apply({
+            xtype:'rallychart',
+            loadMask: false,
+            chartColors: CA.apps.charts.Colors.getConsistentBarColors()
+        }, config);
+        
+        box.add(chart_config);
+    }
+});
+Ext.define("CA.techservices.app.ChartApp", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    padding: 5,
+    
+    description: '<em>No Description Available</em>',
+    
+    items: [
+        {xtype:'container', width:'98%', items:[
+            {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
+            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'additional_display_box'}
+        ]}
+    ],
+
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
+    launch: function() {
+        this.setDescription();
+    }, 
+    
+    setDescription: function() {
+        this.down('tschartwithdescription').setDescription(this.description);
+    },
+    
+    clearBanner: function() {
+        this.down('#banner_box').removeAll();
+    },
+    
+    addToBanner: function(config) {
+        return this.down('#banner_box').add(config);
+    },
+    
+    clearAdditionalDisplay: function() {
+        this.down('#additional_display_box').removeAll();
+    },
+    
+    addToAdditionalDisplay: function(config) {
+        return this.down('#additional_display_box').add(config);
+    },
+    
+    setChart: function(config) {
+        return this.down('tschartwithdescription').setChart(config);
+    },
+    
+    getDrillDownColumns: function(title) {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
+    showDrillDown: function(stories, title) {
+        var me = this;
+
+        var store = Ext.create('Rally.data.custom.Store', {
+            data: stories,
+            pageSize: 2000
+        });
+        
+        Ext.create('Rally.ui.dialog.Dialog', {
+            id        : 'detailPopup',
+            title     : title,
+            width     : Ext.getBody().getWidth() - 50,
+            height    : Ext.getBody().getHeight() - 50,
+            closable  : true,
+            layout    : 'border',
+            items     : [
+            {
+                xtype                : 'rallygrid',
+                region               : 'center',
+                layout               : 'fit',
+                sortableColumns      : true,
+                showRowActionsColumn : false,
+                showPagingToolbar    : false,
+                columnCfgs           : this.getDrillDownColumns(title),
+                store : store
+            }]
+        }).show();
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
+    }
+    
+    
+    
+});
+
+Ext.define("TSDeliveryEfficiency", {
+    extend: 'CA.techservices.app.ChartApp',
+
+    description: "<strong>Delivery Efficiency</strong><br/>" +
+            "<br/>" +
+            "This chart can help teams understand where time is being spent while delivering value. " +
+            "This dashboard allows teams to identify how efficiently they are workingto deliver an " +
+            "accepted point of each of the different task types." +
+            "<p/>" +
+            "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
+            "<p/>",
+    
+    integrationHeaders : {
+        name : "TSDeliveryAcceleration"
+    },
+    
+    config: {
+        defaultSettings: {
+            showPatterns: false,
+            typeField: 'c_Type'
+        }
+    },
+                        
+    launch: function() {
+        this.callParent();
+        
+        this._getAllowedValues('UserStory',this.getSetting('typeField')).then({
+            scope: this,
+            success: function(values) {
+                this.allowed_types = values;
+                this._updateData();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading allowed values', msg);
+            }
+        });
+    }, 
+    
+    _getAllowedValues: function(model, field_name) {
+        var deferred = Ext.create('Deft.Deferred');
+
+        Rally.data.ModelFactory.getModel({
+            type: model,
+            success: function(model) {
+                model.getField(field_name).getAllowedValueStore().load({
+                    callback: function(records, operation, success) {
+                        var values = Ext.Array.map(records, function(record) {
+                            return record.get('StringValue');
+                        });
+                        deferred.resolve(values);
+                    }
+                });
+            },
+            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
+        });
+        return deferred;
+    },
+    
+    _updateData: function() {
+        var me = this;
+        this.metric = "size";
+        this.timebox_type = 'Iteration';
+        
+        Deft.Chain.pipeline([
+            this._fetchTimeboxes,
+            this._sortIterations,
+            this._fetchArtifactsInTimeboxes
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
+                
+                this._makeChart(artifacts_by_timebox);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('--', msg);
+            }
+        });
+        
+    },
+    
+    _fetchTimeboxes: function() {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred'),
+            type = this.timebox_type;
+                
+        this.setLoading("Fetching timeboxes...");
+                
+        var config = {
+            model: type,
+            limit: 10,
+            pageSize: 10,
+            fetch: ['Name','StartDate','EndDate'],
+            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:'EndDate', direction:'DESC'}],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false
+            }
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _sortIterations: function(iterations) {
+        
+        Ext.Array.sort(iterations, function(a,b){
+            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+            return 0;
+        });
+        
+        return iterations;
+    },
+    
+    _fetchArtifactsInTimeboxes: function(timeboxes) {
+        if ( timeboxes.length === 0 ) { return; }
+        
+        var type = this.timebox_type;
+        var type_field = this.getSetting('typeField');
+        
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
+        }
+        
+        var deferred = Ext.create('Deft.Deferred');
+        var first_date = timeboxes[0].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        
+        var filters = [
+            {property: type + '.' + start_field, operator: '>=', value:first_date},
+            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property:'AcceptedDate', operator: '!=', value: null }
+        ];
+        
+        var config = {
+            model:'HierarchicalRequirement',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate','Release',type_field]
+        };
+        
+        Deft.Chain.sequence([
+            function() { 
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "Defect";
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "TestSet";
+                return TSUtilities.loadWsapiRecords(config);
+            },
+            function() {
+                config.model = "DefectSuite";
+                return TSUtilities.loadWsapiRecords(config);
+            }
+        ],this).then({
+            success: function(results) {
+                deferred.resolve(Ext.Array.flatten(results));
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    /* 
+     * returns a hash of hashes -- key is iteration name value is
+     * another hash where the records key holds a hash
+     *    the records hash has a key for each allowed value 
+     *    which then provides an array of items that match the allowed value 
+     *    and timebox
+     * as in
+     * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
+     */
+    _collectArtifactsByTimebox: function(items) {
+        var hash = {},
+            timebox_type = this.timebox_type,
+            type_field = this.getSetting('typeField'),
+            allowed_types = this.allowed_types;
+        
+        console.log('allowed types', allowed_types);
+        
+        if ( items.length === 0 ) { return hash; }
+        
+        var base_hash = {
+            records: {
+                all: []
+            }
+        };
+        Ext.Array.each(allowed_types, function(value) {
+            base_hash.records[value] = [];
+        });
+        
+        Ext.Array.each(items, function(item){
+            var timebox = item.get(timebox_type).Name;
+            
+            if ( Ext.isEmpty(hash[timebox])){
+                
+                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
+            }
+            hash[timebox].records.all.push(item);
+            
+            var type = item.get(type_field) || "";
+            if ( Ext.isEmpty(hash[timebox].records[type]) ) {
+                hash[timebox].records[type] = [];
+            }
+            hash[timebox].records[type].push(item);
+        });
+        
+        console.log(hash);
+        return hash;
+    },
+    
+    _makeChart: function(artifacts_by_timebox) {
+        var me = this;
+
+        var categories = this._getCategories(artifacts_by_timebox);
+        var series = this._getSeries(artifacts_by_timebox);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
+        });
+        this.setLoading(false);
+    },
+    
+    _getSeries: function(artifacts_by_timebox) {
+        var series = [],
+            allowed_types = this.allowed_types;
+        
+        Ext.Array.each(allowed_types, function(allowed_type){
+            var name = allowed_type;
+            if ( Ext.isEmpty(name) ) { name = "-None-"; }
+            
+            series.push({
+                name: name,
+                data: this._getValocity(artifacts_by_timebox,allowed_type),
+                type: 'column',
+                stack: 'a'
+            });
+        },this);
+        
+        return series;
+    },
+    
+    _getValocity: function(artifacts_by_timebox,allowed_type) {
+        var me = this,
+            data = [];
+        
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+            var records = value.records[allowed_type] || [];
+            var velocity = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get('PlanEstimate') || 0;
+                })
+            );
+            
+            data.push({ 
+                y: velocity,
+                _records: records,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  timebox);
+                    }
+                }
+            });
+        });
+        
+        return data;
+        
+    },
+    
+    _getCategories: function(artifacts_by_timebox) {
+        return Ext.Object.getKeys(artifacts_by_timebox);
+    },
+    
+    _getChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Delivery Acceleration' },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'Velocity' }
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            }
+        }
+    },
+    
+    getSettingsFields: function() {
+        return [
+        {
+            xtype: 'rallyfieldcombobox',
+            model: 'UserStory',
+            _isNotHidden: function(field) {
+                //console.log(field);
+                if ( field.hidden ) { return false; }
+                var defn = field.attributeDefinition;
+                if ( Ext.isEmpty(defn) ) { return false; }
+                
+                return ( defn.Constrained && defn.AttributeType == 'STRING' );
+            }
+        },
+        { 
+            name: 'showPatterns',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 25',
+            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        
+        ];
+    }
+});
+
+            
+               Rally.launchApp('TSDeliveryEfficiency', {
+                   name: 'Delivery Efficiency'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.x-panel-body-info-box {
+    color: black;
+    font-size: 10px;
+    background: white;
+    padding: 5px;
+}
+
+.x-panel-info-box {
+    border: 0px dashed blue;
+}
+    
+.x-panel-header-info-box {
+    background-color: #ddd;
+    color: white;
+    font-size: 14px;
+}
+
+.x-panel-header-info-box-vertical {
+    padding: 3px;
+    color: white;
+}
+
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
