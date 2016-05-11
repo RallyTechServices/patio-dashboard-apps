@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 04 2016 22:31:06 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu May 05 2016 10:10:30 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 04 2016 22:31:06 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu May 05 2016 10:10:30 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 36601356209;
+        var CHECKSUM = 36601359042;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>

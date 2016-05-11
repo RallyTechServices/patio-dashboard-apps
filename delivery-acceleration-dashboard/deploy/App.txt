@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Acceleration</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 04 2016 22:26:39 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed May 11 2016 13:59:09 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 04 2016 22:26:39 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed May 11 2016 13:59:09 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 34241471638;
+        var CHECKSUM = 34223747429;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -839,207 +839,110 @@ Ext.define("CA.techservices.app.ChartApp", {
     
 });
 
-/**
- * A link that pops up a version dialog box
- */
+Ext.define('CA.techservices.ToggleButton', {
+    extend: Ext.Container ,
+    alias:'widget.tstogglebutton',
 
-Ext.define('Rally.technicalservices.InfoLink',{
-    extend: 'Rally.ui.dialog.Dialog',
-    alias: 'widget.tsinfolink',
-    
-    /**
-     * @cfg {String} informationHtml
-     * Additional text to be displayed on the popup dialog (for exmaple,
-     * to add a description of the app's use or functionality)
-     */
-    informationHtml: null,
-    
-    /**
-     * 
-     * cfg {String} title
-     * The title for the dialog box
-     */
-    title: "Build Information",
-    
-    defaults: { padding: 5, margin: 5 },
+    componentCls: 'rui-gridboard-toggle toggle-button-group',
+    layout: 'hbox',
+    border: 1,
+    activeButtonCls: 'rly-active hide-tooltip',
 
-    closable: true,
-     
-    draggable: true,
+    toggleState: 'iteration',
 
-    autoShow: true,
-   
-    width: 350,
-    
-    informationalConfig: null,
-    
-    items: [{xtype:'container', itemId:'information' }],
-    
-    initComponent: function() {
-        var id = Ext.id(this);
-        this.title =  "<span class='icon-help'> </span>" + this.title;
-        this.callParent(arguments);
-    },
-    
-    _generateChecksum: function(string){
-        var chk = 0x12345678,
-            i;
-        string = string.replace(/var CHECKSUM = .*;/,"");
-        string = string.replace(/var BUILDER = .*;/,"");
-        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
-       
-        for (i = 0; i < string.length; i++) {
-            chk += (string.charCodeAt(i) * i);
-        }
-   
-        return chk;
-    },
-    
-    _checkChecksum: function(container) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        Ext.Ajax.request({
-            url: document.URL,
-            params: {
-                id: 1
-            },
-            success: function (response) {
-                text = response.responseText;
-                if ( CHECKSUM ) {
-                    var stored_checksum = me._generateChecksum(text);
-                    if ( CHECKSUM !== stored_checksum ) {
-                        deferred.resolve(false);
-                        return;
-                    }
-                }
-                deferred.resolve(true);
+    defaultType: 'rallybutton',
+    items: [
+        {
+            itemId: 'iteration',
+            cls: 'toggle rly-left',
+            frame: false,
+            text: 'I',
+            toolTipConfig: {
+                html: 'Switch to Iteration View',
+                anchor: 'top',
+                hideDelay: 0,
+                constrainPosition: false,
+                anchorOffset: 45,
+                mouseOffset: [-45, 0]
             }
-        });
-        
-        return deferred.promise;
-    },
-    
-    _addToContainer: function(container){
-        var config = Ext.apply({
-            xtype:'container',
-            height: 200,
-            overflowY: true
-        }, this.informationalConfig);
-        
-        container.add(config);
-    },
-    
-    afterRender: function() {
-        var app = Rally.getApp();
-        
-        if ( !Ext.isEmpty( this.informationalConfig ) ) {
-            var container = this.down('#information');
-            this._addToContainer(container);
-            
+        },
+        {
+            itemId: 'release',
+            cls: 'toggle rly-right',
+            frame: false,
+            text: 'R',
+            toolTipConfig: {
+                html: 'Switch to Release View',
+                anchor: 'top',
+                hideDelay: 0,
+                constrainPosition: false,
+                anchorOffset: 65,
+                mouseOffset: [-65, 0]
+            }
         }
-        
-        if (! app.isExternal() ) {
-            this._checkChecksum(app).then({
-                scope: this,
-                success: function(result){
-                    if ( !result ) {
-                        this.addDocked({
-                            xtype:'container',
-                            cls: 'build-info',
-                            dock: 'bottom',
-                            padding: 2,
-                            html:'<span class="icon-warning"> </span>Checksums do not match'
-                        });
+    ],
+
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents([
+            /**
+             * @event toggle
+             * Fires when the toggle value is changed.
+             * @param {CA.techservices.ToggleButton} this
+             * @param {String} toggleState .
+             */
+            'toggle'
+        ]);
+
+        this.items.each(function(item) {
+            this.mon(item, 'click', this._onButtonClick, this);
+        }, this);
+
+        var button = this.down('#'+this.toggleState);
+        if ( button ) {
+            button.addCls(this.activeButtonCls);
+        }
+    },
+
+    _onButtonClick: function(btn) {
+        var btnId = btn.getItemId();
+        if (btnId !== this.toggleState) {
+            this.toggleState = btnId;
+
+            this.items.each(function(item) {
+                if (item === btn) {
+                    if (!item.hasCls(this.activeButtonCls.split(' ')[0])) {
+                        item.addCls(this.activeButtonCls);
                     }
-                },
-                failure: function(msg){
-                    console.log("oops:",msg);
+                } else {
+                    item.removeCls(this.activeButtonCls);
                 }
-            });
-        } else {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                dock: 'bottom',
-                html:'... Running externally'
-            });
+            }, this);
+
+            this.fireEvent('toggle', this, this.toggleState);
         }
-        this.callParent(arguments);
     },
     
-    beforeRender: function() {
-        var me = this;
-        this.callParent(arguments);
-
-        if (this.informationHtml) {
-            this.addDocked({
-                xtype: 'component',
-                componentCls: 'intro-panel',
-                padding: 2,
-                html: this.informationHtml,
-                doc: 'top'
-            });
-        }
-        
-        this.addDocked({
-            xtype:'container',
-            cls: 'build-info',
-            padding: 2,
-            dock:'bottom',
-            html:"This app was created by the CA AC Technical Services Team."
-        });
-        
-        if ( APP_BUILD_DATE ) {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                dock: 'bottom',
-                html: Ext.String.format("Build date/time: {0} ({1})",
-                    APP_BUILD_DATE,
-                    BUILDER)
-            });
-        }
+    getValue: function() {
+        return this.toggleState;
     }
 });
-
-/*
- */
-Ext.define('Rally.technicalservices.Logger',{
-    constructor: function(config){
-        Ext.apply(this,config);
-    },
-    log: function(args){
-        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
-        //var output_args = arguments;
-        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
-        //output_args = Ext.Array.push(output_args,arguments);
-        
-        var output_args = [];
-        output_args = Ext.Array.push(output_args,[timestamp]);
-        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
-
-        window.console && console.log.apply(console,output_args);
-    }
-
-});
-
 Ext.define("TSDeliveryAcceleration", {
     extend: 'CA.techservices.app.ChartApp',
 
     description: "<strong>Delivery Acceleration</strong><br/>" +
             "<br/>" +
-            "In the settings, choose a base iteration.  The velocity " +
-            "from this iteration will be used as a baseline for the following " +
-            "iterations.  " +
+            "This chart displays the velocity and change in velocity for timeboxes that " +
+            "follow a selected timebox.  Use the toggle switch to choose the type of " +
+            "timebox (iteration or release), then use the dropdown to choose a baseline " +
+            "timebox." +
             "<p/>" +
-            "Click on a bar or point on the line to see a table with the accepted items from that sprint." +
+            "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
             "<p/>" +
             "<ul>" +
-            "<li>The line on the chart shows each iteration's velocity</li>" +
-            "<li>The bars on the chart show the percentage difference from the baseline velocity.</li>" +
+            "<li>The line on the chart shows each timebox's velocity</li>" +
+            "<li>The bars on the chart show the percentage difference from the baseline timebox.</li>" +
             "</ul>",
     
     integrationHeaders : {
@@ -1048,34 +951,89 @@ Ext.define("TSDeliveryAcceleration", {
     
     config: {
         defaultSettings: {
-            showPatterns: false,
-            baseIteration: null
+            showPatterns: false
         }
     },
                         
     launch: function() {
         this.callParent();
         
-        if ( Ext.isEmpty( this.getSetting('baseIteration'))  ){
-            Ext.Msg.alert("Settings needed","Use the settings gear to choose a base iteration");
-            return;
+        this._addSelectors();
+    }, 
+    
+    _addSelectors: function() {
+        
+        this.timebox_selector = null;
+        
+        this.timebox_type_selector = this.addToBanner({
+            xtype: 'tstogglebutton',
+            toggleState: 'iteration',
+            itemId: 'metric_selector',
+            margin: '3 0 0 0',
+            stateful: true,
+            stateId: 'techservices-deliveryacceleration-timeboxtype-toggle',
+            stateEvents:['change'],
+            listeners: {
+                scope: this,
+                toggle: this._updateTimeboxSelector
+            }
+        });
+        
+        this._updateTimeboxSelector();
+    },
+    
+    _updateTimeboxSelector: function() {
+        var type = this.timebox_type_selector.getValue();
+        
+        if ( ! Ext.isEmpty(this.timebox_selector) ) {
+            this.timebox_selector.destroy();
         }
         
-        this._updateData();
+        if ( type == 'iteration' ) {
+            this.timebox_selector = this.addToBanner({
+                xtype:'rallyiterationcombobox',
+                fieldLabel: 'Base Iteration:',
+                labelWidth: 80,
+                margin: '0 0 10 25',
+                stateful: true,
+                stateId: 'techservices-deliveryacceleration-iteration-box',
+                stateEvents:['change'],
+                listeners: {
+                    scope: this,
+                    change: this._updateData
+                }
+            });
+        } else {
+            this.timebox_selector = this.addToBanner({
+                xtype:'rallyreleasecombobox',
+                fieldLabel: 'Base Release:',
+                labelWidth: 70,
+                margin: '0 0 10 25',
+                stateful: true,
+                stateId: 'techservices-deliveryacceleration-release-box',
+                stateEvents:['change'],
+                listeners: {
+                    scope: this,
+                    change: this._updateData
+                }
+            });
+        }
+        
     },
     
     _updateData: function() {
         var me = this;
         this.metric = "size";
         
+        
         Deft.Chain.pipeline([
-            this._fetchIterationsAfterBaseline,
-            this._fetchArtifactsInIterations
+            this._fetchTimeboxesAfterBaseline,
+            this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
             success: function(results) {
-                var artifacts_by_iteration = this._collectArtifactsByIteration(results);
-                this._makeChart(artifacts_by_iteration);
+                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
+                this._makeChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -1084,20 +1042,27 @@ Ext.define("TSDeliveryAcceleration", {
         
     },
     
-    _fetchIterationsAfterBaseline: function() {
+    _fetchTimeboxesAfterBaseline: function() {
         var me = this,
             deferred = Ext.create('Deft.Deferred'),
-            baseIterationRef = this.getSetting('baseIteration');
-                    
-        var fetch = ['ObjectID','Name','StartDate','EndDate'];
+            baseTimeboxRef = this.timebox_selector.getRecord().get('_ref'),
+            type = this.timebox_type_selector.getValue();
         
-        this._getRecordByRef(baseIterationRef, fetch).then({
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+        if ( type == "release" ) {
+            start_field = "ReleaseStartDate",
+            end_field = "ReleaseDate"
+        }
+        var fetch = ['ObjectID','Name',start_field,end_field];
+        
+        this._getRecordByRef(baseTimeboxRef, fetch).then({
             scope: this,
-            success: function(base_iteration) {
-                this.baseIterationObject = base_iteration;
+            success: function(base_timebox) {
+                this.baseTimeboxObject = base_timebox;
                 
                 var config = {
-                    model:'Iteration',
+                    model:type,
                     limit: 10,
                     pageSize: 10,
                     fetch: fetch,
@@ -1105,10 +1070,10 @@ Ext.define("TSDeliveryAcceleration", {
                         projectScopeUp: false,
                         projectScopeDown: false
                     },
-                    sorters: [{property:'EndDate', direction:'ASC'}],
+                    sorters: [{property:end_field, direction:'ASC'}],
                     filters: [
-                        {property:'StartDate',operator:'>=',value:base_iteration.get('StartDate')},
-                        {property:'EndDate',operator:'<', value: Rally.util.DateTime.toIsoString(new Date()) }
+                        {property:start_field,operator:'>=',value:base_timebox.get(start_field)},
+                        {property:end_field,operator:'<', value: Rally.util.DateTime.toIsoString(new Date()) }
                     ]
                 }
                 
@@ -1129,16 +1094,26 @@ Ext.define("TSDeliveryAcceleration", {
         return deferred.promise;
     },
     
-    _fetchArtifactsInIterations: function(iterations) {
-        if ( iterations.length === 0 ) { return; }
+    _fetchArtifactsInTimeboxes: function(timeboxes) {
+        if ( timeboxes.length === 0 ) { return; }
+        
+        var type = this.timebox_type_selector.getValue();
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+        var timebox_property = 'Iteration';
+        if ( type == "release" ) {
+            start_field = "ReleaseStartDate",
+            end_field = "ReleaseDate",
+            timebox_property = "Release"
+        }
         
         var deferred = Ext.create('Deft.Deferred');
-        var first_date = iterations[0].get('StartDate');
-        var last_date = iterations[iterations.length - 1].get('StartDate');
+        var first_date = timeboxes[0].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
-            {property:'Iteration.StartDate', operator: '>=', value:first_date},
-            {property:'Iteration.StartDate', operator: '<=', value:last_date},
+            {property: timebox_property + '.' + start_field, operator: '>=', value:first_date},
+            {property: timebox_property + '.' + start_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
@@ -1146,7 +1121,7 @@ Ext.define("TSDeliveryAcceleration", {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate']
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate','Release']
         };
         
         Deft.Chain.sequence([
@@ -1176,21 +1151,28 @@ Ext.define("TSDeliveryAcceleration", {
         return deferred.promise;
     },
     
-    _collectArtifactsByIteration: function(items) {
-        var hash = {};
+    _collectArtifactsByTimebox: function(items) {
+        var hash = {},
+            type = this.timebox_type_selector.getValue();
+            
         if ( items.length === 0 ) { return hash; }
         
+        var timebox_property = 'Iteration';
+        if ( type == "release" ) {
+            timebox_property = "Release"
+        }
+        
         Ext.Array.each(items, function(item){
-            var iteration = item.get('Iteration').Name;
-            if ( Ext.isEmpty(hash[iteration])){
-                hash[iteration]={
+            var timebox = item.get(timebox_property).Name;
+            if ( Ext.isEmpty(hash[timebox])){
+                hash[timebox]={
                     items: []
                 };
             }
-            hash[iteration].items.push(item);
+            hash[timebox].items.push(item);
         });
         
-        Ext.Object.each(hash, function(iteration,value){
+        Ext.Object.each(hash, function(timebox,value){
             var items = value.items;
             var estimates = Ext.Array.map(items, function(item){
                 return item.get('PlanEstimate') || 0;
@@ -1201,7 +1183,7 @@ Ext.define("TSDeliveryAcceleration", {
         var values = Ext.Object.getValues(hash);
         var baseline = values[0].velocity;
         
-        Ext.Object.each(hash, function(iteration, value) {
+        Ext.Object.each(hash, function(timebox, value) {
             var velocity = value.velocity || 0;
             var delta = 0;
             if ( baseline > 0 ) {
@@ -1212,11 +1194,11 @@ Ext.define("TSDeliveryAcceleration", {
         return hash;
     },
     
-    _makeChart: function(artifacts_by_sprint) {
+    _makeChart: function(artifacts_by_timebox) {
         var me = this;
 
-        var categories = this._getCategories(artifacts_by_sprint);
-        var series = this._getSeries(artifacts_by_sprint);
+        var categories = this._getCategories(artifacts_by_timebox);
+        var series = this._getSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -1229,12 +1211,12 @@ Ext.define("TSDeliveryAcceleration", {
         });
     },
     
-    _getSeries: function(artifacts_by_sprint) {
+    _getSeries: function(artifacts_by_timebox) {
         var series = [];
         
         series.push({
             name: 'Acceleration',
-            data: this._getVelocityAcceleration(artifacts_by_sprint),
+            data: this._getVelocityAcceleration(artifacts_by_timebox),
             type:'column',
             yAxis: "b",
             tooltip: {
@@ -1244,7 +1226,7 @@ Ext.define("TSDeliveryAcceleration", {
         
         series.push({
             name: 'Velocity', 
-            data: this._getVelocityData(artifacts_by_sprint),
+            data: this._getVelocityData(artifacts_by_timebox),
             type:'line',
             yAxis: "a"
         });
@@ -1253,17 +1235,17 @@ Ext.define("TSDeliveryAcceleration", {
         return series;
     },
     
-    _getVelocityData: function(artifacts_by_sprint) {
+    _getVelocityData: function(artifacts_by_timebox) {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_sprint, function(iteration, value){
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             data.push({ 
                 y: value.velocity,
                 _records: value.items,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  iteration);
+                        me.showDrillDown(this._records,  timebox);
                     }
                 }
             });
@@ -1273,17 +1255,17 @@ Ext.define("TSDeliveryAcceleration", {
         
     },
     
-    _getVelocityAcceleration: function(artifacts_by_sprint) {
+    _getVelocityAcceleration: function(artifacts_by_timebox) {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_sprint, function(iteration, value){
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             data.push({ 
                 y: value.delta,
                 _records: value.items,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  iteration);
+                        me.showDrillDown(this._records,  timebox);
                     }
                 }
             });
@@ -1293,8 +1275,8 @@ Ext.define("TSDeliveryAcceleration", {
         
     },
     
-    _getCategories: function(artifacts_by_sprint) {
-        return Ext.Object.getKeys(artifacts_by_sprint);
+    _getCategories: function(artifacts_by_timebox) {
+        return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
     _getChartConfig: function() {
@@ -1363,32 +1345,32 @@ Ext.define("TSDeliveryAcceleration", {
     
     getSettingsFields: function() {
         return [
-        {
-            name: 'baseIteration',
-            xtype:'rallyiterationcombobox',
-            fieldLabel: 'Base Iteration',
-            margin: '0 0 10 25'
-//            storeConfig: {
-//            TODO: limit to past iterations
-//                fetch: ["Name", 'StartDate', 'EndDate', "ObjectID", "State", "PlannedVelocity"],
-//                sorters: [
-//                    {property: 'StartDate', direction: "DESC"},
-//                    {property: 'EndDate', direction: "DESC"}
-//                ],
-//                model: Ext.identityFn('Iteration'),
-//                
-//                filters: [{property:'EndDate',operator:'<',value: Rally.util.DateTime.toIsoString(new Date())}],
-//                
-//                limit: Infinity,
-//                context: {
-//                    projectScopeDown: false,
-//                    projectScopeUp: false
-//                },
-//                remoteFilter: false,
-//                autoLoad: true
-//                
-//            }
-        },
+//        {
+//            name: 'baseIteration',
+//            xtype:'rallyiterationcombobox',
+//            fieldLabel: 'Base Iteration',
+//            margin: '0 0 10 25'
+////            storeConfig: {
+////            TODO: limit to past iterations
+////                fetch: ["Name", 'StartDate', 'EndDate', "ObjectID", "State", "PlannedVelocity"],
+////                sorters: [
+////                    {property: 'StartDate', direction: "DESC"},
+////                    {property: 'EndDate', direction: "DESC"}
+////                ],
+////                model: Ext.identityFn('Iteration'),
+////                
+////                filters: [{property:'EndDate',operator:'<',value: Rally.util.DateTime.toIsoString(new Date())}],
+////                
+////                limit: Infinity,
+////                context: {
+////                    projectScopeDown: false,
+////                    projectScopeUp: false
+////                },
+////                remoteFilter: false,
+////                autoLoad: true
+////                
+////            }
+//        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
