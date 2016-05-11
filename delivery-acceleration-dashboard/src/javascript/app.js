@@ -77,7 +77,7 @@ Ext.define("TSDeliveryAcceleration", {
             this.timebox_selector = this.addToBanner({
                 xtype:'rallyreleasecombobox',
                 fieldLabel: 'Base Release:',
-                labelWidth: 70,
+                labelWidth: 75,
                 margin: '0 0 10 25',
                 stateful: true,
                 stateId: 'techservices-deliveryacceleration-release-box',

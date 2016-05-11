@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Acceleration</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 11 2016 13:59:09 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed May 11 2016 14:00:33 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 11 2016 13:59:09 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed May 11 2016 14:00:33 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 34223747429;
+        var CHECKSUM = 34223837433;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1007,7 +1007,7 @@ Ext.define("TSDeliveryAcceleration", {
             this.timebox_selector = this.addToBanner({
                 xtype:'rallyreleasecombobox',
                 fieldLabel: 'Base Release:',
-                labelWidth: 70,
+                labelWidth: 75,
                 margin: '0 0 10 25',
                 stateful: true,
                 stateId: 'techservices-deliveryacceleration-release-box',
