@@ -11,7 +11,7 @@ Ext.define("TSDeliveryEfficiency", {
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
             "<p/>" +
             "The efficiency is calculated by finding stories of each type and dividing the total of its " +
-            "tasks estimates in hours by its size in points.  This is averaged for each sprint.",
+            "tasks' actuals in hours by its size in points.  This is averaged for each sprint.",
     
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
@@ -146,7 +146,8 @@ Ext.define("TSDeliveryEfficiency", {
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
-                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal']
+                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal',
+                'TaskActualTotal']
         };
         
         Deft.Chain.sequence([
@@ -275,7 +276,7 @@ Ext.define("TSDeliveryEfficiency", {
             
             var estimate = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
-                    return record.get('TaskEstimateTotal') || 0;
+                    return record.get('TaskActualTotal') || 0;
                 })
             );
             
@@ -306,7 +307,7 @@ Ext.define("TSDeliveryEfficiency", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Delivery Acceleration' },
+            title: { text: 'Delivery Efficiency' },
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'Velocity' }
@@ -375,7 +376,11 @@ Ext.define("TSDeliveryEfficiency", {
             },
             {
                 dataIndex: 'TaskEstimateTotal',
-                text: 'Task Hours'
+                text: 'Task Hours (Est)'
+            },
+            {
+                dataIndex: 'TaskActualTotal',
+                text: 'Task Hours (Actual)'
             },
             {
                 dataIndex: 'Project',

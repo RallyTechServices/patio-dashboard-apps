@@ -1,5 +1,9 @@
 #Delivery Efficiency
 
+![Screen Shot](images/chart.png)
+
+The story type is choosable in app settings.
+
 
 ## Development Notes
 
