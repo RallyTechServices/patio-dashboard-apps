@@ -4,11 +4,14 @@ Ext.define("TSDeliveryEfficiency", {
     description: "<strong>Delivery Efficiency</strong><br/>" +
             "<br/>" +
             "This chart can help teams understand where time is being spent while delivering value. " +
-            "This dashboard allows teams to identify how efficiently they are workingto deliver an " +
-            "accepted point of each of the different task types." +
+            "This dashboard allows teams to identify how efficiently they are working to deliver an " +
+            "accepted point of each of the different types.  (Your admin can choose a different field to define " +
+            "'type' with the App Settings... menu option.)" +
             "<p/>" +
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
-            "<p/>",
+            "<p/>" +
+            "The efficiency is calculated by finding stories of each type and dividing the total of its " +
+            "tasks estimates in hours by its size in points.  This is averaged for each sprint.",
     
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
@@ -39,6 +42,8 @@ Ext.define("TSDeliveryEfficiency", {
     _getAllowedValues: function(model, field_name) {
         var deferred = Ext.create('Deft.Deferred');
 
+        this.logger.log("_getAllowedValues for", model, field_name);
+        
         Rally.data.ModelFactory.getModel({
             type: model,
             success: function(model) {
@@ -140,7 +145,8 @@ Ext.define("TSDeliveryEfficiency", {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate','Release',type_field]
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
+                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal']
         };
         
         Deft.Chain.sequence([
@@ -246,7 +252,7 @@ Ext.define("TSDeliveryEfficiency", {
             
             series.push({
                 name: name,
-                data: this._getValocity(artifacts_by_timebox,allowed_type),
+                data: this._calculateMeasure(artifacts_by_timebox,allowed_type),
                 type: 'column',
                 stack: 'a'
             });
@@ -255,24 +261,34 @@ Ext.define("TSDeliveryEfficiency", {
         return series;
     },
     
-    _getValocity: function(artifacts_by_timebox,allowed_type) {
+    _calculateMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
             data = [];
         
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
-            var velocity = Ext.Array.sum(
+            var points = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
                     return record.get('PlanEstimate') || 0;
                 })
             );
             
+            var estimate = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get('TaskEstimateTotal') || 0;
+                })
+            );
+            
+            var efficiency = null;
+            if ( estimate > 0 ) {
+                efficiency = points/estimate;
+            }
             data.push({ 
-                y: velocity,
+                y:efficiency,
                 _records: records,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  timebox);
+                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
                     }
                 }
             });
@@ -299,6 +315,11 @@ Ext.define("TSDeliveryEfficiency", {
                 column: {
                     stacking: 'normal'
                 }
+            },
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
             }
         }
     },
@@ -306,6 +327,7 @@ Ext.define("TSDeliveryEfficiency", {
     getSettingsFields: function() {
         return [
         {
+            name: 'typeField',
             xtype: 'rallyfieldcombobox',
             model: 'UserStory',
             _isNotHidden: function(field) {
@@ -327,5 +349,57 @@ Ext.define("TSDeliveryEfficiency", {
         }
         
         ];
+    },
+    
+    getDrillDownColumns: function(title) {
+        var columns = [
+            {
+                dataIndex : 'FormattedID',
+                text: "id",
+                flex:1
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 3
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State',
+                flex:1
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate',
+                flex: 1
+            },
+            {
+                dataIndex: 'TaskEstimateTotal',
+                text: 'Task Hours'
+            },
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                renderer:function(Project){
+                        return Project.Name;
+                },
+                flex: 1
+            }
+        ];
+        
+        if ( /\(multiple\)/.test(title)) {
+            columns.push({
+                dataIndex: 'Name',
+                text: 'Count of Moves',
+                renderer: function(value, meta, record) {
+                    
+                    return value.split('[Continued]').length;
+                }
+            });
+        }
+        
+        
+        return columns;
     }
+    
 });
