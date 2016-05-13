@@ -42,6 +42,17 @@ Ext.define('CA.techservices.validation.BaseRule',{
         return record;
     },
     
+    /* override to allow the validator to check if the rule makes sense to run 
+     * (e.g., the field checker for fields that don't even exist)
+     * 
+     * resolve promise with text if problem
+     * 
+     * 
+     */
+    precheckRule: function() {
+        return null;
+    },
+    
     getUserFriendlyRuleLabel: function() {        
         return this.label;
     }

@@ -39,10 +39,76 @@ extend: 'CA.techservices.app.ChartApp',
     
     launch: function() {
         this.callParent();
-        var me = this;
         
         this._addSelectors();
         
+        this.validator = this._instantiateValidator();
+        
+        this.description = this.description + this.validator.getRuleDescriptions();
+        
+        this.validator.getPrecheckResults().then({
+            scope: this,
+            success: function(issues) {
+                
+                var messages = Ext.Array.filter(issues, function(issue){
+                    return !Ext.isEmpty(issue);
+                });
+                
+                if ( messages.length > 0 ) {
+                    var append_text = "<br/><b>Precheck Issues:</b><br/><ul>";
+                    Ext.Array.each(messages, function(message){
+                        append_text += '<li>' + message + '</li>';
+                    });
+                    append_text += "</ul>";
+                    
+                    this.description = this.description + " " + append_text;
+                }
+                this.setDescription();
+            
+                this._updateData();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem with precheck', msg);
+            }
+        });
+        
+    },
+    
+    _updateData: function() {
+        var me = this;
+        this.setLoading("Loading data...");
+        
+        Deft.Chain.pipeline([
+            function() { 
+                me.setLoading("Gathering data...");
+                return me.validator.gatherData(); 
+            },
+            function() { 
+                me.setLoading("Analyzing data...");
+                return me.validator.getChartData(); 
+            }
+        ]).then({
+            scope: this,
+            success: function(results) {
+                
+                if ( results.categories && results.categories.length === 0 ) {
+                    Ext.Msg.alert('','No violations found');
+                    return;
+                }
+                
+                this.display_rows = Ext.Object.getValues( this.validator.recordsByModel );
+                
+                this._makeChart(results);
+                this.down('#export_button').setDisabled(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading data', msg);
+            }
+        }).always(function() { me.setLoading(false); });
+        
+    }, 
+    
+    _instantiateValidator: function() {
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}
@@ -86,42 +152,8 @@ extend: 'CA.techservices.app.ChartApp',
             }
         });
         
-        this.description = this.description + validator.getRuleDescriptions();
-        
-
-        this.setDescription();
-        
-        this.setLoading("Loading data...");
-        
-        Deft.Chain.pipeline([
-            function() { 
-                me.setLoading("Gathering data...");
-                return validator.gatherData(); 
-            },
-            function() { 
-                me.setLoading("Analyzing data...");
-                return validator.getChartData(); 
-            }
-        ]).then({
-            scope: this,
-            success: function(results) {
-                
-                if ( results.categories && results.categories.length === 0 ) {
-                    Ext.Msg.alert('','No violations found');
-                    return;
-                }
-                
-                this.display_rows = Ext.Object.getValues( validator.recordsByModel );
-                
-                this._makeChart(results);
-                this.down('#export_button').setDisabled(false);
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('Problem loading data', msg);
-            }
-        }).always(function() { me.setLoading(false); });
-        
-    }, 
+        return validator;
+    },
     
     _addSelectors: function() {
         var container = this.down('#banner_box');

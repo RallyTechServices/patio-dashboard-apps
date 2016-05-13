@@ -263,6 +263,22 @@ Ext.define('CA.techservices.validator.Validator',{
         return record_hash;
     },
     
+    getPrecheckResults: function() {
+        console.log('Executing prechecks');
+        
+        var promises = Ext.Array.map(this.rules, function(rule){
+            return function() {
+                return rule.precheckRule();
+            };
+        });
+        
+        if ( promises.length === 0 ) {
+            return null;
+        }
+        
+        return Deft.Chain.sequence(promises);
+    },
+    
     _loadWsapiRecords: function(config) {
         var deferred = Ext.create('Deft.Deferred');
         
