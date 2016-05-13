@@ -1,12 +1,40 @@
 #Validation App
 
+![Screen Shot](images/screenshot.png)
+
 Will display a chart with results of various registered validation rules.
 
 ## Development Notes
 
-A validation rule is a class that provides a label name, a query and fields to fetch, and a function to apply the rule.  The application will provide a string of text for each failure.
+A validation rule is a class that provides a label name, a query and fields to fetch, 
+and a function to apply the rule.  Important methods that can be subclassed:
 
-Each validation class is associated with a model.
+  * getFetchFields:  return an array of fields that should be fetched when the validator 
+  goes to Rally to get the data
+  * getFilters: return wsapi filters.  The validator is going to consolidate the filters so
+  that the server query can be made at once instead of repeating for each class.  DO NOT 
+  rely on this to define the rule, just to limit the data that comes back to be evaluated 
+  for the rule.  (The validator will go and get the stories that meet one of the rules (and
+  might meet more than one).  Then it will pass all of those stories to the rule class to
+  evaluate.  So it WILL need to evaluate items that might have been grabbed in spite of the
+  filters.
+  
+  * applyRuleToRecord:  This is the important one.  A record will be passed to the rule, so 
+  return _false_ if the record passes.  Return a string describing the failure if the record 
+  fails to pass.  
+  
+  * getDescription:  This is a good short description that will be added to the bullet list
+  of rule descriptions in the app's right slideout.
+  * getUserFriendlyRuleLabel: This is a shorter description to be used as the label on the
+  chart legend.
+  
+  * precheckRule:  This will be called by the validator before firing rules against individual
+  records.  This is useful for items that depend on a field being available or some other 
+  workspace config setting being place so that the app doesn't completely crash when it tries
+  to query or whatever during the execution.  This one is optional and is most necessary for
+  companies trying to use this in multiple workspaces.
+  
+
 
 ### First Load
 
