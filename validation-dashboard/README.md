@@ -32,7 +32,7 @@ and a function to apply the rule.  Important methods that can be subclassed:
   records.  This is useful for items that depend on a field being available or some other 
   workspace config setting being place so that the app doesn't completely crash when it tries
   to query or whatever during the execution.  This one is optional and is most necessary for
-  companies trying to use this in multiple workspaces.
+  companies trying to use this in multiple workspaces.  Pass back a string for any messages to present at the bottom of the info slideout.
   
 
 
