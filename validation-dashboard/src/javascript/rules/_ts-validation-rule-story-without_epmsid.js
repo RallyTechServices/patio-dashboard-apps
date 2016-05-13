@@ -6,6 +6,9 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
         label: 'Story without EPMS ID'
     },
     
+    _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
+    
+    
     getDescription: function() {
         return Ext.String.format("<strong>{0}</strong>{1}",
             this.label,
@@ -19,9 +22,42 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     },
     
     getFilters: function() {
-        return Rally.data.wsapi.Filter.and([
-            {property:'Feature.Parent.c_EPMSid',operator:'=',value:''}
-        ]);
+        return this._filters;
+    },
+    
+    /* model MUST be a wsapi model, not its name */
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    /* 
+     * override to allow the validator to check if the rule makes sense to run 
+     * 
+     * resolve promise with text if problem
+     * 
+     */
+    precheckRule: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'PortfolioItem',
+            success: function(model) {
+                var text = null;
+                if ( !me.isValidField(model,'c_EPMSid') ) {
+                    text = "EPMS ID check is suspect because PortfolioItem records do not have a c_EPMSid field ";
+                    me._filters = Rally.data.wsapi.Filter.and([{property:'Feature.Parent.ObjectID',operator:'>',value:0}])
+                }
+                
+                deferred.resolve(text);
+            },
+            failure: function() {
+                deferred.reject("Issue prechecking Rule");
+            }
+        });
+        
+        return deferred.promise;
     },
     // return false if the record doesn't match
     // return string if record fails the rule
