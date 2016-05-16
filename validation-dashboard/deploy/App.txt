@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri May 13 2016 16:35:53 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon May 16 2016 08:32:13 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri May 13 2016 16:35:53 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Mon May 16 2016 08:32:13 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 113046736629;
+        var CHECKSUM = 113099730661;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2112,6 +2112,8 @@ extend: 'CA.techservices.app.ChartApp',
     }, 
     
     _instantiateValidator: function() {
+        var me = this;
+        
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}

@@ -109,6 +109,8 @@ extend: 'CA.techservices.app.ChartApp',
     }, 
     
     _instantiateValidator: function() {
+        var me = this;
+        
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}
