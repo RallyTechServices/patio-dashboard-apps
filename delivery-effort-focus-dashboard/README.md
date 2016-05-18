@@ -1,8 +1,11 @@
-#Delivery Efficiency
+#Delivery Effort Focus
+
+Over a series of iterations, show Actuals hours of tasks for accepted stories
+divided by type of each task.
 
 ![Screen Shot](images/chart.png)
 
-The story type is choosable in app settings.
+The task type is choosable in app settings.
 
 
 ## Development Notes
