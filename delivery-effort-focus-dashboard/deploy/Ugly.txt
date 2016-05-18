@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delivery Efficiency</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed May 11 2016 14:13:03 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed May 11 2016 14:13:03 GMT-0700 (PDT)";
+        var CHECKSUM = [%= checksum %];
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            
+            
+               Rally.launchApp('TSDeliveryEfficiency', {
+                   name: 'Delivery Efficiency'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.x-panel-body-info-box {
+    color: black;
+    font-size: 10px;
+    background: white;
+    padding: 5px;
+}
+
+.x-panel-info-box {
+    border: 0px dashed blue;
+}
+    
+.x-panel-header-info-box {
+    background-color: #ddd;
+    color: white;
+    font-size: 14px;
+}
+
+.x-panel-header-info-box-vertical {
+    padding: 3px;
+    color: white;
+}
+
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
