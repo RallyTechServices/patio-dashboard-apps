@@ -1,20 +1,36 @@
-<!DOCTYPE html>
-<html>
-<head>
+<!-- for confluence, the head/body tags interfere with rendering -->
+
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
     <!--  Build Date: Fri May 20 2016 09:38:50 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
         var APP_BUILD_DATE = "Fri May 20 2016 09:38:50 GMT-0700 (PDT)";
-        var BUILDER = "jmartin";
-        var CHECKSUM = 36645910319;
     </script>
     
-    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
-    <!-- our highcharts (needed so that we can add patterns) -->
-    <script type="text/javascript" src="/apps/2.0/lib/analytics/analytics-all.js"></script>
+    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.0/sdk-debug.js?apiKey=__PUT_API_KEY_HERE__"></script>
 
+<!-- for confluence, don't render as a viewport, so we override the app creation step -->
+
+    <script type="text/javascript">
+        Ext.override(Rally.sdk.Bootstrapper,{
+            _launchAppInViewport: function (className, settings, timeboxScope) {
+                console.log('_launchAppInViewport');
+                this._wireIoHeaderHandlers();
+                this.app = this._createApp(className, settings, timeboxScope);
+    
+                Ext.create('Ext.container.Container', {
+                    layout: 'fit',
+                    items: [ this.app ],
+                    renderTo: 'tech_services_target',
+                    height: 800,
+                    width: 800
+                });
+            }
+        });
+        
+    </script>
+    
     <script type="text/javascript">
         Rally.onReady(function() {
              
@@ -1479,6 +1495,4 @@ Ext.define("TSSplitStoryPerSprint", {
 }
     </style>
 
-</head>
-<body></body>
-</html>
+<div id="tech_services_target"></div>
