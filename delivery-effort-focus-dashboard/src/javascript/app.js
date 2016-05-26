@@ -13,6 +13,7 @@ Ext.define("TSDeliveryEffortFocus", {
             "The columns show a stacked count of actual hours by type on the tasks for tasks associated " +
             "with stories accepted in the sprint.",
     
+            
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
     },

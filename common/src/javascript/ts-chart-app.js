@@ -7,9 +7,7 @@ Ext.define("CA.techservices.app.ChartApp", {
     
     description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
     
-    descriptions: [
-        '<em>No Description Available</em>'
-    ],
+    descriptions: [],
     
     items: [
         {xtype:'container', width:'98%', items:[
@@ -29,7 +27,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         
         var descriptions = [this.description];
         
-        if ( !Ext.isEmpty(this.descriptions) ) {
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
             descriptions = this.descriptions;
         }
         
