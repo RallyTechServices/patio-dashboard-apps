@@ -42,6 +42,7 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     addToAdditionalDisplay: function(config) {
+        console.trace('addToAdditionalDisplay', config);
         return this.down('#additional_display_box').add(config);
     },
     

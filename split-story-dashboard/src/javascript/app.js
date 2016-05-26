@@ -64,8 +64,9 @@ Ext.define("TSSplitStoryPerSprint", {
         ],this).then({
             scope: this,
             success: function(parsed_sprints){
+                this.logger.log('Ready to calculate');
                 this.clearAdditionalDisplay();
-                
+               
                 this._makeRawGrid(parsed_sprints);
                 this._makePercentageGrid(parsed_sprints);
                 this._makeRawChart(parsed_sprints);
@@ -77,9 +78,13 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _buildIterationObjects: function(stories) {
+        var me = this;
+        this.logger.log('_buildIterationObjects');
         var iteration_objects = {};
         Ext.Array.each(this.iterations, function(iteration){
-            iteration_objects[iteration.get('Name')] = {
+            var name = me._getSafeIterationName(iteration.get('Name'));
+            
+            iteration_objects[name] = {
                 iteration: iteration,
                 multiple: [],
                 unfinished: [],
@@ -90,7 +95,7 @@ Ext.define("TSSplitStoryPerSprint", {
         });
         
         Ext.Array.each(stories, function(story){
-            var iteration_name = story.get('Iteration').Name;
+            var iteration_name = me._getSafeIterationName( story.get('Iteration').Name );
             var type = story.get('__Type');
             iteration_objects[iteration_name].stories.push(story);
             iteration_objects[iteration_name][type].push(story);
@@ -101,6 +106,7 @@ Ext.define("TSSplitStoryPerSprint", {
     
     
     _setStoryType: function(stories) {
+        this.logger.log("_setStoryType");
         Ext.Array.each(stories, function(story){
             story.set('__Type', this._getTypeFromName(story.get('Name')));
         },this);
@@ -176,12 +182,25 @@ Ext.define("TSSplitStoryPerSprint", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
+    /*
+     * having a dot in the name for the key of a hash causes problems
+     */
+    _getSafeIterationName: function(name) {
+        return name.replace(/\./,'&#46;'); 
+    },
+    
+    _getUnsafeIterationName: function(name) {
+        return name.replace(/&#46;/,'.');
+    },
     
     _getRawRows: function(sprint_objects) {
         var me = this;
         // sprint objects have key = name of sprint
+        
         var row_fields = this._getCategories(sprint_objects);
-                
+         
+        this.logger.log('row_fields', row_fields);
+        
         var rows = [
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
@@ -192,14 +211,17 @@ Ext.define("TSSplitStoryPerSprint", {
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
                 row[field] = [];
                 row[field + "_number"] = 0;
             });
         });
-        
+                
         Ext.Array.each(rows, function(row){
             var type = row.Type;
             Ext.Object.each(sprint_objects, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
                 row[sprint_name] = value[type];
                 
                 if (me.metric == 'count') {
@@ -215,6 +237,7 @@ Ext.define("TSSplitStoryPerSprint", {
                 }
             });
         });
+        
         return rows;
     },
     
@@ -233,6 +256,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
                 row[field] = [];
                 row[field + "_number"] = 0;
             });
@@ -241,6 +265,7 @@ Ext.define("TSSplitStoryPerSprint", {
         Ext.Array.each(rows, function(row){
             var type = row.Type;
             Ext.Object.each(sprint_objects, function(sprint_name,value){
+                
                 row[sprint_name] = value[type];
                 var all_stories = value.stories;
                 
@@ -275,14 +300,18 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getCategories: function(sprint_objects) {
+        var me = this;
+        
         return Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
-            return sprint;
+            return me._getUnsafeIterationName(sprint);
         });
     },
     
     _getSeriesFromRows: function(rows) {
         var me = this;
         var series = [];
+        
+        this.logger.log('_getSeriesFromRows');
         
         Ext.Array.each(rows, function(row) {
             var type = row.Type;
@@ -291,7 +320,6 @@ Ext.define("TSSplitStoryPerSprint", {
             
             Ext.Object.each(row, function(key,value) {
                 if ( Ext.isArray(value) ) {
-                    //data.push(value);
                     data.push({ 
                         y: row[key + "_number"],
                         _records: value,
@@ -316,7 +344,10 @@ Ext.define("TSSplitStoryPerSprint", {
     _makeRawChart: function(sprint_objects) {
         var me = this;
 
+        this.logger.log('_makeRawChart');
+        
         var categories = this._getCategories(sprint_objects);
+        
         var sprints = this._getRawRows(sprint_objects);
         var series = this._getSeriesFromRows(sprints);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
@@ -324,6 +355,9 @@ Ext.define("TSSplitStoryPerSprint", {
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
+        
+        this.logger.log('About to set chart');
+        
         this.setChart({
             chartData: { series: series, categories: categories },
             chartConfig: this._getChartConfig(),
@@ -351,19 +385,26 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makeRawGrid: function(sprint_objects) {
         var me = this;
+        
+        this.logger.log('_makeRawGrid', sprint_objects);
        
         var columns = [{dataIndex:'Name',text:'Story Type'}];
-        Ext.Array.each(this._getCategories(sprint_objects), function(field){   
-            columns.push({ dataIndex: field + "_number", text: field, align: 'center'});
+        Ext.Array.each(this._getCategories(sprint_objects), function(field){
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center'});
         });
         
+        this.logger.log('about to get Raw Rows');
         var rows = this._getRawRows(sprint_objects);
         
+        this.logger.log('about to create store', rows);
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        this.logger.log('about to add', store, columns);
         this.addToAdditionalDisplay({
             xtype:'rallygrid',
             padding: 5,
             showPagingToolbar: false,
-            store: Ext.create('Rally.data.custom.Store',{ data: rows }),
+            store: store,
             columnCfgs: columns,
             listeners: {
                 scope: this,
@@ -375,11 +416,12 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _makePercentageGrid: function(sprint_objects) {
         var me = this;
+        this.logger.log('_makePercentageGrid', sprint_objects);
         
         var columns = [{dataIndex:'Name',text:'Story Type'}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ 
-                dataIndex: field + "_number", 
+                dataIndex: me._getSafeIterationName(field)  + "_number", 
                 text: field, 
                 align: 'center',
                 renderer: function(value,meta,record) {
@@ -394,6 +436,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         var rows = this._getPercentageRows(sprint_objects);
         
+        this.logger.log("about to add percentage grid", rows);
         this.addToAdditionalDisplay({
             xtype:'rallygrid',
             padding: 5,
