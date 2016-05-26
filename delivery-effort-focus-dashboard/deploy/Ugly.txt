@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Delivery Efficiency</title>
+    <title>Delivery Effort Focus</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 11 2016 14:13:03 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu May 26 2016 09:00:15 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 11 2016 14:13:03 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu May 26 2016 09:00:15 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('TSDeliveryEfficiency', {
-                   name: 'Delivery Efficiency'
+               Rally.launchApp('TSDeliveryEffortFocus', {
+                   name: 'Delivery Effort Focus'
                });
         });
     </script>
