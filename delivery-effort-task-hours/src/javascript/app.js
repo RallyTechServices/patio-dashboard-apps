@@ -1,7 +1,8 @@
 Ext.define("TSDeliveryEffortTaskHours", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: "<strong>Delivery Effort Task Hours</strong><br/>" +
+    descriptions: [
+        "<strong>Delivery Effort Task Hours</strong><br/>" +
             "<br/>" +
             "This dashboard shows how many hours are being spent on accepted stories during sprints,  " +
             "compared to the estimated hours and hours left to-do." +
@@ -14,6 +15,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
             "<li>The line shows the count of the estimated hours on the tasks " + 
             "associated with stories accepted in the sprint.</li>" + 
             "</ul>",
+        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"
+    ],
     
     integrationHeaders : {
         name : "TSDeliveryEffortTaskHours"
@@ -27,9 +30,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
                         
     launch: function() {
         this.callParent();
-        
         this._updateData();
-        
     },
     
     _updateData: function() {
@@ -46,7 +47,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 
-                this._makeChart(artifacts_by_timebox);
+                this._makeTopChart(artifacts_by_timebox);
+                this._makeBottomChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -182,7 +184,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return hash;
     },
     
-    _makeChart: function(artifacts_by_timebox) {
+    _makeTopChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -194,9 +196,28 @@ Ext.define("TSDeliveryEffortTaskHours", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig(),
+            chartConfig: this._getTopChartConfig(),
             chartColors: colors
         });
+        this.setLoading(false);
+    },
+    
+    _makeBottomChart: function(artifacts_by_timebox) {
+        var me = this;
+
+        var categories = this._getCategories(artifacts_by_timebox);
+        // TODO: change series to have FTE calcs.
+        var series = this._getSeries(artifacts_by_timebox);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getBottomChartConfig(),
+            chartColors: colors
+        },1);
         this.setLoading(false);
     },
     
@@ -264,7 +285,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
-    _getChartConfig: function() {
+    _getTopChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
@@ -272,6 +293,28 @@ Ext.define("TSDeliveryEffortTaskHours", {
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'Hours' }
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            },
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
+            }
+        }
+    },
+    
+    _getBottomChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Actual FTEs by Sprint' },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'FTEs' }
             }],
             plotOptions: {
                 column: {

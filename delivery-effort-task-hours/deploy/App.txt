@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Effort Task Hours</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 18 2016 18:46:04 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed May 25 2016 19:33:57 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 18 2016 18:46:04 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed May 25 2016 19:33:57 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 26553184744;
+        var CHECKSUM = 30145644812;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -25,7 +25,7 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        
+                
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
@@ -702,12 +702,16 @@ Ext.define("CA.techservices.app.ChartApp", {
     defaults: { margin: 10 },
     padding: 5,
     
-    description: '<em>No Description Available</em>',
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [
+        '<em>No Description Available</em>'
+    ],
     
     items: [
         {xtype:'container', width:'98%', items:[
             {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
-            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'main_display_box'},
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
@@ -719,11 +723,28 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     launch: function() {
-        this.setDescription();
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) ) {
+            descriptions = this.descriptions;
+        }
+        
+        Ext.Array.each(descriptions, function(description,index){
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+        },this);
     }, 
     
-    setDescription: function() {
-        this.down('tschartwithdescription').setDescription(this.description);
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
     },
     
     clearBanner: function() {
@@ -734,6 +755,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#banner_box').add(config);
     },
     
+    
+    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
@@ -742,8 +765,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#additional_display_box').add(config);
     },
     
-    setChart: function(config) {
-        return this.down('tschartwithdescription').setChart(config);
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
     },
     
     getDrillDownColumns: function(title) {
@@ -836,14 +864,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         ];
     }
     
-    
-    
 });
 
 Ext.define("TSDeliveryEffortTaskHours", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: "<strong>Delivery Effort Task Hours</strong><br/>" +
+    descriptions: [
+        "<strong>Delivery Effort Task Hours</strong><br/>" +
             "<br/>" +
             "This dashboard shows how many hours are being spent on accepted stories during sprints,  " +
             "compared to the estimated hours and hours left to-do." +
@@ -856,6 +883,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
             "<li>The line shows the count of the estimated hours on the tasks " + 
             "associated with stories accepted in the sprint.</li>" + 
             "</ul>",
+        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"
+    ],
     
     integrationHeaders : {
         name : "TSDeliveryEffortTaskHours"
@@ -869,9 +898,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
                         
     launch: function() {
         this.callParent();
-        
         this._updateData();
-        
     },
     
     _updateData: function() {
@@ -888,7 +915,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 
-                this._makeChart(artifacts_by_timebox);
+                this._makeTopChart(artifacts_by_timebox);
+                this._makeBottomChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -1024,7 +1052,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return hash;
     },
     
-    _makeChart: function(artifacts_by_timebox) {
+    _makeTopChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -1036,9 +1064,28 @@ Ext.define("TSDeliveryEffortTaskHours", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig(),
+            chartConfig: this._getTopChartConfig(),
             chartColors: colors
         });
+        this.setLoading(false);
+    },
+    
+    _makeBottomChart: function(artifacts_by_timebox) {
+        var me = this;
+
+        var categories = this._getCategories(artifacts_by_timebox);
+        // TODO: change series to have FTE calcs.
+        var series = this._getSeries(artifacts_by_timebox);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getBottomChartConfig(),
+            chartColors: colors
+        },1);
         this.setLoading(false);
     },
     
@@ -1106,7 +1153,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
-    _getChartConfig: function() {
+    _getTopChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
@@ -1114,6 +1161,28 @@ Ext.define("TSDeliveryEffortTaskHours", {
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'Hours' }
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            },
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
+            }
+        }
+    },
+    
+    _getBottomChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Actual FTEs by Sprint' },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'FTEs' }
             }],
             plotOptions: {
                 column: {
