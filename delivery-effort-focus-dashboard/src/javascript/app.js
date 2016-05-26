@@ -51,7 +51,6 @@ Ext.define("TSDeliveryEffortFocus", {
         Rally.data.ModelFactory.getModel({
             type: model,
             success: function(model) {
-                console.log(model,field_name);
                 if ( Ext.isEmpty(model.getField(field_name) ) ) {
                     deferred.reject('Please use the App Settings... menu option to choose a field to represent type of task.')
                     return;
@@ -83,7 +82,10 @@ Ext.define("TSDeliveryEffortFocus", {
             scope: this,
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
-                
+                this.clearAdditionalDisplay();
+
+                this._makeGrid(artifacts_by_timebox);
+
                 this._makeChart(artifacts_by_timebox);
             },
             failure: function(msg) {
@@ -91,6 +93,103 @@ Ext.define("TSDeliveryEffortFocus", {
             }
         });
         
+    },
+
+
+    _makeGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        var columns = [{dataIndex:'Name',text:'Story Type',flex:1}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
+                            text: field + '<br> Actuals Hours / %', 
+                            align: 'center',
+                            flex:1,
+                            renderer: function(value,meta,record) {
+                                //if(value.actual_hours_total > 0){
+                                    return value.actual_hours_total + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
+                                //}
+                            }
+                        });
+        });
+
+       
+        var rows = this._getGridRows(artifacts_by_timebox);
+        
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+
+        this.addToAdditionalDisplay({
+            xtype:'rallygrid',
+            padding: 5,
+            margin: '10 0 0 0',
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,                
+            store: store,
+            columnCfgs: columns
+        }); 
+
+    },
+    
+    _getGridRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        var row_fields = this._getCategories(artifacts_by_timebox);
+        
+        var series = this._getSeries(artifacts_by_timebox);
+
+        var rows = [
+        ];
+
+        Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+            rows.push({Type:rowname.name == "-None-" ? '':rowname.name,Name:rowname.name});
+        })
+
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+                
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
+                row[sprint_name] = value.records[type];
+
+                var all_records = value.records['all'];
+
+                var actual_hours_total = 0;
+                var all_actual_hours_total = 0;
+
+                Ext.Array.each(all_records, function(story){
+                    var value = story.get('Actuals') || 0;
+                    all_actual_hours_total = all_actual_hours_total + value;
+                });  
+
+                Ext.Array.each(row[sprint_name], function(story){
+                    var value = story.get('Actuals') || 0;
+                    actual_hours_total = actual_hours_total + value;
+                });                
+                               
+                var actual_hours_pct = all_actual_hours_total > 0?actual_hours_total / all_actual_hours_total:0;
+
+                row[sprint_name + "_number"] = {'actual_hours_total':actual_hours_total, 'actual_hours_pct':actual_hours_pct}; 
+                
+            });
+        });
+
+        return rows;
+    },
+
+    _getSafeIterationName: function(name) {
+        return name.replace(/\./,'&#46;'); 
     },
     
     _fetchTimeboxes: function() {
@@ -216,7 +315,6 @@ Ext.define("TSDeliveryEffortFocus", {
             hash[timebox].records[type].push(item);
         });
         
-        console.log(hash);
         return hash;
     },
     
@@ -253,7 +351,6 @@ Ext.define("TSDeliveryEffortFocus", {
                 stack: 'a'
             });
         },this);
-        
         return series;
     },
     
@@ -323,7 +420,6 @@ Ext.define("TSDeliveryEffortFocus", {
             xtype: 'rallyfieldcombobox',
             model: 'Task',
             _isNotHidden: function(field) {
-                //console.log(field);
                 if ( field.hidden ) { return false; }
                 var defn = field.attributeDefinition;
                 if ( Ext.isEmpty(defn) ) { return false; }
