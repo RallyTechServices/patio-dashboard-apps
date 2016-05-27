@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Delivery Efficiency</title>
+    <title>Delivery Effort Task Hours</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 11 2016 14:13:03 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri May 27 2016 16:02:28 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 11 2016 14:13:03 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Fri May 27 2016 16:02:28 GMT-0400 (EDT)";
     </script>
     
-    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=__PUT_API_KEY_HERE__"></script>
+    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=__PUT_API_KEY_HERE__"></script>
 
     <script type="text/javascript">
         Rally.onReady(function() {
@@ -20,7 +20,7 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        
+                
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
@@ -407,6 +407,184 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('Rally.technicalservices.util.Utilities', {
+    singleton: true,
+    hashToArray: function(hash) {
+        var result = [];
+        for ( var key in hash ) {
+            result.push(hash[key]);
+        }
+        return result;
+    },
+    daysBetweenWithFraction: function(begin_date_js,end_date_js,skip_weekends){
+
+        var days_between = Rally.technicalservices.util.Utilities.daysBetween(begin_date_js, end_date_js, skip_weekends);
+
+        if ( typeof(begin_date_js) == "string" ) {
+           begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+
+        var end_date_beginning_of_day = new Date(Ext.clone(end_date_js).setHours(0,0,0,0)),
+            begin_date_beginning_of_day = new Date(Ext.clone(begin_date_js).setHours(0,0,0,0)),
+            add_minutes = 0,
+            delta_minutes = 0;
+
+        if (this.isWeekday(end_date_js)) {
+            add_minutes = Rally.util.DateTime.getDifference(end_date_js, end_date_beginning_of_day, 'minute');
+        }
+        if (this.isWeekday(begin_date_js)) {
+            delta_minutes = Rally.util.DateTime.getDifference(begin_date_js, begin_date_beginning_of_day, 'minute');
+        }
+        var min = days_between * 1440 + add_minutes - delta_minutes;
+        if (min > 0){
+            min = Math.max(min/1440,0.01);
+        } else {
+            min = 0;
+        }
+        return Number(min.toFixed(2));
+    },
+    daysBetween: function(begin_date_js,end_date_js,skip_weekends){
+
+        if ( typeof(begin_date_js) == "string" ) {
+            begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+        
+        var dDate1 = Ext.clone(begin_date_js).setHours(0,0,0,0);
+        var dDate2 = Ext.clone(end_date_js).setHours(0,0,0,0);
+        
+        if ( dDate1 == dDate2 ) { return 1; }
+        if (typeof dDate1 === "number") { dDate1 = new Date(dDate1); }
+        if (typeof dDate2 === "number") { dDate2 = new Date(dDate2); }
+            
+        if ( !skip_weekends ) {
+            return Math.abs( Rally.util.DateTime.getDifference(dDate1,dDate2,'day') );
+        } else {
+            // shift to the following Monday
+            if (!this.isWeekday(dDate1)) {
+                dDate1 = this.shiftDateToMonday(dDate1);
+            }
+            if (!this.isWeekday(dDate2)) {
+                dDate2 = this.shiftDateToMonday(dDate2);
+            }
+
+
+            // from the sOverflow
+            var iWeeks, iDateDiff, iAdjust = 0;
+            if (dDate2 < dDate1) 
+            { 
+                var x = dDate2;
+                dDate2 = dDate1;
+                dDate1 = x;
+            }
+            var iWeekday1 = dDate1.getDay(); // day of week
+            var iWeekday2 = dDate2.getDay();
+            iWeekday1 = (iWeekday1 == 0) ? 7 : iWeekday1; // change Sunday from 0 to 7
+            iWeekday2 = (iWeekday2 == 0) ? 7 : iWeekday2;
+            if ((iWeekday1 > 5) && (iWeekday2 > 5)) iAdjust = 1; // adjustment if both days on weekend
+            iWeekday1 = (iWeekday1 > 5) ? 5 : iWeekday1; // only count weekdays
+            iWeekday2 = (iWeekday2 > 5) ? 5 : iWeekday2;
+    
+            // calculate differnece in weeks (1000mS * 60sec * 60min * 24hrs * 7 days = 604800000)
+            iWeeks = Math.floor((dDate2.getTime() - dDate1.getTime()) / 604800000)
+    
+            if (iWeekday1 <= iWeekday2) {
+              iDateDiff = (iWeeks * 5) + (iWeekday2 - iWeekday1)
+            } else {
+              iDateDiff = ((iWeeks + 1) * 5) - (iWeekday1 - iWeekday2)
+            }
+    
+            iDateDiff -= iAdjust // take into account both days on weekend
+    
+            if ( iDateDiff < 1 ) { iDateDiff = 1; }
+            console.log(iDateDiff,begin_date_js,end_date_js);
+            return (iDateDiff); 
+        }
+    },
+
+    isWeekday: function(check_date) {
+        var weekday = true;
+        var day = check_date.getDay();
+        
+        if ( day === 0 || day === 6 ) {
+            weekday = false;
+        }
+        return weekday;
+    },
+    shiftDateToMonday: function(check_date) {
+        var day = check_date.getDay();
+        
+        var delta = 0;
+        
+        if ( day === 0 ) {
+            // it's Sunday
+            delta = 1;
+        }
+        if ( day === 6 ) {
+            delta = 2;
+        }
+        
+        var shifted_date = check_date;
+        if ( delta > 0 ) {
+            shifted_date = new Date(check_date.setHours(0));
+            shifted_date = Rally.util.DateTime.add(shifted_date,"day",delta);
+        }
+        return shifted_date;
+    },
+    /*
+     * compress size is the point at which to move to weeks instead of days
+     */
+    arrayOfDaysBetween: function(begin_date_js, end_date_js, skip_weekends, compress_size ) {
+        var the_array = [];
+        if ( typeof(begin_date_js) == "string" ) {
+            begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+        if ( begin_date_js > end_date_js ) {
+            var swap_holder = end_date_js;
+            end_date_js = begin_date_js;
+            begin_date_js = swap_holder;
+        }
+                
+        var dDate1 = Ext.clone(begin_date_js).setHours(0,0,0,0);
+        var dDate2 = Ext.clone(end_date_js).setHours(0,0,0,0);
+        
+        var number_of_days = this.daysBetween(begin_date_js,end_date_js,skip_weekends);
+        
+        var add_value = 1;
+        var add_unit = 'day';
+        
+        if ( Ext.isNumber(compress_size) && number_of_days > compress_size ) {
+            add_value = 7;
+        }
+        
+        if ( number_of_days <= 2 ) {
+            add_value = 30;
+            add_unit = 'minute';
+            dDate2 = Ext.clone(end_date_js).setHours(23,59,0,0);
+        }
+       
+        
+        var check_date = new Date(dDate1);
+        
+        while (check_date <= dDate2) {
+            if ( !skip_weekends || this.isWeekday(check_date) || add_value === 7 || add_unit == 'minute' ) {
+                the_array.push(check_date);
+            }
+            check_date = Rally.util.DateTime.add(check_date,add_unit,add_value);
+        }
+        
+        return the_array;
+    }
+    
+});
 (function() {
 
     'use strict';
@@ -670,6 +848,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             width: 375,
             height: 375,
             margin: 5,
+            overflowY: 'auto',
             html: description
             
         });
@@ -696,12 +875,14 @@ Ext.define("CA.techservices.app.ChartApp", {
     defaults: { margin: 10 },
     padding: 5,
     
-    description: '<em>No Description Available</em>',
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [],
     
     items: [
         {xtype:'container', width:'98%', items:[
             {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
-            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'main_display_box'},
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
@@ -713,11 +894,28 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     launch: function() {
-        this.setDescription();
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
+            descriptions = this.descriptions;
+        }
+        
+        Ext.Array.each(descriptions, function(description,index){
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+        },this);
     }, 
     
-    setDescription: function() {
-        this.down('tschartwithdescription').setDescription(this.description);
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
     },
     
     clearBanner: function() {
@@ -728,6 +926,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#banner_box').add(config);
     },
     
+    
+    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
@@ -736,8 +936,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#additional_display_box').add(config);
     },
     
-    setChart: function(config) {
-        return this.down('tschartwithdescription').setChart(config);
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
     },
     
     getDrillDownColumns: function(title) {
@@ -830,29 +1035,31 @@ Ext.define("CA.techservices.app.ChartApp", {
         ];
     }
     
-    
-    
 });
 
-Ext.define("TSDeliveryEfficiency", {
+Ext.define("TSDeliveryEffortTaskHours", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: "<strong>Delivery Acceleration</strong><br/>" +
+    descriptions: [
+        "<strong>Delivery Effort Task Hours</strong><br/>" +
             "<br/>" +
-            "This chart displays the velocity and change in velocity for timeboxes that " +
-            "follow a selected timebox.  Use the toggle switch to choose the type of " +
-            "timebox (iteration or release), then use the dropdown to choose a baseline " +
-            "timebox." +
+            "This dashboard shows how many hours are being spent on accepted stories during sprints,  " +
+            "compared to the estimated hours and hours left to-do." +
             "<p/>" +
-            "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
-            "<p/>" +
-            "<ul>" +
-            "<li>The line on the chart shows each timebox's velocity</li>" +
-            "<li>The bars on the chart show the percentage difference from the baseline timebox.</li>" +
+            "Click on a bar to see a table with the tasks from that timebox." +
+            "<p/> " +
+            "<ul/>" +
+            "<li>The columns show the count of actual hours on the tasks associated " +
+            "with stories accepted in the sprint.</li>" +
+            "<li>The line shows the count of the estimated hours on the tasks " + 
+            "associated with stories accepted in the sprint.</li>" + 
             "</ul>",
+        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"
+
+    ],
     
     integrationHeaders : {
-        name : "TSDeliveryAcceleration"
+        name : "TSDeliveryEffortTaskHours"
     },
     
     config: {
@@ -863,83 +1070,24 @@ Ext.define("TSDeliveryEfficiency", {
                         
     launch: function() {
         this.callParent();
-        
-        this._addSelectors();
-    }, 
-    
-    _addSelectors: function() {
-        
-        this.timebox_selector = null;
-        
-        this.timebox_type_selector = this.addToBanner({
-            xtype: 'tstogglebutton',
-            toggleState: 'iteration',
-            itemId: 'metric_selector',
-            margin: '3 0 0 0',
-            stateful: true,
-            stateId: 'techservices-deliveryacceleration-timeboxtype-toggle',
-            stateEvents:['change'],
-            listeners: {
-                scope: this,
-                toggle: this._updateTimeboxSelector
-            }
-        });
-        
-        this._updateTimeboxSelector();
-    },
-    
-    _updateTimeboxSelector: function() {
-        var type = this.timebox_type_selector.getValue();
-        
-        if ( ! Ext.isEmpty(this.timebox_selector) ) {
-            this.timebox_selector.destroy();
-        }
-        
-        if ( type == 'iteration' ) {
-            this.timebox_selector = this.addToBanner({
-                xtype:'rallyiterationcombobox',
-                fieldLabel: 'Base Iteration:',
-                labelWidth: 80,
-                margin: '0 0 10 25',
-                stateful: true,
-                stateId: 'techservices-deliveryacceleration-iteration-box',
-                stateEvents:['change'],
-                listeners: {
-                    scope: this,
-                    change: this._updateData
-                }
-            });
-        } else {
-            this.timebox_selector = this.addToBanner({
-                xtype:'rallyreleasecombobox',
-                fieldLabel: 'Base Release:',
-                labelWidth: 75,
-                margin: '0 0 10 25',
-                stateful: true,
-                stateId: 'techservices-deliveryacceleration-release-box',
-                stateEvents:['change'],
-                listeners: {
-                    scope: this,
-                    change: this._updateData
-                }
-            });
-        }
-        
+        this._updateData();
     },
     
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        
+        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
-            this._fetchTimeboxesAfterBaseline,
+            this._fetchTimeboxes,
+            this._sortIterations,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
-                this._makeChart(artifacts_by_timebox);
+                this._makeTopChart(artifacts_by_timebox);
+                this._makeBottomChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -948,69 +1096,51 @@ Ext.define("TSDeliveryEfficiency", {
         
     },
     
-    _fetchTimeboxesAfterBaseline: function() {
+    _fetchTimeboxes: function() {
         var me = this,
             deferred = Ext.create('Deft.Deferred'),
-            baseTimeboxRef = this.timebox_selector.getRecord().get('_ref'),
-            type = this.timebox_type_selector.getValue();
-        
-        var start_field = "StartDate";
-        var end_field = "EndDate";
-        if ( type == "release" ) {
-            start_field = "ReleaseStartDate",
-            end_field = "ReleaseDate"
-        }
-        var fetch = ['ObjectID','Name',start_field,end_field];
-        
-        this._getRecordByRef(baseTimeboxRef, fetch).then({
-            scope: this,
-            success: function(base_timebox) {
-                this.baseTimeboxObject = base_timebox;
+            type = this.timebox_type;
                 
-                var config = {
-                    model:type,
-                    limit: 10,
-                    pageSize: 10,
-                    fetch: fetch,
-                    context: {
-                        projectScopeUp: false,
-                        projectScopeDown: false
-                    },
-                    sorters: [{property:end_field, direction:'ASC'}],
-                    filters: [
-                        {property:start_field,operator:'>=',value:base_timebox.get(start_field)},
-                        {property:end_field,operator:'<', value: Rally.util.DateTime.toIsoString(new Date()) }
-                    ]
-                }
+        this.setLoading("Fetching timeboxes...");
                 
-                TSUtilities.loadWsapiRecords(config).then({
-                    success: function(results) {
-                        deferred.resolve(results);
-                    },
-                    failure: function(msg) {
-                        deferred.reject(msg);
-                    }
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
+        var config = {
+            model: type,
+            limit: 10,
+            pageSize: 10,
+            fetch: ['Name','StartDate','EndDate'],
+            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:'EndDate', direction:'DESC'}],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false
             }
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _sortIterations: function(iterations) {
+        
+        Ext.Array.sort(iterations, function(a,b){
+            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+            return 0;
         });
         
-        return deferred.promise;
+        return iterations;
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
         
-        var type = this.timebox_type_selector.getValue();
+        var type = this.timebox_type;
+        var type_field = this.getSetting('typeField');
+        
         var start_field = "StartDate";
         var end_field = "EndDate";
-        var timebox_property = 'Iteration';
-        if ( type == "release" ) {
-            start_field = "ReleaseStartDate",
-            end_field = "ReleaseDate",
-            timebox_property = "Release"
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
         }
         
         var deferred = Ext.create('Deft.Deferred');
@@ -1018,32 +1148,22 @@ Ext.define("TSDeliveryEfficiency", {
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
-            {property: timebox_property + '.' + start_field, operator: '>=', value:first_date},
-            {property: timebox_property + '.' + start_field, operator: '<=', value:last_date},
-            {property:'AcceptedDate', operator: '!=', value: null }
+            {property: type + '.' + start_field, operator: '>=', value:first_date},
+            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
         
         var config = {
-            model:'HierarchicalRequirement',
+            model:'Task',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','PlanEstimate','Release']
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
+                'PlanEstimate','Project','Release',type_field,'Actuals','Estimate',
+                'ToDo','WorkProduct',start_field,end_field]
         };
         
         Deft.Chain.sequence([
             function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "Defect";
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "TestSet";
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "DefectSuite";
                 return TSUtilities.loadWsapiRecords(config);
             }
         ],this).then({
@@ -1057,50 +1177,63 @@ Ext.define("TSDeliveryEfficiency", {
         return deferred.promise;
     },
     
+    /* 
+     * returns a hash of hashes -- key is iteration name value is
+     * another hash where the records key holds a hash
+     *    the records hash has a key for each allowed value 
+     *    which then provides an array of items that match the allowed value 
+     *    and timebox
+     * as in
+     * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
+     */
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
-            type = this.timebox_type_selector.getValue();
-            
+            timebox_type = this.timebox_type,
+            type_field = this.getSetting('typeField'),
+            allowed_types = this.allowed_types;
+                
         if ( items.length === 0 ) { return hash; }
-        
-        var timebox_property = 'Iteration';
-        if ( type == "release" ) {
-            timebox_property = "Release"
-        }
+
+
+        var base_hash = {
+            records: {
+                all: []
+            }
+        };
+        Ext.Array.each(allowed_types, function(value) {
+            base_hash.records[value] = [];
+        });
         
         Ext.Array.each(items, function(item){
-            var timebox = item.get(timebox_property).Name;
+            var timebox = item.get(timebox_type).Name;
+            
+            var start_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).StartDate);
+
+            var end_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).EndDate);
+        
+            var sprint_days_excluding_weekend = Rally.technicalservices.util.Utilities.daysBetween(end_date,start_date,this.true);
+
             if ( Ext.isEmpty(hash[timebox])){
-                hash[timebox]={
-                    items: []
-                };
+                
+                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            hash[timebox].items.push(item);
-        });
-        
-        Ext.Object.each(hash, function(timebox,value){
-            var items = value.items;
-            var estimates = Ext.Array.map(items, function(item){
-                return item.get('PlanEstimate') || 0;
-            });
-            value.velocity = Ext.Array.sum(estimates);
-        });
-        
-        var values = Ext.Object.getValues(hash);
-        var baseline = values[0].velocity;
-        
-        Ext.Object.each(hash, function(timebox, value) {
-            var velocity = value.velocity || 0;
-            var delta = 0;
-            if ( baseline > 0 ) {
-                delta = Math.round( 100 * ( velocity - baseline ) / baseline );
+            
+            hash[timebox].records.all.push(item);
+            
+            var type = item.get(type_field) || "";
+            if ( Ext.isEmpty(hash[timebox].records[type]) ) {
+                hash[timebox].records[type] = [];
             }
-            value.delta = delta;
+            hash[timebox].records[type].push(item);
+
+            hash[timebox].records['SprintDaysExcludingWeekend'] = sprint_days_excluding_weekend;
+
         });
+        
         return hash;
     },
     
-    _makeChart: function(artifacts_by_timebox) {
+    _makeTopChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -1112,66 +1245,116 @@ Ext.define("TSDeliveryEfficiency", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig(),
+            chartConfig: this._getTopChartConfig(),
             chartColors: colors
         });
+        this.setLoading(false);
+    },
+    
+
+
+    _makeBottomChart: function(artifacts_by_timebox) {
+        var me = this;
+
+        var categories = this._getCategories(artifacts_by_timebox);
+        // TODO: change series to have FTE calcs.
+        var series = this._getBottomSeries(artifacts_by_timebox);
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            chartData: { series: series, categories: categories },
+            chartConfig: this._getBottomChartConfig(),
+            chartColors: colors
+        },1);
+        this.setLoading(false);
     },
     
     _getSeries: function(artifacts_by_timebox) {
-        var series = [];
+        var series = [],
+            allowed_types = this.allowed_types;
         
+        console.log('--', artifacts_by_timebox);
+    
+        var name = "Actual Hours";
         series.push({
-            name: 'Acceleration',
-            data: this._getVelocityAcceleration(artifacts_by_timebox),
-            type:'column',
-            yAxis: "b",
-            tooltip: {
-                valueSuffix: ' %'
-            }
+            name: name,
+            data: this._calculateMeasure(artifacts_by_timebox,"Actuals",name),
+            type: 'column',
+            stack: 'a'
+        });
+
+        var name = "To Do Hours";
+        series.push({
+            name: name,
+            data: this._calculateMeasure(artifacts_by_timebox,"ToDo",name),
+            type: 'column',
+            stack: 'a'
         });
         
+        var name = "Estimated Hours";
         series.push({
-            name: 'Velocity', 
-            data: this._getVelocityData(artifacts_by_timebox),
-            type:'line',
-            yAxis: "a"
+            name: name,
+            data: this._calculateMeasure(artifacts_by_timebox,"Estimate",name),
+            type: 'line'
         });
-        
         
         return series;
     },
     
-    _getVelocityData: function(artifacts_by_timebox) {
-        var me = this,
-            data = [];
+    _getBottomSeries: function(artifacts_by_timebox) {
+        var series = [],
+            allowed_types = this.allowed_types;
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            data.push({ 
-                y: value.velocity,
-                _records: value.items,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox);
-                    }
-                }
-            });
-        });
-        
-        return data;
-        
-    },
+        console.log('--', artifacts_by_timebox);
     
-    _getVelocityAcceleration: function(artifacts_by_timebox) {
+        var name = "Actual FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"Actuals",name),
+            type: 'column',
+            stack: 'a'
+        });
+
+        var name = "To Do FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"ToDo",name),
+            type: 'column',
+            stack: 'a'
+        });
+        
+        var name = "Estimated FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"Estimate",name),
+            type: 'line'
+        });
+        
+        return series;
+    },
+
+    _calculateMeasure: function(artifacts_by_timebox,hours_field,title) {
         var me = this,
             data = [];
         
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+            var records = value.records.all || [];
+        
+            var size = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get(hours_field) || 0;
+                })
+            );
+            
             data.push({ 
-                y: value.delta,
-                _records: value.items,
+                y:size,
+                _records: records,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  timebox);
+                        me.showDrillDown(this._records,  title);
                     }
                 }
             });
@@ -1180,26 +1363,52 @@ Ext.define("TSDeliveryEfficiency", {
         return data;
         
     },
+
+    _calculateBottomMeasure: function(artifacts_by_timebox,hours_field,title) {
+        var me = this,
+            data = [];
+        
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+            var records = value.records.all || [];
+            
+            var size = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get(hours_field) || 0;
+                })
+            );
+            
+            //calculate full time equivalent ( number of hours in velocity / ( .8 * 8 * number of workdays in sprint) )
+            if(size > 0){
+                size = (value.records.SprintDaysExcludingWeekend * 8) / ( .8 * 8 * size);
+            }
+
+            data.push({ 
+                y: parseInt(size,10),
+                _records: records,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  title);
+                    }
+                }
+            });
+        });
+        
+        return data;
+        
+    },    
     
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
-    _getChartConfig: function() {
+    _getTopChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Delivery Acceleration' },
+            title: { text: 'Actual Task Hours by Sprint' },
             xAxis: {},
             yAxis: [{ 
-                id: "a",
-                //min: 0,
-                title: { text: 'Velocity' }
-            },
-            {
-                id: "b",
-                title: { text: '' },
-                opposite: true
+                title: { text: 'Hours' }
             }],
             plotOptions: {
                 column: {
@@ -1208,75 +1417,49 @@ Ext.define("TSDeliveryEfficiency", {
             },
             tooltip: {
                 formatter: function() {
-                    if ( this.series.name == "Acceleration" ) {
-                        return '<b>'+ this.series.name +'</b>: '+ this.point.y + "%";
-                    }
                     return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
                 }
             }
         }
     },
     
-    _getRecordByRef: function(ref, fields) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        var ref_array = ref.split('\/');
-        
-        if ( ref_array.length < 2 ) {
-            deferred.reject('NO NO NO');
-            return deferred;
-        }
-        
-        var object_id = ref_array.pop();
-        var model = ref_array.pop();
-        
-        Rally.data.ModelFactory.getModel({
-            type: model,
-            success: function(model) {
-                model.load(object_id,{
-                    fetch: Ext.Array.merge(['ObjectID','Name'], fields),
-                    callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
-                            deferred.resolve(result);
-                        } else {
-                            deferred.reject(operation.error.errors.join('. '))
-                        }
-                    }
-                });
+    _getBottomChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Actual FTEs by Sprint' },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'FTEs' }
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            },
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
             }
-        });
-        
-        return deferred.promise;
+        }
     },
     
     getSettingsFields: function() {
         return [
-//        {
-//            name: 'baseIteration',
-//            xtype:'rallyiterationcombobox',
-//            fieldLabel: 'Base Iteration',
-//            margin: '0 0 10 25'
-////            storeConfig: {
-////            TODO: limit to past iterations
-////                fetch: ["Name", 'StartDate', 'EndDate', "ObjectID", "State", "PlannedVelocity"],
-////                sorters: [
-////                    {property: 'StartDate', direction: "DESC"},
-////                    {property: 'EndDate', direction: "DESC"}
-////                ],
-////                model: Ext.identityFn('Iteration'),
-////                
-////                filters: [{property:'EndDate',operator:'<',value: Rally.util.DateTime.toIsoString(new Date())}],
-////                
-////                limit: Infinity,
-////                context: {
-////                    projectScopeDown: false,
-////                    projectScopeUp: false
-////                },
-////                remoteFilter: false,
-////                autoLoad: true
-////                
-////            }
-//        },
+        {
+            name: 'typeField',
+            xtype: 'rallyfieldcombobox',
+            model: 'Task',
+            _isNotHidden: function(field) {
+                //console.log(field);
+                if ( field.hidden ) { return false; }
+                var defn = field.attributeDefinition;
+                if ( Ext.isEmpty(defn) ) { return false; }
+                
+                return ( defn.Constrained && defn.AttributeType == 'STRING' );
+            }
+        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -1287,12 +1470,70 @@ Ext.define("TSDeliveryEfficiency", {
         }
         
         ];
+    },
+    
+    getDrillDownColumns: function(title) {
+        var columns = [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 2
+            },
+            {
+                dataIndex: 'WorkProduct',
+                text: 'Work Product',
+                flex:2,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value.FormattedID + ": " + value.Name;
+                }
+            },
+            {
+                dataIndex: 'Estimate',
+                text: 'Task Hours (Est)'
+            },
+            {
+                dataIndex: 'Actuals',
+                text: 'Task Hours (Actual)'
+            },
+            {
+                dataIndex: 'ToDo',
+                text: 'Task Hours (To Do)'
+            },
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                renderer:function(Project){
+                        return Project.Name;
+                },
+                flex: 1
+            }
+        ];
+        
+        if ( /\(multiple\)/.test(title)) {
+            columns.push({
+                dataIndex: 'Name',
+                text: 'Count of Moves',
+                renderer: function(value, meta, record) {
+                    
+                    return value.split('[Continued]').length;
+                }
+            });
+        }
+        
+        
+        return columns;
     }
+    
 });
 
             
-               Rally.launchApp('TSDeliveryEfficiency', {
-                   name: 'Delivery Efficiency'
+               Rally.launchApp('TSDeliveryEffortTaskHours', {
+                   name: 'Delivery Effort Task Hours'
                });
         });
     </script>

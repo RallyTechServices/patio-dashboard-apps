@@ -16,6 +16,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             "associated with stories accepted in the sprint.</li>" + 
             "</ul>",
         "<strong>Delivery Effort Full Time Equivalents</strong><br/>"
+
     ],
     
     integrationHeaders : {
@@ -46,7 +47,6 @@ Ext.define("TSDeliveryEffortTaskHours", {
             scope: this,
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
-                
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
             },
@@ -120,7 +120,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
                 'PlanEstimate','Project','Release',type_field,'Actuals','Estimate',
-                'ToDo','WorkProduct']
+                'ToDo','WorkProduct',start_field,end_field]
         };
         
         Deft.Chain.sequence([
@@ -154,7 +154,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
             allowed_types = this.allowed_types;
                 
         if ( items.length === 0 ) { return hash; }
-        
+
+
         var base_hash = {
             records: {
                 all: []
@@ -167,10 +168,17 @@ Ext.define("TSDeliveryEffortTaskHours", {
         Ext.Array.each(items, function(item){
             var timebox = item.get(timebox_type).Name;
             
+            var start_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).StartDate);
+
+            var end_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).EndDate);
+        
+            var sprint_days_excluding_weekend = Rally.technicalservices.util.Utilities.daysBetween(end_date,start_date,this.true);
+
             if ( Ext.isEmpty(hash[timebox])){
                 
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
+            
             hash[timebox].records.all.push(item);
             
             var type = item.get(type_field) || "";
@@ -178,9 +186,11 @@ Ext.define("TSDeliveryEffortTaskHours", {
                 hash[timebox].records[type] = [];
             }
             hash[timebox].records[type].push(item);
+
+            hash[timebox].records['SprintDaysExcludingWeekend'] = sprint_days_excluding_weekend;
+
         });
         
-        console.log(hash);
         return hash;
     },
     
@@ -202,12 +212,14 @@ Ext.define("TSDeliveryEffortTaskHours", {
         this.setLoading(false);
     },
     
+
+
     _makeBottomChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
         // TODO: change series to have FTE calcs.
-        var series = this._getSeries(artifacts_by_timebox);
+        var series = this._getBottomSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -253,13 +265,45 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return series;
     },
     
+    _getBottomSeries: function(artifacts_by_timebox) {
+        var series = [],
+            allowed_types = this.allowed_types;
+        
+        console.log('--', artifacts_by_timebox);
+    
+        var name = "Actual FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"Actuals",name),
+            type: 'column',
+            stack: 'a'
+        });
+
+        var name = "To Do FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"ToDo",name),
+            type: 'column',
+            stack: 'a'
+        });
+        
+        var name = "Estimated FTEs";
+        series.push({
+            name: name,
+            data: this._calculateBottomMeasure(artifacts_by_timebox,"Estimate",name),
+            type: 'line'
+        });
+        
+        return series;
+    },
+
     _calculateMeasure: function(artifacts_by_timebox,hours_field,title) {
         var me = this,
             data = [];
         
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records.all || [];
-            
+        
             var size = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
                     return record.get(hours_field) || 0;
@@ -280,6 +324,39 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return data;
         
     },
+
+    _calculateBottomMeasure: function(artifacts_by_timebox,hours_field,title) {
+        var me = this,
+            data = [];
+        
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+            var records = value.records.all || [];
+            
+            var size = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get(hours_field) || 0;
+                })
+            );
+            
+            //calculate full time equivalent ( number of hours in velocity / ( .8 * 8 * number of workdays in sprint) )
+            if(size > 0){
+                size = (value.records.SprintDaysExcludingWeekend * 8) / ( .8 * 8 * size);
+            }
+
+            data.push({ 
+                y: parseInt(size,10),
+                _records: records,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  title);
+                    }
+                }
+            });
+        });
+        
+        return data;
+        
+    },    
     
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
