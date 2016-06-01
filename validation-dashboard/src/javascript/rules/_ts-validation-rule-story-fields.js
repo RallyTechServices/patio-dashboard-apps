@@ -10,7 +10,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Stories that are missing expected fields."
         );

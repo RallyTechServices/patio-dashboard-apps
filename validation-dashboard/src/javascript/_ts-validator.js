@@ -263,9 +263,7 @@ Ext.define('CA.techservices.validator.Validator',{
         return record_hash;
     },
     
-    getPrecheckResults: function() {
-        console.log('Executing prechecks');
-        
+    getPrecheckResults: function() {        
         var promises = Ext.Array.map(this.rules, function(rule){
             return function() {
                 return rule.precheckRule();

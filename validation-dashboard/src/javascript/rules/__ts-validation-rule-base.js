@@ -16,6 +16,8 @@ Ext.define('CA.techservices.validation.BaseRule',{
         Ext.apply(this,config);
     },
     
+    shouldExecuteRule: true,
+    
     getDescription: function() {
         console.error('getRuleDescription is not implemented in subclass ', this.self.getName());
         return null;
@@ -45,8 +47,14 @@ Ext.define('CA.techservices.validation.BaseRule',{
     /* override to allow the validator to check if the rule makes sense to run 
      * (e.g., the field checker for fields that don't even exist)
      * 
-     * resolve promise with text if problem
+     * resolve promise with text if problem -- the validator will return the text so
+     * it can be put into a description
      * 
+     * The rule will still be executed unless this.shouldExecuteRule is set to false (and
+     * the rule class implements skipping because of this.shouldExecuteRule).
+     * 
+     * A rule class could be multi-part and only partially fail, so execution or not execution
+     * needs to be handled by the class itself.
      * 
      */
     precheckRule: function() {

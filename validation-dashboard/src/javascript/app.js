@@ -63,8 +63,8 @@ extend: 'CA.techservices.app.ChartApp',
                     
                     this.description = this.description + " " + append_text;
                 }
+                
                 this.setDescription();
-            
                 this._updateData();
             },
             failure: function(msg) {

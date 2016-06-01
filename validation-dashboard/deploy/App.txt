@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon May 16 2016 08:32:13 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 14:39:49 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon May 16 2016 08:32:13 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 14:39:49 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 113099730661;
+        var CHECKSUM = 120200330120;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -24,7 +24,7 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        
+                
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
@@ -701,12 +701,14 @@ Ext.define("CA.techservices.app.ChartApp", {
     defaults: { margin: 10 },
     padding: 5,
     
-    description: '<em>No Description Available</em>',
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [],
     
     items: [
         {xtype:'container', width:'98%', items:[
             {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
-            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'main_display_box'},
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
@@ -718,11 +720,38 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     launch: function() {
-        this.setDescription();
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
+            descriptions = this.descriptions;
+        }
+        
+        console.log("descriptions", descriptions);
+        
+        Ext.Array.each(descriptions, function(description,index){
+            console.log('index',index);
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+        },this);
     }, 
     
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    /*
+     * DEPRECATED. Use applyDescription
+     */
     setDescription: function() {
-        this.down('tschartwithdescription').setDescription(this.description);
+        this.applyDescription(this.description,0);
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
     },
     
     clearBanner: function() {
@@ -733,6 +762,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#banner_box').add(config);
     },
     
+    
+    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
@@ -741,8 +772,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#additional_display_box').add(config);
     },
     
-    setChart: function(config) {
-        return this.down('tschartwithdescription').setChart(config);
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
     },
     
     getDrillDownColumns: function(title) {
@@ -834,8 +870,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
         ];
     }
-    
-    
     
 });
 
@@ -1246,6 +1280,8 @@ Ext.define('CA.techservices.validation.BaseRule',{
         Ext.apply(this,config);
     },
     
+    shouldExecuteRule: true,
+    
     getDescription: function() {
         console.error('getRuleDescription is not implemented in subclass ', this.self.getName());
         return null;
@@ -1275,8 +1311,14 @@ Ext.define('CA.techservices.validation.BaseRule',{
     /* override to allow the validator to check if the rule makes sense to run 
      * (e.g., the field checker for fields that don't even exist)
      * 
-     * resolve promise with text if problem
+     * resolve promise with text if problem -- the validator will return the text so
+     * it can be put into a description
      * 
+     * The rule will still be executed unless this.shouldExecuteRule is set to false (and
+     * the rule class implements skipping because of this.shouldExecuteRule).
+     * 
+     * A rule class could be multi-part and only partially fail, so execution or not execution
+     * needs to be handled by the class itself.
      * 
      */
     precheckRule: function() {
@@ -1297,7 +1339,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Stories that have reached the Completed state but have nothing in the Actuals field on their tasks."
         );
@@ -1338,7 +1380,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Stories that are missing expected fields."
         );
@@ -1426,9 +1468,8 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     
     _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
     
-    
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Stories that don't trace to a EPMS Project with an EPMS ID.  This can be because the EPMS Project doesn't have" +
             " an ID, because the Feature isn't related to an EPMS Project, or because there's no Feature for the story."
@@ -1449,10 +1490,17 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
         return ( !Ext.isEmpty(field_defn) );
     },
     
-    /* 
-     * override to allow the validator to check if the rule makes sense to run 
+    /* override to allow the validator to check if the rule makes sense to run 
+     * (e.g., the field checker for fields that don't even exist)
      * 
-     * resolve promise with text if problem
+     * resolve promise with text if problem -- the validator will return the text so
+     * it can be put into a description
+     * 
+     * The rule will still be executed unless this.shouldExecuteRule is set to false (and
+     * the rule class implements skipping because of this.shouldExecuteRule).
+     * 
+     * A rule class could be multi-part and only partially fail, so execution or not execution
+     * needs to be handled by the class itself.
      * 
      */
     precheckRule: function() {
@@ -1464,8 +1512,9 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
             success: function(model) {
                 var text = null;
                 if ( !me.isValidField(model,'c_EPMSid') ) {
-                    text = "EPMS ID check is suspect because PortfolioItem records do not have a c_EPMSid field ";
-                    me._filters = Rally.data.wsapi.Filter.and([{property:'Feature.Parent.ObjectID',operator:'>',value:0}])
+                    text = "EPMS ID check will not be run.  PortfolioItem records do not have a c_EPMSid field ";
+                    me.shouldExecuteRule = false;
+                    me._filters = Rally.data.wsapi.Filter.and([{property:'ObjectID',value:0}])
                 }
                 
                 deferred.resolve(text);
@@ -1480,6 +1529,8 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {
+        if ( ! this.shouldExecuteRule ) { return false; }
+        
         if ( Ext.isEmpty(record.get('Feature')) ) {
             return 'Has no EPMS ID (no Feature)';
         }
@@ -1511,7 +1562,7 @@ Ext.define('CA.techservices.validation.TaskActiveNoToDo',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that are not yet complete but don't have hours in the To Do field."
         );
@@ -1550,7 +1601,7 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that are Completed but do not have any hours in the Actuals field."
         );
@@ -1587,7 +1638,7 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that are missing expected fields."
         );
@@ -1675,7 +1726,7 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong> : {1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that have hours left in the To Do field but no Estimate."
         );
@@ -1969,9 +2020,7 @@ Ext.define('CA.techservices.validator.Validator',{
         return record_hash;
     },
     
-    getPrecheckResults: function() {
-        console.log('Executing prechecks');
-        
+    getPrecheckResults: function() {        
         var promises = Ext.Array.map(this.rules, function(rule){
             return function() {
                 return rule.precheckRule();
@@ -2066,8 +2115,8 @@ extend: 'CA.techservices.app.ChartApp',
                     
                     this.description = this.description + " " + append_text;
                 }
+                
                 this.setDescription();
-            
                 this._updateData();
             },
             failure: function(msg) {

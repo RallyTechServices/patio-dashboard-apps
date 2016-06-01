@@ -12,7 +12,7 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that are Completed but do not have any hours in the Actuals field."
         );

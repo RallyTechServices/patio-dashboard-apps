@@ -31,7 +31,10 @@ Ext.define("CA.techservices.app.ChartApp", {
             descriptions = this.descriptions;
         }
         
+        console.log("descriptions", descriptions);
+        
         Ext.Array.each(descriptions, function(description,index){
+            console.log('index',index);
             this._addChartBox(index);
             this.applyDescription(description,index);
         },this);
@@ -42,6 +45,13 @@ Ext.define("CA.techservices.app.ChartApp", {
             xtype:'tschartwithdescription', 
             itemId: 'main_chart_' + index
         });
+    },
+    
+    /*
+     * DEPRECATED. Use applyDescription
+     */
+    setDescription: function() {
+        this.applyDescription(this.description,0);
     },
     
     applyDescription: function(description,index) {
