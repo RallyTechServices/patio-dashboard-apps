@@ -11,7 +11,7 @@ Ext.define('CA.techservices.validation.TaskActiveNoToDo',{
     },
     
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>{1}",
+        return Ext.String.format("<strong>{0}</strong>: {1}",
             this.label,
             "Tasks that are not yet complete but don't have hours in the To Do field."
         );
