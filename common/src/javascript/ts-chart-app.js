@@ -37,6 +37,7 @@ Ext.define("CA.techservices.app.ChartApp", {
             console.log('index',index);
             this._addChartBox(index);
             this.applyDescription(description,index);
+            this._addGridBox(index);
         },this);
     }, 
     
@@ -47,6 +48,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         });
     },
     
+    _addGridBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tsgridbox', 
+            itemId: 'main_grid_' + index
+        });
+    },
+
     /*
      * DEPRECATED. Use applyDescription
      */
@@ -67,7 +75,9 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     
-    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
+    /*
+     * DEPRECATED. Use getGridBox, setGrid instead.
+     */
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
@@ -85,6 +95,16 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+
+    getGridBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_grid_' + index);
+    },
+    
+    setGrid: function(config,index) {
+        this.getGridBox(index).setGrid(config);
+    },
+
     getDrillDownColumns: function(title) {
         return [
             {

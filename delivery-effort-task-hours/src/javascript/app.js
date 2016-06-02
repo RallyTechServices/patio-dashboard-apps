@@ -48,7 +48,9 @@ Ext.define("TSDeliveryEffortTaskHours", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
+                this._makeRawTopGrid(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
+                this._makeRawBottomGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -193,14 +195,164 @@ Ext.define("TSDeliveryEffortTaskHours", {
         
         return hash;
     },
+
+
+    _makeRawTopGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        this.logger.log('_makeRawGrid', artifacts_by_timebox);
+       
+        var columns = [{dataIndex:'Name',text:'Hours Type'}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
+        });
+        
+        this.logger.log('about to get Raw Rows');
+        var rows = this._getRawTopRows(artifacts_by_timebox);
+        
+        this.logger.log('about to create store', rows);
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        this.logger.log('about to add', store, columns);
+
+        this.setGrid({
+            xtype:'rallygrid',
+            padding: 5,
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,     
+            store: store,
+            columnCfgs: columns,
+        });
+
+    },
     
+    _getRawTopRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        
+        var row_fields = this._getCategories(artifacts_by_timebox);
+         
+        this.logger.log('row_fields', row_fields);
+        
+        var rows = [
+            {Type:'Actuals', Name: 'Actual Hours'},
+            {Type:'ToDo',  Name: 'ToDo Hours' },
+            {Type:'Estimate', Name: 'Estimated Hours' }
+        ];
+
+        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+        //     rows.push({Type:rowname.name,Name:rowname.name});
+        // })
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        this.logger.log('rows >>',rows);
+
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+                var records = value.records.all || [];
+                row[sprint_name + "_number"] = me._getTopSize(records,type); 
+                
+            });
+        });
+        
+        return rows;
+    },
+
+
+    _makeRawBottomGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        this.logger.log('_makeRawGrid', artifacts_by_timebox);
+       
+        var columns = [{dataIndex:'Name',text:'Hours Type'}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
+        });
+        
+        this.logger.log('about to get Raw Rows');
+        var rows = this._getRawBottomRows(artifacts_by_timebox);
+        
+        this.logger.log('about to create store', rows);
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        this.logger.log('about to add', store, columns);
+
+        this.setGrid({
+            xtype:'rallygrid',
+            padding: 5,
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,     
+            store: store,
+            columnCfgs: columns,
+        },1);
+
+    },
+    
+    _getRawBottomRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        
+        var row_fields = this._getCategories(artifacts_by_timebox);
+         
+        this.logger.log('row_fields', row_fields);
+        
+        var rows = [
+            {Type:'Actuals', Name: 'Actual FTEs'},
+            {Type:'ToDo',  Name: 'ToDo FTEs' },
+            {Type:'Estimate', Name: 'Estimated FTEs' }
+        ];
+
+        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+        //     rows.push({Type:rowname.name,Name:rowname.name});
+        // })
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        this.logger.log('rows >>',rows);
+
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
+                row[sprint_name] = value[type];
+                
+                var records = value.records.all || [];
+                
+                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
+                
+            });
+        });
+        
+        return rows;
+    },
+
     _makeTopChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
         var series = this._getSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
+        this.logger.log('Top series>>',series);
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
@@ -303,15 +455,8 @@ Ext.define("TSDeliveryEffortTaskHours", {
         
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records.all || [];
-        
-            var size = Ext.Array.sum(
-                Ext.Array.map(records, function(record){
-                    return record.get(hours_field) || 0;
-                })
-            );
-            
             data.push({ 
-                y:size,
+                y:me._getTopSize(records,hours_field),
                 _records: records,
                 events: {
                     click: function() {
@@ -325,26 +470,25 @@ Ext.define("TSDeliveryEffortTaskHours", {
         
     },
 
+    _getTopSize:function(records,hours_field){
+   
+        var size = Ext.Array.sum(
+            Ext.Array.map(records, function(record){
+                return record.get(hours_field) || 0;
+            })
+        );
+        return size;
+    },
+
     _calculateBottomMeasure: function(artifacts_by_timebox,hours_field,title) {
         var me = this,
             data = [];
         
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records.all || [];
-            
-            var size = Ext.Array.sum(
-                Ext.Array.map(records, function(record){
-                    return record.get(hours_field) || 0;
-                })
-            );
-            
-            //calculate full time equivalent ( number of hours in velocity / ( .8 * 8 * number of workdays in sprint) )
-            if(size > 0){
-                size = (value.records.SprintDaysExcludingWeekend * 8) / ( .8 * 8 * size);
-            }
 
             data.push({ 
-                y: parseInt(size,10),
+                y: me._getBottomSize(value,hours_field),
                 _records: records,
                 events: {
                     click: function() {
@@ -357,6 +501,22 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return data;
         
     },    
+
+    _getBottomSize:function(value,hours_field){
+            var records = value.records.all || [];
+            var size = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get(hours_field) || 0;
+                })
+            );
+            
+            //calculate full time equivalent ( number of hours in velocity / ( .8 * 8 * number of workdays in sprint) )
+            if(size > 0){
+                size = (value.records.SprintDaysExcludingWeekend * 8) / ( .8 * 8 * size);
+            }
+
+            return parseInt(size,10)
+    },
     
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
@@ -488,6 +648,16 @@ Ext.define("TSDeliveryEffortTaskHours", {
         
         
         return columns;
-    }
+    },
+    /*
+     * having a dot in the name for the key of a hash causes problems
+     */
+    _getSafeIterationName: function(name) {
+        return name.replace(/\./,'&#46;'); 
+    },
+    
+    _getUnsafeIterationName: function(name) {
+        return name.replace(/&#46;/,'.');
+    },
     
 });
