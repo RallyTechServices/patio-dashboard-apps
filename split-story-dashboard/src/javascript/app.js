@@ -3,11 +3,11 @@ Ext.define("TSSplitStoryPerSprint", {
     
     description: '<strong>Split Stories By Sprint</strong>' +
                 '<p/>' + 
-                'The stacked bar chart displays the total points (or count) of stories accepted in a sprint, grouped by Story Type.' +
+                'The stacked bar chart displays the number of points (or count) of stories accepted in a sprint, grouped by Story Type.' +
                 '<p/>' + 
-                'The top table shows the total points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
+                'The top table shows the points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
                 '<p/>' + 
-                'The bottom table shows the total percentage of points (or count) of stories grouped by Story Type.' +
+                'The bottom table shows the percentage of points (or count) of stories grouped by Story Type.' +
                 '<p/>' + 
                 'There are four types of stories:' + 
                 '<ul>' + 
@@ -250,7 +250,7 @@ Ext.define("TSSplitStoryPerSprint", {
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
             {Type:'multiple', Name: 'Multiple Moves' },
-            {Type:'standard',   Name: 'Story'}
+            {Type:'standard',   Name: 'Unsplit Story'}
         ];
         // set up fields
         
