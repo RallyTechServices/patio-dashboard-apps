@@ -6,7 +6,10 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
         label: 'Missing EPMS ID (Story)'
     },
     
-    _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
+    _filters: Rally.data.wsapi.Filter.and([
+        {property:'Feature.Parent.c_EPMSid',operator:'=',value:''},
+        {property:'DirectChildrenCount',value: 0}
+    ]),
     
     getDescription: function() {
         return Ext.String.format("<strong>{0}</strong>: {1}",

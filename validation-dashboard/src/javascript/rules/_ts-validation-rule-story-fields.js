@@ -85,6 +85,9 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
             return { property: field, value: "" };
         });
         
-        return Rally.data.wsapi.Filter.or(filters);
+        var field_filter = Rally.data.wsapi.Filter.or(filters);
+        var leaf_filter = Ext.create('Rally.data.wsapi.Filter',{property:'DirectChildrenCount',value: 0});
+        
+        return leaf_filter.and(field_filter);
     }
 });

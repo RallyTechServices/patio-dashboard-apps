@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 01 2016 18:15:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 18:30:22 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 01 2016 18:15:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 18:30:22 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 120486903976;
+        var CHECKSUM = 121558567273;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1345,7 +1345,8 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'ScheduleState',operator:'>=',value:'Completed'},
-            {property:'TaskActualTotal',operator: '<', value: .0000001 }
+            {property:'TaskActualTotal',operator: '<', value: .0000001 },
+            {property:'DirectChildrenCount',value: 0}
         ]);
     },
     // return false if the record doesn't match
@@ -1448,7 +1449,10 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
             return { property: field, value: "" };
         });
         
-        return Rally.data.wsapi.Filter.or(filters);
+        var field_filter = Rally.data.wsapi.Filter.or(filters);
+        var leaf_filter = Ext.create('Rally.data.wsapi.Filter',{property:'DirectChildrenCount',value: 0});
+        
+        return leaf_filter.and(field_filter);
     }
 });
 Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
@@ -1459,7 +1463,10 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
         label: 'Missing EPMS ID (Story)'
     },
     
-    _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
+    _filters: Rally.data.wsapi.Filter.and([
+        {property:'Feature.Parent.c_EPMSid',operator:'=',value:''},
+        {property:'DirectChildrenCount',value: 0}
+    ]),
     
     getDescription: function() {
         return Ext.String.format("<strong>{0}</strong>: {1}",
