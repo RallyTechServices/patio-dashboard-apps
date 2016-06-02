@@ -205,7 +205,7 @@ Ext.define("TSSplitStoryPerSprint", {
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
             {Type:'multiple', Name: 'Multiple Moves' },
-            {Type:'standard',   Name: 'Story'}
+            {Type:'standard',   Name: 'Unsplit Story'}
         ];
         // set up fields
         
