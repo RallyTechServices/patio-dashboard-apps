@@ -3,7 +3,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     alias: 'widget.tsstorycompletednoactuals',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Completed without Actuals (User Story)',
+        label: 'Completed without Actuals (Story)',
         completedStates: ['Completed','Accepted']
     },
     
@@ -21,7 +21,8 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'ScheduleState',operator:'>=',value:'Completed'},
-            {property:'TaskActualTotal',operator: '<', value: .0000001 }
+            {property:'TaskActualTotal',operator: '<', value: .0000001 },
+            {property:'DirectChildrenCount',value: 0}
         ]);
     },
     // return false if the record doesn't match

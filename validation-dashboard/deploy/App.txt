@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 01 2016 14:39:49 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 18:39:51 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 01 2016 14:39:49 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 18:39:51 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 120200330120;
+        var CHECKSUM = 121787488156;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -851,13 +851,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         return typeof(this.getAppId()) == 'undefined';
     },
     
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
-    },
-    
     getSettingsFields: function() {
         return [
         { 
@@ -1334,7 +1327,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     alias: 'widget.tsstorycompletednoactuals',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Completed without Actuals (User Story)',
+        label: 'Completed without Actuals (Story)',
         completedStates: ['Completed','Accepted']
     },
     
@@ -1352,7 +1345,8 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     getFilters: function() {
         return Rally.data.wsapi.Filter.and([
             {property:'ScheduleState',operator:'>=',value:'Completed'},
-            {property:'TaskActualTotal',operator: '<', value: .0000001 }
+            {property:'TaskActualTotal',operator: '<', value: .0000001 },
+            {property:'DirectChildrenCount',value: 0}
         ]);
     },
     // return false if the record doesn't match
@@ -1376,7 +1370,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     config: {
         model: 'HierarchicalRequirement',
         requiredFields: [],
-        label: 'Required Fields are missing (user story)'
+        label: 'Missing Required Fields (Story)'
     },
     
     getDescription: function() {
@@ -1401,7 +1395,9 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         Ext.Array.each(this.requiredFields, function (field_name) {
             if ( this.isValidField(record, field_name) ) {
                 var value = record.get(field_name);
-                missingFields.push(record.getField(field_name).displayName);
+                if ( Ext.isEmpty(value) ) {
+                    missingFields.push(record.getField(field_name).displayName);
+                }
             }
         },this);
         if (missingFields.length === 0) {
@@ -1455,7 +1451,10 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
             return { property: field, value: "" };
         });
         
-        return Rally.data.wsapi.Filter.or(filters);
+        var field_filter = Rally.data.wsapi.Filter.or(filters);
+        var leaf_filter = Ext.create('Rally.data.wsapi.Filter',{property:'DirectChildrenCount',value: 0});
+        
+        return leaf_filter.and(field_filter);
     }
 });
 Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
@@ -1463,10 +1462,13 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     alias: 'widget.tsstorywithoutepmsid',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Story without EPMS ID'
+        label: 'Missing EPMS ID (Story)'
     },
     
-    _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
+    _filters: Rally.data.wsapi.Filter.and([
+        {property:'Feature.Parent.c_EPMSid',operator:'=',value:''},
+        {property:'DirectChildrenCount',value: 0}
+    ]),
     
     getDescription: function() {
         return Ext.String.format("<strong>{0}</strong>: {1}",
@@ -1592,7 +1594,7 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
     alias: 'widget.tstaskcompletednoactuals',
     config: {
         model: 'Task',
-        label: 'Completed without Actuals (Task)',
+        label: 'Completed Without Actuals (Task)',
         completedStates: ['Completed']
     },
     
@@ -1634,7 +1636,7 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     config: {
         model: 'Task',
         requiredFields: [],
-        label: 'Required Fields are missing (task)'
+        label: 'Required Fields Are Missing (Task)'
     },
     
     getDescription: function() {
@@ -1660,7 +1662,9 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
         Ext.Array.each(this.requiredFields, function (field_name) {
             if ( this.isValidField(record, field_name) ) {
                 var value = record.get(field_name);
-                missingFields.push(record.getField(field_name).displayName);
+                if ( Ext.isEmpty(value) ) {
+                    missingFields.push(record.getField(field_name).displayName);
+                }
             }
         },this);
         if (missingFields.length === 0) {
@@ -1722,7 +1726,7 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
     alias: 'widget.tstasktodonoestimate',
     config: {
         model: 'Task',
-        label: 'Task With ToDo But No Estimate'
+        label: 'Positive ToDo But No Estimate (Task)'
     },
     
     getDescription: function() {
@@ -2249,9 +2253,19 @@ extend: 'CA.techservices.app.ChartApp',
     
     _getChartConfig: function() {
         var me = this;
+        
+        
+        var title_prefix = "";
+        if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
+            title_prefix = "Story ";
+        }
+        if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
+            title_prefix = "Task ";
+        }
+        
         return {
             chart: { type:'column' },
-            title: { text: 'Validation Results' },
+            title: { text: title_prefix + 'Validation Results' },
             xAxis: {},
             yAxis: { 
                 min: 0,

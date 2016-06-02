@@ -3,7 +3,7 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
     alias: 'widget.tstasktodonoestimate',
     config: {
         model: 'Task',
-        label: 'Task With ToDo But No Estimate'
+        label: 'Positive ToDo But No Estimate (Task)'
     },
     
     getDescription: function() {

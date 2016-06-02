@@ -197,9 +197,19 @@ extend: 'CA.techservices.app.ChartApp',
     
     _getChartConfig: function() {
         var me = this;
+        
+        
+        var title_prefix = "";
+        if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
+            title_prefix = "Story ";
+        }
+        if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
+            title_prefix = "Task ";
+        }
+        
         return {
             chart: { type:'column' },
-            title: { text: 'Validation Results' },
+            title: { text: title_prefix + 'Validation Results' },
             xAxis: {},
             yAxis: { 
                 min: 0,

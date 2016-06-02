@@ -6,7 +6,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     config: {
         model: 'HierarchicalRequirement',
         requiredFields: [],
-        label: 'Required Fields are missing (user story)'
+        label: 'Missing Required Fields (Story)'
     },
     
     getDescription: function() {
@@ -31,7 +31,9 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         Ext.Array.each(this.requiredFields, function (field_name) {
             if ( this.isValidField(record, field_name) ) {
                 var value = record.get(field_name);
-                missingFields.push(record.getField(field_name).displayName);
+                if ( Ext.isEmpty(value) ) {
+                    missingFields.push(record.getField(field_name).displayName);
+                }
             }
         },this);
         if (missingFields.length === 0) {
@@ -85,6 +87,9 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
             return { property: field, value: "" };
         });
         
-        return Rally.data.wsapi.Filter.or(filters);
+        var field_filter = Rally.data.wsapi.Filter.or(filters);
+        var leaf_filter = Ext.create('Rally.data.wsapi.Filter',{property:'DirectChildrenCount',value: 0});
+        
+        return leaf_filter.and(field_filter);
     }
 });
