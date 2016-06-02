@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 25 2016 17:08:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 19:19:34 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 25 2016 17:08:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 19:19:34 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 39510679769;
+        var CHECKSUM = 41149742464;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -701,12 +701,14 @@ Ext.define("CA.techservices.app.ChartApp", {
     defaults: { margin: 10 },
     padding: 5,
     
-    description: '<em>No Description Available</em>',
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [],
     
     items: [
         {xtype:'container', width:'98%', items:[
             {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
-            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'main_display_box'},
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
@@ -718,11 +720,38 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     launch: function() {
-        this.setDescription();
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
+            descriptions = this.descriptions;
+        }
+        
+        console.log("descriptions", descriptions);
+        
+        Ext.Array.each(descriptions, function(description,index){
+            console.log('index',index);
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+        },this);
     }, 
     
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    /*
+     * DEPRECATED. Use applyDescription
+     */
     setDescription: function() {
-        this.down('tschartwithdescription').setDescription(this.description);
+        this.applyDescription(this.description,0);
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
     },
     
     clearBanner: function() {
@@ -733,17 +762,23 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#banner_box').add(config);
     },
     
+    
+    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
     
     addToAdditionalDisplay: function(config) {
-        console.trace('addToAdditionalDisplay', config);
         return this.down('#additional_display_box').add(config);
     },
     
-    setChart: function(config) {
-        return this.down('tschartwithdescription').setChart(config);
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
     },
     
     getDrillDownColumns: function(title) {
@@ -816,13 +851,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         return typeof(this.getAppId()) == 'undefined';
     },
     
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
-    },
-    
     getSettingsFields: function() {
         return [
         { 
@@ -835,8 +863,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
         ];
     }
-    
-    
     
 });
 
@@ -930,11 +956,11 @@ Ext.define("TSSplitStoryPerSprint", {
     
     description: '<strong>Split Stories By Sprint</strong>' +
                 '<p/>' + 
-                'The stacked bar chart displays the total points (or count) of stories accepted in a sprint, grouped by Story Type.' +
+                'The stacked bar chart displays the number of points (or count) of stories accepted in a sprint, grouped by Story Type.' +
                 '<p/>' + 
-                'The top table shows the total points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
+                'The top table shows the points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
                 '<p/>' + 
-                'The bottom table shows the total percentage of points (or count) of stories grouped by Story Type.' +
+                'The bottom table shows the percentage of points (or count) of stories grouped by Story Type.' +
                 '<p/>' + 
                 'There are four types of stories:' + 
                 '<ul>' + 
@@ -1132,7 +1158,7 @@ Ext.define("TSSplitStoryPerSprint", {
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
             {Type:'multiple', Name: 'Multiple Moves' },
-            {Type:'standard',   Name: 'Story'}
+            {Type:'standard',   Name: 'Unsplit Story'}
         ];
         // set up fields
         
@@ -1177,7 +1203,7 @@ Ext.define("TSSplitStoryPerSprint", {
             {Type:'unfinished', Name: 'Unfinished Story'},
             {Type:'continued',  Name: 'Continued Story' },
             {Type:'multiple', Name: 'Multiple Moves' },
-            {Type:'standard',   Name: 'Story'}
+            {Type:'standard',   Name: 'Unsplit Story'}
         ];
         // set up fields
         
