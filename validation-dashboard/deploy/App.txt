@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 01 2016 18:36:06 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 18:39:51 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 01 2016 18:36:06 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 18:39:51 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 121673179124;
+        var CHECKSUM = 121787488156;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1662,7 +1662,9 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
         Ext.Array.each(this.requiredFields, function (field_name) {
             if ( this.isValidField(record, field_name) ) {
                 var value = record.get(field_name);
-                missingFields.push(record.getField(field_name).displayName);
+                if ( Ext.isEmpty(value) ) {
+                    missingFields.push(record.getField(field_name).displayName);
+                }
             }
         },this);
         if (missingFields.length === 0) {
