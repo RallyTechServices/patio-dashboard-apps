@@ -155,13 +155,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         return typeof(this.getAppId()) == 'undefined';
     },
     
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
-    },
-    
     getSettingsFields: function() {
         return [
         { 
