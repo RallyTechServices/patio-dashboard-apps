@@ -24,7 +24,9 @@ Ext.define("TSDeliveryAcceleration", {
             showPatterns: false
         }
     },
-                        
+      
+    timeboxes: [],
+    
     launch: function() {
         this.callParent();
         
@@ -95,7 +97,6 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this;
         this.metric = "size";
         
-        
         Deft.Chain.pipeline([
             this._fetchTimeboxesAfterBaseline,
             this._fetchArtifactsInTimeboxes
@@ -149,6 +150,7 @@ Ext.define("TSDeliveryAcceleration", {
                 
                 TSUtilities.loadWsapiRecords(config).then({
                     success: function(results) {
+                        me.timeboxes = results;
                         deferred.resolve(results);
                     },
                     failure: function(msg) {
@@ -250,7 +252,15 @@ Ext.define("TSDeliveryAcceleration", {
             value.velocity = Ext.Array.sum(estimates);
         });
         
-        var values = Ext.Object.getValues(hash);
+        
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        var values = Ext.Array.map(timeboxes, function(timebox){
+            return hash[timebox] || { items: [], velocity: 0 };
+        });
+
         var baseline = values[0].velocity;
         
         Ext.Object.each(hash, function(timebox, value) {
@@ -267,7 +277,7 @@ Ext.define("TSDeliveryAcceleration", {
     _makeChart: function(artifacts_by_timebox) {
         var me = this;
 
-        var categories = this._getCategories(artifacts_by_timebox);
+        var categories = this._getCategories();
         var series = this._getSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
@@ -283,7 +293,7 @@ Ext.define("TSDeliveryAcceleration", {
     
     _getSeries: function(artifacts_by_timebox) {
         var series = [];
-        
+                
         series.push({
             name: 'Acceleration',
             data: this._getVelocityAcceleration(artifacts_by_timebox),
@@ -309,16 +319,26 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            data.push({ 
-                y: value.velocity,
-                _records: value.items,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox);
+        
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        Ext.Array.each(timeboxes, function(timebox){
+            var value = artifacts_by_timebox[timebox];
+            if ( Ext.isEmpty(value) ) {
+                data.push({y: null, _records: []});
+            } else {
+                data.push({ 
+                    y: value.velocity,
+                    _records: value.items,
+                    events: {
+                        click: function() {
+                            me.showDrillDown(this._records,  timebox);
+                        }
                     }
-                }
-            });
+                });
+            }
         });
         
         return data;
@@ -329,24 +349,39 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            data.push({ 
-                y: value.delta,
-                _records: value.items,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox);
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        Ext.Array.each(timeboxes, function(timebox){
+            var value = artifacts_by_timebox[timebox];
+            if ( Ext.isEmpty(value) ) {
+                data.push({ 
+                    y: null,
+                    _records: []
+                });
+            } else {
+                data.push({ 
+                    y: value.delta,
+                    _records: value.items,
+                    events: {
+                        click: function() {
+                            me.showDrillDown(this._records,  timebox);
+                        }
                     }
-                }
-            });
+                });
+            }
         });
         
         return data;
-        
     },
     
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+    _getCategories: function() {        
+        var categories = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        return categories;
     },
     
     _getChartConfig: function() {

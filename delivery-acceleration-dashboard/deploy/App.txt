@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Acceleration</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 11 2016 14:00:33 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 19:06:43 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 11 2016 14:00:33 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 19:06:43 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 34223837433;
+        var CHECKSUM = 37367784356;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -25,7 +25,7 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        
+                
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
@@ -675,6 +675,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             width: 375,
             height: 375,
             margin: 5,
+            overflowY: 'auto',
             html: description
             
         });
@@ -701,12 +702,14 @@ Ext.define("CA.techservices.app.ChartApp", {
     defaults: { margin: 10 },
     padding: 5,
     
-    description: '<em>No Description Available</em>',
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [],
     
     items: [
         {xtype:'container', width:'98%', items:[
             {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
-            {xtype:'tschartwithdescription' },
+            {xtype:'container',itemId:'main_display_box'},
             {xtype:'container',itemId:'additional_display_box'}
         ]}
     ],
@@ -718,11 +721,38 @@ Ext.define("CA.techservices.app.ChartApp", {
     },
     
     launch: function() {
-        this.setDescription();
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
+            descriptions = this.descriptions;
+        }
+        
+        console.log("descriptions", descriptions);
+        
+        Ext.Array.each(descriptions, function(description,index){
+            console.log('index',index);
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+        },this);
     }, 
     
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    /*
+     * DEPRECATED. Use applyDescription
+     */
     setDescription: function() {
-        this.down('tschartwithdescription').setDescription(this.description);
+        this.applyDescription(this.description,0);
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
     },
     
     clearBanner: function() {
@@ -733,6 +763,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#banner_box').add(config);
     },
     
+    
+    // TODO: make it so that the chart boxes can each have tables under them instead of one big box under both
     clearAdditionalDisplay: function() {
         this.down('#additional_display_box').removeAll();
     },
@@ -741,8 +773,13 @@ Ext.define("CA.techservices.app.ChartApp", {
         return this.down('#additional_display_box').add(config);
     },
     
-    setChart: function(config) {
-        return this.down('tschartwithdescription').setChart(config);
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
     },
     
     getDrillDownColumns: function(title) {
@@ -815,13 +852,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         return typeof(this.getAppId()) == 'undefined';
     },
     
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
-    },
-    
     getSettingsFields: function() {
         return [
         { 
@@ -834,8 +864,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
         ];
     }
-    
-    
     
 });
 
@@ -954,7 +982,9 @@ Ext.define("TSDeliveryAcceleration", {
             showPatterns: false
         }
     },
-                        
+      
+    timeboxes: [],
+    
     launch: function() {
         this.callParent();
         
@@ -1025,7 +1055,6 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this;
         this.metric = "size";
         
-        
         Deft.Chain.pipeline([
             this._fetchTimeboxesAfterBaseline,
             this._fetchArtifactsInTimeboxes
@@ -1079,6 +1108,7 @@ Ext.define("TSDeliveryAcceleration", {
                 
                 TSUtilities.loadWsapiRecords(config).then({
                     success: function(results) {
+                        me.timeboxes = results;
                         deferred.resolve(results);
                     },
                     failure: function(msg) {
@@ -1180,7 +1210,15 @@ Ext.define("TSDeliveryAcceleration", {
             value.velocity = Ext.Array.sum(estimates);
         });
         
-        var values = Ext.Object.getValues(hash);
+        
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        var values = Ext.Array.map(timeboxes, function(timebox){
+            return hash[timebox] || { items: [], velocity: 0 };
+        });
+
         var baseline = values[0].velocity;
         
         Ext.Object.each(hash, function(timebox, value) {
@@ -1197,7 +1235,7 @@ Ext.define("TSDeliveryAcceleration", {
     _makeChart: function(artifacts_by_timebox) {
         var me = this;
 
-        var categories = this._getCategories(artifacts_by_timebox);
+        var categories = this._getCategories();
         var series = this._getSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
@@ -1213,7 +1251,7 @@ Ext.define("TSDeliveryAcceleration", {
     
     _getSeries: function(artifacts_by_timebox) {
         var series = [];
-        
+                
         series.push({
             name: 'Acceleration',
             data: this._getVelocityAcceleration(artifacts_by_timebox),
@@ -1239,16 +1277,26 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            data.push({ 
-                y: value.velocity,
-                _records: value.items,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox);
+        
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        Ext.Array.each(timeboxes, function(timebox){
+            var value = artifacts_by_timebox[timebox];
+            if ( Ext.isEmpty(value) ) {
+                data.push({y: null, _records: []});
+            } else {
+                data.push({ 
+                    y: value.velocity,
+                    _records: value.items,
+                    events: {
+                        click: function() {
+                            me.showDrillDown(this._records,  timebox);
+                        }
                     }
-                }
-            });
+                });
+            }
         });
         
         return data;
@@ -1259,24 +1307,39 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            data.push({ 
-                y: value.delta,
-                _records: value.items,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox);
+        var timeboxes = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        Ext.Array.each(timeboxes, function(timebox){
+            var value = artifacts_by_timebox[timebox];
+            if ( Ext.isEmpty(value) ) {
+                data.push({ 
+                    y: null,
+                    _records: []
+                });
+            } else {
+                data.push({ 
+                    y: value.delta,
+                    _records: value.items,
+                    events: {
+                        click: function() {
+                            me.showDrillDown(this._records,  timebox);
+                        }
                     }
-                }
-            });
+                });
+            }
         });
         
         return data;
-        
     },
     
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+    _getCategories: function() {        
+        var categories = Ext.Array.map(this.timeboxes, function(timebox){
+            return timebox.get('Name');
+        });
+        
+        return categories;
     },
     
     _getChartConfig: function() {
