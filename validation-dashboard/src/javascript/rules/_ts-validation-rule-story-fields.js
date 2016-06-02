@@ -6,7 +6,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     config: {
         model: 'HierarchicalRequirement',
         requiredFields: [],
-        label: 'Required Fields are missing (user story)'
+        label: 'Missing Required Fields (Story)'
     },
     
     getDescription: function() {

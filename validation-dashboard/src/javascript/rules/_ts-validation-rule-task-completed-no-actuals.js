@@ -3,7 +3,7 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
     alias: 'widget.tstaskcompletednoactuals',
     config: {
         model: 'Task',
-        label: 'Completed without Actuals (Task)',
+        label: 'Completed Without Actuals (Task)',
         completedStates: ['Completed']
     },
     

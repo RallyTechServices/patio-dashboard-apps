@@ -6,7 +6,7 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     config: {
         model: 'Task',
         requiredFields: [],
-        label: 'Required Fields are missing (task)'
+        label: 'Required Fields Are Missing (Task)'
     },
     
     getDescription: function() {

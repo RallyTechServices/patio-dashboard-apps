@@ -3,7 +3,7 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     alias: 'widget.tsstorywithoutepmsid',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Story without EPMS ID'
+        label: 'Missing EPMS ID (Story)'
     },
     
     _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),

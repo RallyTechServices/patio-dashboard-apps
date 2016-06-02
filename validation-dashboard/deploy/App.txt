@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 01 2016 14:39:49 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 01 2016 18:10:13 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 01 2016 14:39:49 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 01 2016 18:10:13 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 120200330120;
+        var CHECKSUM = 120169328051;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1334,7 +1334,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     alias: 'widget.tsstorycompletednoactuals',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Completed without Actuals (User Story)',
+        label: 'Completed without Actuals (Story)',
         completedStates: ['Completed','Accepted']
     },
     
@@ -1376,7 +1376,7 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
     config: {
         model: 'HierarchicalRequirement',
         requiredFields: [],
-        label: 'Required Fields are missing (user story)'
+        label: 'Missing Required Fields (Story)'
     },
     
     getDescription: function() {
@@ -1463,7 +1463,7 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     alias: 'widget.tsstorywithoutepmsid',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Story without EPMS ID'
+        label: 'Missing EPMS ID (Story)'
     },
     
     _filters: Rally.data.wsapi.Filter.and([{property:'Feature.Parent.c_EPMSid',operator:'=',value:''}]),
@@ -1592,7 +1592,7 @@ Ext.define('CA.techservices.validation.TaskCompletedNoActuals',{
     alias: 'widget.tstaskcompletednoactuals',
     config: {
         model: 'Task',
-        label: 'Completed without Actuals (Task)',
+        label: 'Completed Without Actuals (Task)',
         completedStates: ['Completed']
     },
     
@@ -1634,7 +1634,7 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     config: {
         model: 'Task',
         requiredFields: [],
-        label: 'Required Fields are missing (task)'
+        label: 'Required Fields Are Missing (Task)'
     },
     
     getDescription: function() {
@@ -1722,7 +1722,7 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
     alias: 'widget.tstasktodonoestimate',
     config: {
         model: 'Task',
-        label: 'Task With ToDo But No Estimate'
+        label: 'Positive ToDo But No Estimate (Task)'
     },
     
     getDescription: function() {

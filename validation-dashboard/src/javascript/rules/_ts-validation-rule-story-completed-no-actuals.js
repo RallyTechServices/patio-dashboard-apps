@@ -3,7 +3,7 @@ Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     alias: 'widget.tsstorycompletednoactuals',
     config: {
         model: 'HierarchicalRequirement',
-        label: 'Completed without Actuals (User Story)',
+        label: 'Completed without Actuals (Story)',
         completedStates: ['Completed','Accepted']
     },
     
