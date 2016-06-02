@@ -15,7 +15,19 @@ Ext.define("TSDeliveryEffortTaskHours", {
             "<li>The line shows the count of the estimated hours on the tasks " + 
             "associated with stories accepted in the sprint.</li>" + 
             "</ul>",
-        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"
+        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"+
+            "<br/>" +
+            "This dashboard shows the number of actual FTEs spent on accepted stories during sprints,  " +
+            "compared to the estimated FTEs and FTEs left to-do." +
+            "<p/>" +
+            "Click on a bar to see a table with the tasks from that timebox." +
+            "<p/> " +
+            "<ul/>" +
+            "<li>The columns show the count of actual hours on the tasks associated " +
+            "with stories accepted in the sprint.</li>" +
+            "<li>The line shows the count of the estimated hours on the tasks " + 
+            "associated with stories accepted in the sprint.</li>" + 
+            "</ul>"
 
     ],
     
