@@ -31,7 +31,9 @@ Ext.define('CA.techservices.validation.StoryRequiredFieldRule',{
         Ext.Array.each(this.requiredFields, function (field_name) {
             if ( this.isValidField(record, field_name) ) {
                 var value = record.get(field_name);
-                missingFields.push(record.getField(field_name).displayName);
+                if ( Ext.isEmpty(value) ) {
+                    missingFields.push(record.getField(field_name).displayName);
+                }
             }
         },this);
         if (missingFields.length === 0) {
