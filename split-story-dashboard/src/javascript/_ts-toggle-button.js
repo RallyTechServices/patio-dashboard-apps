@@ -17,7 +17,7 @@ Ext.define('CA.techservices.ToggleButton', {
             frame: false,
             text: 'S',
             toolTipConfig: {
-                html: 'Switch to Count View',
+                html: 'Switch to Size View',
                 anchor: 'top',
                 hideDelay: 0,
                 constrainPosition: false,
@@ -31,7 +31,7 @@ Ext.define('CA.techservices.ToggleButton', {
             frame: false,
             text: 'C',
             toolTipConfig: {
-                html: 'Switch to Size View',
+                html: 'Switch to Count View',
                 anchor: 'top',
                 hideDelay: 0,
                 constrainPosition: false,

@@ -23,7 +23,9 @@ Ext.define("TSSplitStoryPerSprint", {
     
     config: {
         defaultSettings: {
-            showPatterns: false
+            showPatterns: false,
+            timeBoxType: 'Iteration',
+            timeBoxLimit: 10
         }
     },
     
@@ -53,14 +55,15 @@ Ext.define("TSSplitStoryPerSprint", {
     
     _updateData: function() {
         var me = this;
-        this.metric = this.metric_selector.getValue();
+        this.metric = this.metric_selector.getValue() == 'size' ? 'Points': this.metric_selector.getValue();
+        this.timebox_type = this.getSetting('timeBoxType');
         
         Deft.Chain.pipeline([
-            this._fetchLastTenIterations,
-            this._sortIterations,
-            this._fetchStoriesFromIterations,
+            this._fetchLastTenTimeBoxes,
+            this._sortTimeboxes,
+            this._fetchStoriesFromTimeboxes,
             this._setStoryType,
-            this._buildIterationObjects
+            this._buildTimeboxObjects
         ],this).then({
             scope: this,
             success: function(parsed_sprints){
@@ -77,15 +80,43 @@ Ext.define("TSSplitStoryPerSprint", {
         }).always(function() { me.setLoading(false); });
     },
     
-    _buildIterationObjects: function(stories) {
-        var me = this;
-        this.logger.log('_buildIterationObjects');
-        var iteration_objects = {};
-        Ext.Array.each(this.iterations, function(iteration){
-            var name = me._getSafeIterationName(iteration.get('Name'));
+    // _buildIterationObjects: function(stories) {
+    //     var me = this;
+    //     this.logger.log('_buildIterationObjects');
+    //     var iteration_objects = {};
+    //     Ext.Array.each(this.timeboxes, function(iteration){
+    //         var name = me._getSafeIterationName(iteration.get('Name'));
             
-            iteration_objects[name] = {
-                iteration: iteration,
+    //         iteration_objects[name] = {
+    //             iteration: iteration,
+    //             multiple: [],
+    //             unfinished: [],
+    //             continued: [],
+    //             standard: [],
+    //             stories: []
+    //         }
+    //     });
+        
+    //     Ext.Array.each(stories, function(story){
+    //         var iteration_name = me._getSafeIterationName( story.get('Iteration').Name );
+    //         var type = story.get('__Type');
+    //         iteration_objects[iteration_name].stories.push(story);
+    //         iteration_objects[iteration_name][type].push(story);
+    //     });
+        
+    //     return iteration_objects;
+    // },
+    
+    _buildTimeboxObjects: function(stories) {
+        var me = this;
+        this.logger.log('_buildTimeboxObjects');
+
+        var timebox_objects = {};
+        Ext.Array.each(this.timeboxes, function(timebox){
+            var name = me._getSafeTimeboxName(timebox.get('Name'));
+            
+            timebox_objects[name] = {
+                iteration: timebox,
                 multiple: [],
                 unfinished: [],
                 continued: [],
@@ -95,16 +126,16 @@ Ext.define("TSSplitStoryPerSprint", {
         });
         
         Ext.Array.each(stories, function(story){
-            var iteration_name = me._getSafeIterationName( story.get('Iteration').Name );
+            var timebox_name = me._getSafeTimeboxName( story.get(me.timebox_type).Name );
             var type = story.get('__Type');
-            iteration_objects[iteration_name].stories.push(story);
-            iteration_objects[iteration_name][type].push(story);
+            timebox_objects[timebox_name].stories.push(story);
+            timebox_objects[timebox_name][type].push(story);
         });
         
-        return iteration_objects;
-    },
-    
-    
+        return timebox_objects;
+    },    
+
+
     _setStoryType: function(stories) {
         this.logger.log("_setStoryType");
         Ext.Array.each(stories, function(story){
@@ -129,26 +160,75 @@ Ext.define("TSSplitStoryPerSprint", {
         return 'standard';
     },
     
-    _sortIterations: function(iterations) {
+    // _sortIterations: function(iterations) {
         
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+    //     Ext.Array.sort(iterations, function(a,b){
+    //         if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+    //         if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+    //         return 0;
+    //     });
+        
+    //     return iterations;
+    // },
+    
+    _sortTimeboxes: function(timeboxes) {
+
+        var type = this.timebox_type;
+
+        var end_field = "EndDate";
+
+        if ( type == "Release" ) {
+            end_field   = "ReleaseDate";
+        }        
+        
+        Ext.Array.sort(timeboxes, function(a,b){
+            if ( a.get(end_field) < b.get(end_field) ) { return -1; }
+            if ( a.get(end_field) > b.get(end_field) ) { return  1; }
             return 0;
         });
         
-        return iterations;
+        return timeboxes;
     },
+
+    // _fetchLastTenIterations: function() {
+    //     this.setLoading("Fetching iterations...");
+
+    //     var config = {
+    //         model:'Iteration',
+    //         limit: this.getSetting('timeBoxLimit'),
+    //         pageSize: this.getSetting('timeBoxLimit'),
+    //         fetch: ['Name','StartDate','EndDate'],
+    //         filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+    //         sorters: [{property:'EndDate', direction:'DESC'}],
+    //         context: {
+    //             projectScopeUp: false,
+    //             projectScopeDown: false
+    //         }
+    //     };
+        
+    //     return TSUtilities.loadWsapiRecords(config);
+    // },
     
-    _fetchLastTenIterations: function() {
-        this.setLoading("Fetching iterations...");
+    _fetchLastTenTimeBoxes: function() {
+        this.setLoading("Fetching timeboxes...");
+        
+        var type = this.timebox_type;
+
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
+        }
+
         var config = {
-            model:'Iteration',
-            limit: 10,
-            pageSize: 10,
-            fetch: ['Name','StartDate','EndDate'],
-            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-            sorters: [{property:'EndDate', direction:'DESC'}],
+            model:type,
+            limit: this.getSetting('timeBoxLimit'),
+            pageSize: this.getSetting('timeBoxLimit'),
+            fetch: ['Name',start_field,end_field],
+            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
                 projectScopeDown: false
@@ -157,39 +237,88 @@ Ext.define("TSSplitStoryPerSprint", {
         
         return TSUtilities.loadWsapiRecords(config);
     },
-    
-    _fetchStoriesFromIterations: function(iterations) {
+
+
+    // _fetchStoriesFromIterations: function(iterations) {
+    //     this.setLoading("Fetching Stories...");
+    //     this.iterations = iterations;
+        
+    //     if ( iterations.length === 0 ) { return []; }
+        
+    //     var first_iteration = iterations[0];
+    //     var last_iteration = iterations[iterations.length-1];
+        
+    //     var filters = [
+    //         {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_iteration.get('StartDate'))},
+    //         {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_iteration.get('EndDate'))},
+    //         {property:'AcceptedDate',       operator:'!=', value: null }
+    //     ];
+        
+    //     var config = {
+    //         model: 'HierarchicalRequirement',
+    //         filters: filters,
+    //         fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate','Feature','Project']
+    //     }
+        
+    //     return TSUtilities.loadWsapiRecords(config);
+    // },
+
+
+    _fetchStoriesFromTimeboxes: function(timeboxes) {
         this.setLoading("Fetching Stories...");
-        this.iterations = iterations;
+
+        var type = this.timebox_type;
+
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
+        }
+
+        this.timeboxes = timeboxes;
         
-        if ( iterations.length === 0 ) { return []; }
+        if ( timeboxes.length === 0 ) { return []; }
         
-        var first_iteration = iterations[0];
-        var last_iteration = iterations[iterations.length-1];
+        var first_timebox = timeboxes[0];
+        var last_timebox = timeboxes[timeboxes.length-1];
+
+        var filters = [];
+
+        if(type=='Iteration'){
+            filters = [
+                {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_timebox.get(start_field))},
+                {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))},
+                {property:'AcceptedDate',       operator:'!=', value: null }
+            ];
+        }else{
+            filters = [
+                {property:'Release.ReleaseStartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_timebox.get(start_field))},
+                {property:'Release.ReleaseDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))},
+                {property:'AcceptedDate',       operator:'!=', value: null }
+            ];            
+        }
         
-        var filters = [
-            {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_iteration.get('StartDate'))},
-            {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_iteration.get('EndDate'))},
-            {property:'AcceptedDate',       operator:'!=', value: null }
-        ];
+        
         
         var config = {
             model: 'HierarchicalRequirement',
             filters: filters,
-            fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate','Feature','Project']
+            fetch:['FormattedID','ScheduleState','Iteration','Release','Name','PlanEstimate','Feature','Project']
         }
         
         return TSUtilities.loadWsapiRecords(config);
-    },
+    },    
     
     /*
      * having a dot in the name for the key of a hash causes problems
      */
-    _getSafeIterationName: function(name) {
+    _getSafeTimeboxName: function(name) {
         return name.replace(/\./,'&#46;'); 
     },
     
-    _getUnsafeIterationName: function(name) {
+    _getUnsafeTimeboxName: function(name) {
         return name.replace(/&#46;/,'.');
     },
     
@@ -211,7 +340,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
-                field = me._getSafeIterationName(field);
+                field = me._getSafeTimeboxName(field);
                 row[field] = [];
                 row[field + "_number"] = 0;
             });
@@ -220,7 +349,7 @@ Ext.define("TSSplitStoryPerSprint", {
         Ext.Array.each(rows, function(row){
             var type = row.Type;
             Ext.Object.each(sprint_objects, function(sprint_name,value){
-                sprint_name = me._getSafeIterationName(sprint_name);
+                sprint_name = me._getSafeTimeboxName(sprint_name);
 
                 row[sprint_name] = value[type];
                 
@@ -256,7 +385,7 @@ Ext.define("TSSplitStoryPerSprint", {
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
-                field = me._getSafeIterationName(field);
+                field = me._getSafeTimeboxName(field);
                 row[field] = [];
                 row[field + "_number"] = 0;
             });
@@ -303,7 +432,7 @@ Ext.define("TSSplitStoryPerSprint", {
         var me = this;
         
         return Ext.Array.map(Ext.Object.getKeys(sprint_objects), function(sprint){
-            return me._getUnsafeIterationName(sprint);
+            return me._getUnsafeTimeboxName(sprint);
         });
     },
     
@@ -366,10 +495,11 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getChartConfig: function() {
+        var chart_title = this.timebox_type == 'Iteration'? 'Split Stories by Sprint' : 'Split Stories by Release';
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Split Stories by Sprint' },
+            title: { text: chart_title },
             xAxis: {},
             yAxis: { 
                 min: 0,
@@ -388,9 +518,9 @@ Ext.define("TSSplitStoryPerSprint", {
         
         this.logger.log('_makeRawGrid', sprint_objects);
        
-        var columns = [{dataIndex:'Name',text:'Story Type'}];
+        var columns = [{dataIndex:'Name',text:'Story Type', flex:1}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){
-            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center'});
+            columns.push({ dataIndex: me._getSafeTimeboxName(field) + "_number", text: field, align: 'center', flex:1});
         });
         
         this.logger.log('about to get Raw Rows');
@@ -418,12 +548,13 @@ Ext.define("TSSplitStoryPerSprint", {
         var me = this;
         this.logger.log('_makePercentageGrid', sprint_objects);
         
-        var columns = [{dataIndex:'Name',text:'Story Type'}];
+        var columns = [{dataIndex:'Name',text:'Story Type', flex:1}];
         Ext.Array.each(this._getCategories(sprint_objects), function(field){   
             columns.push({ 
-                dataIndex: me._getSafeIterationName(field)  + "_number", 
+                dataIndex: me._getSafeTimeboxName(field)  + "_number", 
                 text: field, 
                 align: 'center',
+                flex:1,
                 renderer: function(value,meta,record) {
                     if ( !Ext.isNumber(value) ) {
                         return 'N/A';
@@ -533,6 +664,39 @@ Ext.define("TSSplitStoryPerSprint", {
     
     getSettingsFields: function() {
         return [
+        {
+            xtype: 'textfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Time Box Limit',
+            margin: '0 0 0 50',
+            width: 200,
+            allowBlank: false  // requires a non-empty value
+        },
+        {
+            xtype      : 'radiogroup',
+            fieldLabel : 'Timebox Type',
+            margin: '0 0 0 50',
+            width: 300,
+            defaults: {
+                flex: 1
+            },
+            layout: 'hbox',
+            items: [
+                {
+                    boxLabel  : 'Iteration',
+                    name      : 'timeBoxType',
+                    inputValue: 'Iteration',
+                    id        : 'radio1',
+                    checked   : true                    
+                }, {
+                    boxLabel  : 'Release',
+                    name      : 'timeBoxType',
+                    inputValue: 'Release',
+                    id        : 'radio2'
+                }
+            ]
+        },
         { 
             name: 'showPatterns',
                 xtype: 'rallycheckboxfield',
