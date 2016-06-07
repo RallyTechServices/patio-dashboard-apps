@@ -3,10 +3,10 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 07 2016 08:46:09 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Jun 07 2016 16:24:39 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 07 2016 08:46:09 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Jun 07 2016 16:24:39 GMT-0400 (EDT)";
         var BUILDER = "[%= builder %]";
         var CHECKSUM = [%= checksum %];
     </script>
@@ -1189,9 +1189,7 @@ Ext.define("TSSplitStoryPerSprint", {
     
     config: {
         defaultSettings: {
-            showPatterns: false,
-            timeBoxType: 'Iteration',
-            timeBoxLimit: 10
+            showPatterns: false
         }
     },
     
@@ -1217,12 +1215,72 @@ Ext.define("TSSplitStoryPerSprint", {
                 toggle: this._updateData
             }
         });
+
+        this.timebox_limit = 10;
+        this.addToBanner({
+            xtype: 'numberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Time Box Limit',
+            value: 10,
+            maxValue: 20,
+            minValue: 1,            
+            margin: '0 0 0 50',
+            width: 150,
+            keyNavEnabled: true,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+
+        this.timebox_type = 'Iteration';
+        this.addToBanner(
+        {
+            xtype      : 'radiogroup',
+            fieldLabel : 'Timebox Type',
+            margin: '0 0 0 50',
+            width: 300,
+            defaults: {
+                flex: 1
+            },
+            layout: 'hbox',
+            items: [
+                {
+                    boxLabel  : 'Iteration',
+                    name      : 'timeBoxType',
+                    inputValue: 'Iteration',
+                    id        : 'radio1',
+                    checked   : true                    
+                }, {
+                    boxLabel  : 'Release',
+                    name      : 'timeBoxType',
+                    inputValue: 'Release',
+                    id        : 'radio2'
+                }
+            ],
+            listeners:{
+                change:function(rb){
+                    this.timebox_type = rb.lastValue.timeBoxType;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+
+
     },
     
     _updateData: function() {
+        this.logger.log('_updateData');
         var me = this;
         this.metric = this.metric_selector.getValue() == 'size' ? 'Points': this.metric_selector.getValue();
-        this.timebox_type = this.getSetting('timeBoxType');
         
         Deft.Chain.pipeline([
             this._fetchLastTenTimeBoxes,
@@ -1246,32 +1304,6 @@ Ext.define("TSSplitStoryPerSprint", {
         }).always(function() { me.setLoading(false); });
     },
     
-    // _buildIterationObjects: function(stories) {
-    //     var me = this;
-    //     this.logger.log('_buildIterationObjects');
-    //     var iteration_objects = {};
-    //     Ext.Array.each(this.timeboxes, function(iteration){
-    //         var name = me._getSafeIterationName(iteration.get('Name'));
-            
-    //         iteration_objects[name] = {
-    //             iteration: iteration,
-    //             multiple: [],
-    //             unfinished: [],
-    //             continued: [],
-    //             standard: [],
-    //             stories: []
-    //         }
-    //     });
-        
-    //     Ext.Array.each(stories, function(story){
-    //         var iteration_name = me._getSafeIterationName( story.get('Iteration').Name );
-    //         var type = story.get('__Type');
-    //         iteration_objects[iteration_name].stories.push(story);
-    //         iteration_objects[iteration_name][type].push(story);
-    //     });
-        
-    //     return iteration_objects;
-    // },
     
     _buildTimeboxObjects: function(stories) {
         var me = this;
@@ -1326,56 +1358,32 @@ Ext.define("TSSplitStoryPerSprint", {
         return 'standard';
     },
     
-    // _sortIterations: function(iterations) {
-        
-    //     Ext.Array.sort(iterations, function(a,b){
-    //         if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-    //         if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
-    //         return 0;
-    //     });
-        
-    //     return iterations;
-    // },
-    
+   
     _sortTimeboxes: function(timeboxes) {
 
-        var type = this.timebox_type;
+        this.logger.log('_sortTimeboxes');
 
-        var end_field = "EndDate";
+        // var type = this.timebox_type;
 
-        if ( type == "Release" ) {
-            end_field   = "ReleaseDate";
-        }        
+        // var end_field = "EndDate";
+
+        // if ( type == "Release" ) {
+        //     end_field   = "ReleaseDate";
+        // }        
         
-        Ext.Array.sort(timeboxes, function(a,b){
-            if ( a.get(end_field) < b.get(end_field) ) { return -1; }
-            if ( a.get(end_field) > b.get(end_field) ) { return  1; }
-            return 0;
-        });
+        // Ext.Array.sort(timeboxes, function(a,b){
+        //     if ( a.get(end_field) < b.get(end_field) ) { return -1; }
+        //     if ( a.get(end_field) > b.get(end_field) ) { return  1; }
+        //     return 0;
+        // });
         
-        return timeboxes;
+        return timeboxes.reverse();
     },
 
-    // _fetchLastTenIterations: function() {
-    //     this.setLoading("Fetching iterations...");
-
-    //     var config = {
-    //         model:'Iteration',
-    //         limit: this.getSetting('timeBoxLimit'),
-    //         pageSize: this.getSetting('timeBoxLimit'),
-    //         fetch: ['Name','StartDate','EndDate'],
-    //         filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-    //         sorters: [{property:'EndDate', direction:'DESC'}],
-    //         context: {
-    //             projectScopeUp: false,
-    //             projectScopeDown: false
-    //         }
-    //     };
-        
-    //     return TSUtilities.loadWsapiRecords(config);
-    // },
-    
+   
     _fetchLastTenTimeBoxes: function() {
+        this.logger.log('_fetchLastTenTimeBoxes');
+
         this.setLoading("Fetching timeboxes...");
         
         var type = this.timebox_type;
@@ -1390,8 +1398,8 @@ Ext.define("TSSplitStoryPerSprint", {
 
         var config = {
             model:type,
-            limit: this.getSetting('timeBoxLimit'),
-            pageSize: this.getSetting('timeBoxLimit'),
+            limit: this.timebox_limit,
+            pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
             filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
@@ -1405,32 +1413,9 @@ Ext.define("TSSplitStoryPerSprint", {
     },
 
 
-    // _fetchStoriesFromIterations: function(iterations) {
-    //     this.setLoading("Fetching Stories...");
-    //     this.iterations = iterations;
-        
-    //     if ( iterations.length === 0 ) { return []; }
-        
-    //     var first_iteration = iterations[0];
-    //     var last_iteration = iterations[iterations.length-1];
-        
-    //     var filters = [
-    //         {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_iteration.get('StartDate'))},
-    //         {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_iteration.get('EndDate'))},
-    //         {property:'AcceptedDate',       operator:'!=', value: null }
-    //     ];
-        
-    //     var config = {
-    //         model: 'HierarchicalRequirement',
-    //         filters: filters,
-    //         fetch:['FormattedID','ScheduleState','Iteration','Name','PlanEstimate','Feature','Project']
-    //     }
-        
-    //     return TSUtilities.loadWsapiRecords(config);
-    // },
-
-
     _fetchStoriesFromTimeboxes: function(timeboxes) {
+        this.logger.log('_fetchStoriesFromTimeboxes');
+
         this.setLoading("Fetching Stories...");
 
         var type = this.timebox_type;
@@ -1471,6 +1456,10 @@ Ext.define("TSSplitStoryPerSprint", {
         var config = {
             model: 'HierarchicalRequirement',
             filters: filters,
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false
+            },
             fetch:['FormattedID','ScheduleState','Iteration','Release','Name','PlanEstimate','Feature','Project']
         }
         
@@ -1830,39 +1819,6 @@ Ext.define("TSSplitStoryPerSprint", {
     
     getSettingsFields: function() {
         return [
-        {
-            xtype: 'textfield',
-            name: 'timeBoxLimit',
-            itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
-            margin: '0 0 0 50',
-            width: 200,
-            allowBlank: false  // requires a non-empty value
-        },
-        {
-            xtype      : 'radiogroup',
-            fieldLabel : 'Timebox Type',
-            margin: '0 0 0 50',
-            width: 300,
-            defaults: {
-                flex: 1
-            },
-            layout: 'hbox',
-            items: [
-                {
-                    boxLabel  : 'Iteration',
-                    name      : 'timeBoxType',
-                    inputValue: 'Iteration',
-                    id        : 'radio1',
-                    checked   : true                    
-                }, {
-                    boxLabel  : 'Release',
-                    name      : 'timeBoxType',
-                    inputValue: 'Release',
-                    id        : 'radio2'
-                }
-            ]
-        },
         { 
             name: 'showPatterns',
                 xtype: 'rallycheckboxfield',
