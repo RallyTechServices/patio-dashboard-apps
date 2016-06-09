@@ -10,8 +10,7 @@ Ext.define("TSDeliveryEfficiency", {
             "<p/>" +
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
             "<p/>" +
-            "The efficiency is calculated by finding stories of each type and dividing the total of its " +
-            "tasks' actuals in hours by its size in points.  This is averaged for each sprint.",
+            "The efficiency is calculated by finding Tasks of each type and dividing the total of estimates in hours by actuals.  This is averaged for each sprint.",
     
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
@@ -31,6 +30,7 @@ Ext.define("TSDeliveryEfficiency", {
             scope: this,
             success: function(values) {
                 this.allowed_types = values;
+                this._addSelectors();
                 this._updateData();
             },
             failure: function(msg) {
@@ -38,6 +38,68 @@ Ext.define("TSDeliveryEfficiency", {
             }
         });
     }, 
+
+    _addSelectors: function() {
+
+        this.timebox_limit = 10;
+        this.addToBanner({
+            xtype: 'numberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Time Box Limit',
+            value: 10,
+            maxValue: 20,
+            minValue: 1,            
+            margin: '0 0 0 50',
+            width: 150,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+
+        this.timebox_type = 'Iteration';
+        this.addToBanner(
+        {
+            xtype      : 'radiogroup',
+            fieldLabel : 'Timebox Type',
+            margin: '0 0 0 50',
+            width: 300,
+            defaults: {
+                flex: 1
+            },
+            layout: 'hbox',
+            items: [
+                {
+                    boxLabel  : 'Iteration',
+                    name      : 'timeBoxType',
+                    inputValue: 'Iteration',
+                    id        : 'radio1',
+                    checked   : true                    
+                }, {
+                    boxLabel  : 'Release',
+                    name      : 'timeBoxType',
+                    inputValue: 'Release',
+                    id        : 'radio2'
+                }
+            ],
+            listeners:{
+                change:function(rb){
+                    this.timebox_type = rb.lastValue.timeBoxType;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+
+
+    },    
     
     _getAllowedValues: function(model, field_name) {
         var deferred = Ext.create('Deft.Deferred');
@@ -64,7 +126,7 @@ Ext.define("TSDeliveryEfficiency", {
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
+        //this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
@@ -90,14 +152,22 @@ Ext.define("TSDeliveryEfficiency", {
             type = this.timebox_type;
                 
         this.setLoading("Fetching timeboxes...");
+
+        var start_field = "StartDate";
+        var end_field = "EndDate";
+
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
+        }        
                 
         var config = {
             model: type,
-            limit: 10,
-            pageSize: 10,
-            fetch: ['Name','StartDate','EndDate'],
-            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-            sorters: [{property:'EndDate', direction:'DESC'}],
+            limit: this.timebox_limit,
+            pageSize: this.timebox_limit,
+            fetch: ['Name',start_field,end_field],
+            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
                 projectScopeDown: false
@@ -109,13 +179,13 @@ Ext.define("TSDeliveryEfficiency", {
     
     _sortIterations: function(iterations) {
         
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
-            return 0;
-        });
+        // Ext.Array.sort(iterations, function(a,b){
+        //     if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+        //     if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+        //     return 0;
+        // });
         
-        return iterations;
+        return iterations.reverse();
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
@@ -131,50 +201,55 @@ Ext.define("TSDeliveryEfficiency", {
             end_field   = "ReleaseDate";
         }
         
-        var deferred = Ext.create('Deft.Deferred');
+        //var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
             {property: type + '.' + start_field, operator: '<=', value:last_date},
-            {property:'AcceptedDate', operator: '!=', value: null }
+            //{property:'AcceptedDate', operator: '!=', value: null }
+            {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
+
         
         var config = {
-            model:'HierarchicalRequirement',
+            //model:'HierarchicalRequirement',
+            model: 'Task',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
-                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal',
-                'TaskActualTotal']
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','Release','ObjectID',
+                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal','Tasks',
+                'Actuals','Estimate','TaskActualTotal']
         };
         
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "Defect";
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "TestSet";
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() {
-                config.model = "DefectSuite";
-                return TSUtilities.loadWsapiRecords(config);
-            }
-        ],this).then({
-            success: function(results) {
-                deferred.resolve(Ext.Array.flatten(results));
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
+        return TSUtilities.loadWsapiRecords(config);
+
+        // Deft.Chain.sequence([
+        //     function() { 
+        //         return TSUtilities.loadWsapiRecords(config);
+        //     },
+        //     function() {
+        //         config.model = "Defect";
+        //         return TSUtilities.loadWsapiRecords(config);
+        //     },
+        //     function() {
+        //         config.model = "TestSet";
+        //         return TSUtilities.loadWsapiRecords(config);
+        //     },
+        //     function() {
+        //         config.model = "DefectSuite";
+        //         return TSUtilities.loadWsapiRecords(config);
+        //     }
+        // ],this).then({
+        //     success: function(results) {
+        //         deferred.resolve(Ext.Array.flatten(results));
+        //     },
+        //     failure: function(msg) {
+        //         deferred.reject(msg);
+        //     }
+        // });
+        //return deferred.promise;
     },
     
     /* 
@@ -192,7 +267,6 @@ Ext.define("TSDeliveryEfficiency", {
             type_field = this.getSetting('typeField'),
             allowed_types = this.allowed_types;
         
-        console.log('allowed types', allowed_types);
         
         if ( items.length === 0 ) { return hash; }
         
@@ -221,7 +295,6 @@ Ext.define("TSDeliveryEfficiency", {
             hash[timebox].records[type].push(item);
         });
         
-        console.log(hash);
         return hash;
     },
     
@@ -249,7 +322,7 @@ Ext.define("TSDeliveryEfficiency", {
         
         Ext.Array.each(allowed_types, function(allowed_type){
             var name = allowed_type;
-            if ( Ext.isEmpty(name) ) { name = "-None-"; }
+            if ( Ext.isEmpty(name) ) { name = "-N/A-"; }
             
             series.push({
                 name: name,
@@ -264,19 +337,20 @@ Ext.define("TSDeliveryEfficiency", {
     
     _calculateMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
-            data = [];
-        
+        data = [];
+
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
+
             var points = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
-                    return record.get('PlanEstimate') || 0;
+                    return record.get('Estimate') || 0;
                 })
             );
             
             var estimate = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
-                    return record.get('TaskActualTotal') || 0;
+                    return record.get('Actuals') || 0;
                 })
             );
             
@@ -284,6 +358,7 @@ Ext.define("TSDeliveryEfficiency", {
             if ( estimate > 0 ) {
                 efficiency = points/estimate;
             }
+
             data.push({ 
                 y:efficiency,
                 _records: records,
@@ -293,11 +368,15 @@ Ext.define("TSDeliveryEfficiency", {
                     }
                 }
             });
+
+
         });
-        
-        return data;
-        
+
+        return data
     },
+
+
+
     
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
@@ -332,7 +411,6 @@ Ext.define("TSDeliveryEfficiency", {
             xtype: 'rallyfieldcombobox',
             model: 'UserStory',
             _isNotHidden: function(field) {
-                //console.log(field);
                 if ( field.hidden ) { return false; }
                 var defn = field.attributeDefinition;
                 if ( Ext.isEmpty(defn) ) { return false; }
