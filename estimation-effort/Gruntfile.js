@@ -13,11 +13,12 @@ module.exports = function(grunt) {
     
         config = grunt.file.readJSON('config.json');
 
-        config.js_files = grunt.file.expand(['src/javascript/utils/*.js','src/javascript/*.js']);
+        config.js_files = grunt.file.expand(['../common/src/javascript/*.js','src/javascript/utils/*.js','src/javascript/*.js']);
 
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
         
-        config.css_files = grunt.file.expand( 'src/style/*.css' );
+        config.css_files = grunt.file.expand(['../common/src/style/*.css', 'src/style/*.css' ]);
+        config.checksum = "<!= checksum !>";
         
         config.js_contents = " ";
         for (var i=0;i<config.js_files.length;i++) {
@@ -37,6 +38,7 @@ module.exports = function(grunt) {
         }
     }
     if ( grunt.file.exists(auth_file_name) ) {
+    // grunt.log.writeln( config.js_contents );
         var auth = grunt.file.readJSON(auth_file_name);
         config.auth = auth
     } else {
@@ -126,38 +128,28 @@ module.exports = function(grunt) {
             }
         }
     });
-   
-    grunt.registerTask('setPostBuildInfo', 'Make a sloppy checksum', function() {
-        var fs = require('fs'),
-            username = require('username');
-            chk = 0x12345678,
-            i,
-            deploy_file_name = 'deploy/App.txt';
+    
+    grunt.registerTask('setChecksum', 'Make a sloppy checksum', function() {
+        var fs = require('fs');
+        var chk = 0x12345678,
+            i;
+        var deploy_file = 'deploy/App.txt';
 
-        var deploy_file = grunt.file.read(deploy_file_name);
-
-        string = deploy_file.replace(/var CHECKSUM = .*;/,"");
-        string = string.replace(/var BUILDER = .*;/,"");
+        var file = grunt.file.read(deploy_file);
+        string = file.replace(/var CHECKSUM = .*;/,"");
         string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
-
+        
         for (i = 0; i < string.length; i++) {
             chk += (string.charCodeAt(i) * i);
         }
-        var builder = username.sync();
-        grunt.log.writeln('setting builder:', builder);
-
         grunt.log.writeln('sloppy checksum: ' + chk);
         grunt.log.writeln('length: ' + string.length);
 // 
         grunt.template.addDelimiters('square-brackets','[%','%]');
-       
-        var data = { checksum: chk, builder: builder }; 
-        var output = grunt.template.process(deploy_file, { 
-            data: data,  
-            delimiters: 'square-brackets' 
-        });
-
-        grunt.file.write(deploy_file_name,output);
+        
+        var output = grunt.template.process(file, { data: { checksum: chk },  delimiters: 'square-brackets' });
+        grunt.file.write(deploy_file,output);
+        
     });
     
     grunt.registerTask('install', 'Deploy the app to a rally instance', function() {
@@ -366,7 +358,7 @@ module.exports = function(grunt) {
     grunt.registerTask('default', ['debug','build','ugly','apikey']);
     
     // (uses all the files in src/javascript)
-    grunt.registerTask('build', "Create the html for deployment",['template:prod','setPostBuildInfo']);
+    grunt.registerTask('build', "Create the html for deployment",['template:prod','setChecksum']);
     // 
     grunt.registerTask('debug', "Create an html file that can run in its own tab", ['template:dev','template:devApiKey']);
     //
