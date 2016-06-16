@@ -9,7 +9,7 @@ Ext.define("TSEstimationEffort", {
         "then provides the average, minimum and maximum number of hours spent on the tasks in each size category.<p/>" +
         "The task actuals are taken from a rollup of the Actuals field from associated tasks for stories and defects that " +
         "have been Accepted.  Stories and Defects that have sizes that don't fit into the Fibonacci sequence are placed in " +
-        "the 'Non-Fibonacci' category.<p/>" +
+        "the 'Non-Fibonacci' category and shown if the Show non-Fibonacci Categroy checkbox is ticked in App Settings.<p/>" +
         "Click on a bar or point on the line to see a table with the defects and stories with that Fibonacci size." +
         "<p/>"
     ],
@@ -20,7 +20,8 @@ Ext.define("TSEstimationEffort", {
     
     config: {
         defaultSettings: {
-            showPatterns: false
+            showPatterns: false,
+            showNonFibonacciCategory: true
         }
     },
                         
@@ -105,9 +106,7 @@ Ext.define("TSEstimationEffort", {
             success: function(artifacts) {
                 var artifacts_by_size = this._collectArtifactsByFibonacci(artifacts||[]);
                 artifacts_by_size = this._setMinMaxAvg(artifacts_by_size);
-                
-                this.logger.log('artifacts_by_size',artifacts_by_size);
-                
+                                
                 this._makeTopChart(artifacts_by_size);
 //                this._makeMiddleChart(artifacts_by_timebox);
 //                this._makeBottomChart(artifacts_by_timebox);
@@ -219,7 +218,11 @@ Ext.define("TSEstimationEffort", {
      * -1 represents anything that has a size that does not match Fibonacci
      */
     _collectArtifactsByFibonacci: function(items) {
-        var fibonacci = [0,1,2,3,5,8,13,21,-1];
+        var fibonacci = [0,1,2,3,5,8,13,21];
+        if ( this.getSetting('showNonFibonacciCategory') ) {
+            fibonacci.push(-1);
+        }
+        
         var artifacts_by_fibonacci = {};
         
         Ext.Array.each(fibonacci, function(f) {
@@ -236,8 +239,10 @@ Ext.define("TSEstimationEffort", {
                 plan_estimate = -1;
             }
             
-            artifacts_by_fibonacci[plan_estimate].records.push(item);
-            artifacts_by_fibonacci[plan_estimate].actuals.push(actuals);
+            if ( artifacts_by_fibonacci[plan_estimate] ) {
+                artifacts_by_fibonacci[plan_estimate].records.push(item);
+                artifacts_by_fibonacci[plan_estimate].actuals.push(actuals);
+            }
         });
         
         return artifacts_by_fibonacci;
@@ -584,19 +589,7 @@ Ext.define("TSEstimationEffort", {
 
     getSettingsFields: function() {
         return [
-        {
-            name: 'typeField',
-            xtype: 'rallyfieldcombobox',
-            model: 'Task',
-            _isNotHidden: function(field) {
-                //console.log(field);
-                if ( field.hidden ) { return false; }
-                var defn = field.attributeDefinition;
-                if ( Ext.isEmpty(defn) ) { return false; }
-                
-                return ( defn.Constrained && defn.AttributeType == 'STRING' );
-            }
-        },
+        
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -604,6 +597,14 @@ Ext.define("TSEstimationEffort", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        },
+        { 
+            name: 'showNonFibonacciCategory',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 25',
+            boxLabel: 'Show non-Fibonacci Category<br/><span style="color:#999999;"><i>Tick to use show a category for items that have sizes not in the Fibonacci series.</i></span>'
         }
         
         ];
