@@ -354,7 +354,7 @@ Ext.define("TSEstimationEffort", {
             chart: { type: 'column' },
             title: { text: 'Average Actual Hours per Accepted Story/Defect Size' },
             xAxis: {
-                title: { text: 'Plan Estimate by Sprint' }
+                title: { text: 'Plan Estimate' }
             },
             yAxis: [{ 
                 title: { text: 'Actual Hours' }
