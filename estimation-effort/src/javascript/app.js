@@ -2,10 +2,15 @@ Ext.define("TSEstimationEffort", {
     extend: 'CA.techservices.app.ChartApp',
 
     descriptions: [
-        "<strong>Estimation Effort</strong><br/>" +
+        "<strong>Estimation Effort (Average Hours by Size)</strong><br/>" +
         "<br/>" +
-        "<p/>" +
-        "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
+        "This chart can help answer the question 'How much effort is required to complete a sprint backlog item?'<p/>" +
+        "For the selected number of iterations, this chart collects the stories and defects into Fibonacci buckets and " +
+        "then provides the average, minimum and maximum number of hours spent on the tasks in each size category.<p/>" +
+        "The task actuals are taken from a rollup of the Actuals field from associated tasks for stories and defects that " +
+        "have been Accepted.  Stories and Defects that have sizes that don't fit into the Fibonacci sequence are placed in " +
+        "the 'Non-Fibonacci' category.<p/>" +
+        "Click on a bar or point on the line to see a table with the defects and stories with that Fibonacci size." +
         "<p/>"
     ],
     
