@@ -329,16 +329,40 @@ Ext.define("TSEstimationEffort", {
     },
 
     _getTopSeries: function(artifacts_by_timebox) {
-        var series = [];
-        
-        var mins = [];
-        var maxs = [];
-        var avgs = [];
-        
+        var me = this,
+            series = [],
+            mins = [],
+            maxs = [],
+            avgs = [];
+       
         Ext.Object.each(artifacts_by_timebox, function(fibonacci,size_hash){
-            mins.push(size_hash.min);
-            maxs.push(size_hash.max);
-            avgs.push(size_hash.average);
+            mins.push({
+                _records: size_hash.records,
+                y: size_hash.min,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  "Records for Size " + fibonacci);
+                    }
+                }
+            });
+            maxs.push({
+                _records: size_hash.records,
+                y: size_hash.max,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  "Records for Size " + fibonacci);
+                    }
+                }
+            });
+            avgs.push({
+                _records: size_hash.records,
+                y: size_hash.average,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  "Records for Size " + fibonacci);
+                    }
+                }
+            });
         });
         
         series.push({ name: 'Avg. Actuals', data: avgs });
@@ -379,7 +403,8 @@ Ext.define("TSEstimationEffort", {
                 column: {
                     tooltip: {
                         enabled: true
-                    }
+                    },
+                    pointPadding: 0
                 }
             }
         }
@@ -603,6 +628,10 @@ Ext.define("TSEstimationEffort", {
             {
                 dataIndex: 'PlanEstimate',
                 text: 'Plan Estimate'
+            },
+            {
+                dataIndex: 'TaskActualTotal',
+                text: 'Actuals'
             },
             {
                 dataIndex: 'Iteration',
