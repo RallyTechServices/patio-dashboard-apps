@@ -55,6 +55,7 @@ Ext.define("ATApp", {
     },
                         
     launch: function() {
+        this.fib_types = [1,2,3,5,8,13,21];
         this.callParent();
         this._addSelectors();
         this._updateData();
@@ -134,7 +135,6 @@ Ext.define("ATApp", {
         ],this).then({
             scope: this,
             success: function(results) {
-                console.log('results>>',results);
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeMiddleChart(artifacts_by_timebox);
@@ -238,12 +238,12 @@ Ext.define("ATApp", {
      * returns a hash of hashes -- key is sprint day name value is
      * another hash where the records key holds a hash
      * as in
-     * {1:{"records":{item1,item2},"accepted_sprint_day"}, 1:{"records":{item1,item2},"accepted_sprint_day"}}
+     * {1:{"records":{"all":{item1,item2},"1":{item1}},"accepted_sprint_day"}, 2:{"records":{"all":{item1,item2},"1":{item1}},"accepted_sprint_day"}}
      */
 
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
-            timebox_type = this.timebox_type;
+            fib_types = this.fib_types;
 
         var artifacts_with_timings = [];
         Ext.Array.each(items,function(artifact){
@@ -251,22 +251,60 @@ Ext.define("ATApp", {
             artifacts_with_timings.push({'artifact':artifact,'accepted_sprint_day':accepted_sprint_day});
         });
 
-        console.log('artifacts_with_timings>>',artifacts_with_timings);
+        var base_hash = {
+            total_records:0,
+            records: {
+                all: []
+            }
+        };
+        Ext.Array.each(fib_types, function(value) {
+            base_hash.records[value] = [];
+        });
 
-        var hash = {};
-
-        Ext.Array.each(artifacts_with_timings,function(item){
+        Ext.Array.each(artifacts_with_timings, function(item){
+            
             if(hash[item.accepted_sprint_day]){
-                hash[item.accepted_sprint_day].records.push(item.artifact);
+
+                var type = item.artifact.get('PlanEstimate') || "";
+                if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
+                    hash[item.accepted_sprint_day].records[type] = [item.artifact];
+                    // hash[item.accepted_sprint_day].records[type].total_records = 1;
+                }else{
+                    hash[item.accepted_sprint_day].records[type].push(item.artifact);
+                    // hash[item.accepted_sprint_day].records[type].total_records++
+                }
+                hash[item.accepted_sprint_day].records.all.push(item.artifact);
                 hash[item.accepted_sprint_day].total_records++;
             }
             else{
-                hash[item.accepted_sprint_day] = {total_records:1,records:[item.artifact]};
+
+                hash[item.accepted_sprint_day] = Ext.Object.merge(Ext.clone(base_hash),{total_records:1,records:{all:[item.artifact]}} );
+                var type = item.artifact.get('PlanEstimate') || "";
+                if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
+                    hash[item.accepted_sprint_day].records[type] = [item.artifact];
+                    // hash[item.accepted_sprint_day].records[type].total_records = 1;
+                }else{
+                    hash[item.accepted_sprint_day].records[type].push(item.artifact);
+                    // hash[item.accepted_sprint_day].records[type].total_records++
+                }
             }
-        })
 
 
-        console.log('artifacts_with_timings>> count hash',hash);
+        });
+
+
+        // Ext.Array.each(artifacts_with_timings,function(item){
+        //     if(hash[item.accepted_sprint_day]){
+        //         hash[item.accepted_sprint_day].records.push(item.artifact);
+        //         hash[item.accepted_sprint_day].records.all.push(item.artifact);
+        //         hash[item.accepted_sprint_day].total_records++;
+        //     }
+        //     else{
+        //         hash[item.accepted_sprint_day] = {total_records:1,records:{all:[item.artifact]}};
+        //     }
+        // })
+
+
 
         var temp = [];
 
@@ -276,9 +314,10 @@ Ext.define("ATApp", {
 
         for(var i=0;i<=max_day;i++){
             if(!hash[i]){
-               hash[i] = {total_records:0,records:[]};
+               hash[i] = base_hash;
             }
         }
+
 
         return hash;
     },
@@ -303,25 +342,33 @@ Ext.define("ATApp", {
     },
 
     _getTopSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
-        
+        var series = [];
+        var fib_types = this.fib_types;
         var name = "Stories";
         series.push({
-            name: name,
-            data: this._calculateTopMeasure(artifacts_by_timebox)
-        });
-
+            name: 'All',
+            data: this._calculateTopMeasure(artifacts_by_timebox,'all')
+        }); 
+        Ext.Array.each(fib_types, function(fib_type){
+            name = fib_type;
+            series.push({
+                name: name,
+                data: this._calculateTopMeasure(artifacts_by_timebox,fib_type)
+            });            
+        },this);
+        console.log('top series>>',series);
         return series;
     },
 
 
-    _calculateTopMeasure: function(artifacts_by_timebox) {
+    _calculateTopMeasure: function(artifacts_by_timebox,fib_type) {
         var me = this,
             data = [],
             sum_total_records = 0;
+
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            sum_total_records += value.total_records;
+            var records = value.records[fib_type] || [];
+            sum_total_records += records.length
             data.push({ 
                 y: sum_total_records
             });
@@ -340,21 +387,25 @@ Ext.define("ATApp", {
             yAxis: [{ 
                 title: { text: 'Total # Stories Accepted' }
             }],
+
             plotOptions: {
                 area: {
+                        stacking: 'normal',
                         dataLabels: {
-                            enabled: true
-                        },                      
-                        pointStart: 0,
-                        marker: {
-                            enabled: false,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
+                            enabled: true,
+                            formatter: function(){
+                                if(parseInt(this.x)==0){
+                                    return this.y;
+                                }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
+                                    return this.y;
                                 }
                             }
+                        },                      
+                        lineColor: '#666666',
+                        lineWidth: 1,
+                        marker: {
+                            lineWidth: 1,
+                            lineColor: '#666666'
                         }
                 }
             }
@@ -382,8 +433,7 @@ Ext.define("ATApp", {
     },
 
     _getMiddleSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
+        var series = [];
         
         var name = "Stories";
         series.push({
@@ -402,11 +452,11 @@ Ext.define("ATApp", {
             sum_total_records = 0;
 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            pct_total += value.total_records;
+            pct_total += value.records.all.length;
         });
 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            sum_total_records += value.total_records;
+            sum_total_records += value.records.all.length;
             y_value = Math.round((sum_total_records / pct_total) * 100);
             data.push({ 
                 y: y_value
@@ -430,7 +480,15 @@ Ext.define("ATApp", {
             plotOptions: {
                 area: {
                         dataLabels: {
-                            enabled: true
+                            enabled: true,
+                            //format: '{y} %',
+                            formatter: function(){
+                                if(parseInt(this.x)==0){
+                                    return this.y;
+                                }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
+                                    return this.y;
+                                }
+                            }
                         },                    
                         pointStart: 0,
                         marker: {
@@ -470,11 +528,8 @@ Ext.define("ATApp", {
 
     
     _getBottomSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
-        
-        console.log('--', artifacts_by_timebox);
-    
+        var series = [];
+            
         var name = "Stories";
         series.push({
             name: name,
@@ -492,8 +547,8 @@ Ext.define("ATApp", {
         
         Ext.Object.each(artifacts_by_timebox, function(key, value){
             data.push({ 
-                y: value.total_records,
-                _records: value.records,
+                y: value.records.all.length,
+                _records: value.records.all,
                 events: {
                     click: function() {
                         me.showDrillDown(this._records,  "Records for sprint Day " + key);
