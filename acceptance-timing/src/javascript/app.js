@@ -20,15 +20,24 @@ Ext.define("ATApp", {
     
     config: {
         defaultSettings: {
-            showPatterns: false
+            showPatterns: false,
+            showNonFibonacciCategory: true
         }
     },
                         
     launch: function() {
-        this.fib_types = [1,2,3,5,8,13,21];
+        this.fib_types = this._getFibTypes();
         this.callParent();
         this._addSelectors();
         this._updateData();
+    },
+
+    _getFibTypes: function(){
+        var fibonacci = [1,2,3,5,8,13,21];
+        if ( this.getSetting('showNonFibonacciCategory') ) {
+            fibonacci.push(-1);
+        }
+        return fibonacci;
     },
 
     _addSelectors: function() {
@@ -233,15 +242,14 @@ Ext.define("ATApp", {
 
         Ext.Array.each(artifacts_with_timings, function(item){
             
+            var type = item.artifact.get('PlanEstimate') || -1;
+
             if(hash[item.accepted_sprint_day]){
 
-                var type = item.artifact.get('PlanEstimate') || "";
                 if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
                     hash[item.accepted_sprint_day].records[type] = [item.artifact];
-                    // hash[item.accepted_sprint_day].records[type].total_records = 1;
                 }else{
                     hash[item.accepted_sprint_day].records[type].push(item.artifact);
-                    // hash[item.accepted_sprint_day].records[type].total_records++
                 }
                 hash[item.accepted_sprint_day].records.all.push(item.artifact);
                 hash[item.accepted_sprint_day].total_records++;
@@ -249,13 +257,10 @@ Ext.define("ATApp", {
             else{
 
                 hash[item.accepted_sprint_day] = Ext.Object.merge(Ext.clone(base_hash),{total_records:1,records:{all:[item.artifact]}} );
-                var type = item.artifact.get('PlanEstimate') || "";
                 if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
                     hash[item.accepted_sprint_day].records[type] = [item.artifact];
-                    // hash[item.accepted_sprint_day].records[type].total_records = 1;
                 }else{
                     hash[item.accepted_sprint_day].records[type].push(item.artifact);
-                    // hash[item.accepted_sprint_day].records[type].total_records++
                 }
             }
 
@@ -326,7 +331,6 @@ Ext.define("ATApp", {
                 data: this._calculateTopMeasure(artifacts_by_timebox,fib_type)
             });            
         },this);
-        console.log('top series>>',series);
         return series;
     },
 
@@ -357,10 +361,16 @@ Ext.define("ATApp", {
             yAxis: [{ 
                 title: { text: 'Total # Stories Accepted' }
             }],
-
+            legend: {
+                labelFormatter: function(){
+                    //console.log(this.name);
+                    return this.name == "-1"?"Non-Fibonacci":this.name;
+                }
+            },
             plotOptions: {
                 area: {
                         stacking: 'normal',
+
                         dataLabels: {
                             enabled: true,
                             formatter: function(){
@@ -372,11 +382,12 @@ Ext.define("ATApp", {
                             }
                         },                      
                         lineColor: '#666666',
-                        lineWidth: 1,
-                        marker: {
-                            lineWidth: 1,
-                            lineColor: '#666666'
-                        }
+                        lineWidth: 1
+                        // ,
+                        // marker: {
+                        //     lineWidth: 1,
+                        //     lineColor: '#666666'
+                        // }
                 }
             }
         }
@@ -454,9 +465,9 @@ Ext.define("ATApp", {
                             //format: '{y} %',
                             formatter: function(){
                                 if(parseInt(this.x)==0){
-                                    return this.y;
+                                    return this.y + '%';
                                 }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
-                                    return this.y;
+                                    return this.y  + '%';;
                                 }
                             }
                         },                    
@@ -553,19 +564,6 @@ Ext.define("ATApp", {
 
     getSettingsFields: function() {
         return [
-        {
-            name: 'typeField',
-            xtype: 'rallyfieldcombobox',
-            model: 'Task',
-            _isNotHidden: function(field) {
-                //console.log(field);
-                if ( field.hidden ) { return false; }
-                var defn = field.attributeDefinition;
-                if ( Ext.isEmpty(defn) ) { return false; }
-                
-                return ( defn.Constrained && defn.AttributeType == 'STRING' );
-            }
-        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -573,7 +571,15 @@ Ext.define("ATApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        }
+        },
+        { 
+            name: 'showNonFibonacciCategory',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 25',
+            boxLabel: 'Show non-Fibonacci Category<br/><span style="color:#999999;"><i>Tick to use show a category for items that have sizes not in the Fibonacci series.</i></span>'
+        }        
         
         ];
     },
