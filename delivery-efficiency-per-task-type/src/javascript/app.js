@@ -19,12 +19,17 @@ Ext.define("TSDeliveryEfficiency", {
     config: {
         defaultSettings: {
             showPatterns: false,
-            typeField: 'c_Type'
+            typeField: null
         }
     },
                         
     launch: function() {
         this.callParent();
+        
+        if ( Ext.isEmpty(this.getSetting('typeField')) ) { 
+            Ext.Msg.alert('Configuration Note', 'Use the App Settings item on the gear menu to set the field that defines task type.');
+            return;
+        }
         
         this._getAllowedValues('UserStory',this.getSetting('typeField')).then({
             scope: this,
