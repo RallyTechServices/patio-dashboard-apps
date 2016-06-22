@@ -3,10 +3,10 @@
 <head>
     <title>Acceptance Timing</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 14 2016 15:37:32 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Jun 17 2016 15:04:33 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 14 2016 15:37:32 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Jun 17 2016 15:04:33 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
