@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Effort Task Hours</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jun 02 2016 15:21:03 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Jun 22 2016 17:52:31 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jun 02 2016 15:21:03 GMT-0400 (EDT)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 60658631703;
+        var APP_BUILD_DATE = "Wed Jun 22 2016 17:52:31 GMT-0700 (PDT)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 60658634717;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>

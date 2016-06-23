@@ -36,12 +36,75 @@ Ext.define("TSDeliveryEffortFocus", {
             scope: this,
             success: function(values) {
                 this.allowed_types = values;
+
+                this.timebox_limit = 10;
+
+                this._addSelectors();
                 this._updateData();
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading allowed values', msg);
             }
         });
+    },
+
+    _addSelectors: function() {
+
+        this.addToBanner({
+            xtype: 'numberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Time Box Limit',
+            value: 10,
+            maxValue: 20,
+            minValue: 1,            
+            margin: '0 0 0 50',
+            width: 150,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
+
+        this.timebox_type = 'Iteration';
+//        this.addToBanner(
+//        {
+//            xtype      : 'radiogroup',
+//            fieldLabel : 'Timebox Type',
+//            margin: '0 0 0 50',
+//            width: 300,
+//            defaults: {
+//                flex: 1
+//            },
+//            layout: 'hbox',
+//            items: [
+//                {
+//                    boxLabel  : 'Iteration',
+//                    name      : 'timeBoxType',
+//                    inputValue: 'Iteration',
+//                    id        : 'radio1',
+//                    checked   : true                    
+//                }, {
+//                    boxLabel  : 'Release',
+//                    name      : 'timeBoxType',
+//                    inputValue: 'Release',
+//                    id        : 'radio2'
+//                }
+//            ],
+//            listeners:{
+//                change:function(rb){
+//                    this.timebox_type = rb.lastValue.timeBoxType;
+//                    this._updateData();
+//                },
+//                scope:this
+//            }
+//        }
+//        );
+
     }, 
     
     _getAllowedValues: function(model, field_name) {
@@ -202,8 +265,8 @@ Ext.define("TSDeliveryEffortFocus", {
                 
         var config = {
             model: type,
-            limit: 10,
-            pageSize: 10,
+            limit: this.timebox_limit,
+            pageSize: this.timebox_limit,
             fetch: ['Name','StartDate','EndDate'],
             filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:'EndDate', direction:'DESC'}],
