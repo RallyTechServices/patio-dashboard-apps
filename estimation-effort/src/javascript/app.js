@@ -11,6 +11,18 @@ Ext.define("TSEstimationEffort", {
         "have been Accepted.  Stories and Defects that have sizes that don't fit into the Fibonacci sequence are placed in " +
         "the 'Non-Fibonacci' category and shown if the Show non-Fibonacci Categroy checkbox is ticked in App Settings.<p/>" +
         "Click on a bar or point on the line to see a table with the defects and stories with that Fibonacci size." +
+        "<p/>",
+        
+        "<strong>Estimation Effort (Average Hours by Sprint)</strong><br/>" +
+        "<br/>" +
+        "This chart can help answer the question 'How much effort is required to complete a sprint backlog item?'  This" +
+        "version of the chart further reveals how stories of various sizes are distributed among the selected sprints.<p/>" +
+        "For the selected number of iterations, this chart collects the stories and defects into Fibonacci buckets and " +
+        "then provides the average, minimum and maximum number of hours spent on the tasks in each size category in each sprint.<p/>" +
+        "The task actuals are taken from a rollup of the Actuals field from associated tasks for stories and defects that " +
+        "have been Accepted.  Stories and Defects that have sizes that don't fit into the Fibonacci sequence are placed in " +
+        "the 'Non-Fibonacci' category and shown if the Show non-Fibonacci Categroy checkbox is ticked in App Settings.<p/>" +
+        "Click on a bar or point on the line to see a table with the defects and stories with that Fibonacci size." +
         "<p/>"
     ],
     
@@ -106,10 +118,11 @@ Ext.define("TSEstimationEffort", {
             success: function(artifacts) {
                 var artifacts_by_size = this._collectArtifactsByFibonacci(artifacts||[]);
                 artifacts_by_size = this._setMinMaxAvg(artifacts_by_size);
-                                
-                this._makeTopChart(artifacts_by_size);
-//                this._makeMiddleChart(artifacts_by_timebox);
-//                this._makeBottomChart(artifacts_by_timebox);
+                
+                var artifacts_by_timebox = this._collectArtifactsByFibonacciBySprint(artifacts_by_size);
+
+                this._makeChartBySize(artifacts_by_size);
+                this._makeChartBySprint(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -248,6 +261,50 @@ Ext.define("TSEstimationEffort", {
         return artifacts_by_fibonacci;
     },
     
+    /*
+     * Given a hash of hashes (from _collectArtifactsByFibonacci above)
+     * 
+     * Returns a hash of hashes: 
+     * { 
+     *      fibby number : { 
+     *          iteration name : {
+     *              records: [],
+     *              actuals: []
+     *          }
+     *      }
+     * }
+     */
+    _collectArtifactsByFibonacciBySprint: function(artifacts_by_size) {
+        this.logger.log("_collectArtifactsByFibonacciBySprint", artifacts_by_size);
+        
+        var artifacts_by_timebox = {};
+        Ext.Object.each(artifacts_by_size, function(fibby, value){
+            var records = value.records;
+            var iterations = {};
+            Ext.Array.each(records, function(item){
+                var iteration_name = item.get('Iteration').Name;
+                if ( Ext.isEmpty(iterations[iteration_name]) ) {
+                    iterations[iteration_name] = { records: [], actuals: [] };
+                }
+                
+                var plan_estimate = item.get('PlanEstimate') || 0;
+                var actuals = item.get('TaskActualTotal') || 0;
+                iterations[iteration_name].records.push(item);
+                iterations[iteration_name].actuals.push(actuals);
+            });
+            artifacts_by_timebox[fibby] = iterations;
+        });
+        
+        // set averages
+        Ext.Object.each(artifacts_by_timebox, function(fibby, iteration_hash){
+            Ext.Object.each(iteration_hash, function(name, iteration_value) {
+                iteration_value.average = Ext.Array.mean(iteration_value.actuals);
+            });
+        });
+        
+        return artifacts_by_timebox;
+    },
+    
     _setMinMaxAvg: function(artifacts_by_size) {
         Ext.Object.each(artifacts_by_size, function(fibonacci, size_hash){
             size_hash.max = -1;
@@ -265,13 +322,13 @@ Ext.define("TSEstimationEffort", {
         return artifacts_by_size;
     
     },
+    
     /* 
      * returns a hash of hashes -- key is sprint day name value is
      * another hash where the records key holds a hash
      * as in
      * {1:{"records":{item1,item2},"accepted_sprint_day"}, 1:{"records":{item1,item2},"accepted_sprint_day"}}
      */
-
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
             timebox_type = this.timebox_type;
@@ -297,8 +354,6 @@ Ext.define("TSEstimationEffort", {
         })
 
 
-        console.log('artifacts_with_timings>> count hash',hash);
-
         var temp = [];
 
         Ext.Array.each(Ext.Object.getKeys(hash),function(key){temp.push(parseInt(key));});
@@ -314,12 +369,12 @@ Ext.define("TSEstimationEffort", {
         return hash;
     },
 
-    _makeTopChart: function(artifacts_by_timebox) {
+    _makeChartBySize: function(artifacts_by_size) {
         var me = this;
 
-        var categories = this._getCategories(artifacts_by_timebox);
+        var categories = this._getSizeCategories(artifacts_by_size);
 
-        var series = this._getTopSeries(artifacts_by_timebox);
+        var series = this._getChartBySizeSeries(artifacts_by_size);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -327,41 +382,52 @@ Ext.define("TSEstimationEffort", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getTopChartConfig(),
+            chartConfig: this._getChartBySizeConfig(),
             chartColors: colors
         },0);
         this.setLoading(false);
     },
 
-    _getTopSeries: function(artifacts_by_timebox) {
+    _getChartBySizeSeries: function(artifacts_by_size) {
         var me = this,
             series = [],
             mins = [],
             maxs = [],
             avgs = [];
        
-        Ext.Object.each(artifacts_by_timebox, function(fibonacci,size_hash){
+        Ext.Object.each(artifacts_by_size, function(fibonacci,size_hash){
+            var min = size_hash.min; 
+            if ( min < 0 ) { min = null; }
+            
             mins.push({
                 _records: size_hash.records,
-                y: size_hash.min,
+                y: min,
                 events: {
                     click: function() {
                         me.showDrillDown(this._records,  "Records for Size " + fibonacci);
                     }
                 }
             });
+            
+            var max = size_hash.max; 
+            if ( max < 0 ) { max = null; }
+            
             maxs.push({
                 _records: size_hash.records,
-                y: size_hash.max,
+                y: max,
                 events: {
                     click: function() {
                         me.showDrillDown(this._records,  "Records for Size " + fibonacci);
                     }
                 }
             });
+            
+            var average = size_hash.average; 
+            if ( average < 0 ) { average = null; }
+            
             avgs.push({
                 _records: size_hash.records,
-                y: size_hash.average,
+                y: average,
                 events: {
                     click: function() {
                         me.showDrillDown(this._records,  "Records for Size " + fibonacci);
@@ -377,7 +443,7 @@ Ext.define("TSEstimationEffort", {
         return series;
     },    
 
-    _getTopChartConfig: function() {
+    _getChartBySizeConfig: function() {
         var me = this;
         return {
             chart: { type: 'column' },
@@ -415,17 +481,15 @@ Ext.define("TSEstimationEffort", {
         }
     },
 
-    _limitDecimals: function(initial_value) {
-        return parseInt( 10*initial_value, 10 ) / 10;
-    },
-    
-
-    _makeMiddleChart: function(artifacts_by_timebox) {
+    _makeChartBySprint: function(artifacts_by_sprint) {
         var me = this;
+        me.logger.log('_makeChartBySprint', artifacts_by_sprint);
 
-        var categories = this._getCategories(artifacts_by_timebox);
+        var categories = this._getSprintCategories(artifacts_by_sprint);
 
-        var series = this._getMiddleSeries(artifacts_by_timebox);
+        this.logger.log('categories for sprints:', categories);
+        
+        var series = this._getChartBySprintSeries(artifacts_by_sprint);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -433,155 +497,138 @@ Ext.define("TSEstimationEffort", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getMiddleChartConfig(),
+            chartConfig: this._getChartBySprintConfig(artifacts_by_sprint),
             chartColors: colors
         },1);
         this.setLoading(false);
     },
 
-    _getMiddleSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
-        
-        var name = "Stories";
-        series.push({
-            name: name,
-            data: this._calculateMiddleMeasure(artifacts_by_timebox)
-        });
-
-        return series;
-    },
-
-
-    _calculateMiddleMeasure: function(artifacts_by_timebox) {
+    _getChartBySprintSeries: function(artifacts_by_sprint) {
         var me = this,
-            data = [],
-            pct_total = 0,
-            sum_total_records = 0;
-
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            pct_total += value.total_records;
-        });
-
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            sum_total_records += value.total_records;
-            y_value = Math.round((sum_total_records / pct_total) * 100);
-            data.push({ 
-                y: y_value
+            series = [],
+            avgs = [];
+       
+        Ext.Object.each(artifacts_by_sprint, function(fibonacci,sprint_hashes){
+            Ext.Object.each(sprint_hashes, function(name, sprint_hash){           
+                avgs.push({
+                    _records: sprint_hash.records,
+                    y: sprint_hash.average,
+                    events: {
+                        click: function() {
+                            var title = Ext.String.format("Records for Size {0} in {1}",
+                                fibonacci,
+                                name
+                            );
+                            me.showDrillDown(this._records,  title);
+                        }
+                    }
+                });
             });
         });
-        return data;
-    },       
+        
+        series.push({ name: 'Avg. Actuals', data: avgs });
 
+        return series;
+    },    
 
-    _getMiddleChartConfig: function() {
+    _getChartBySprintConfig: function(artifacts_by_sprint) {
         var me = this;
         return {
-            chart: { type: 'area' },
-            title: { text: 'Acceptance Timing of Stories' },
+            chart: { type: 'column' },
+            title: { text: 'Average Actual Hours per Accepted Story/Defect by Size and Sprint' },
             xAxis: {
-                title: { text: 'Sprint Day' }
+                title: { text: 'Sprint' },
+                plotBands: this._getSizePlotBands(artifacts_by_sprint),
+                labels: {
+                    rotation: -90
+                }
             },
             yAxis: [{ 
-                title: { text: 'Acceptance %' }
+                title: { text: 'Average Actual Hours' }
             }],
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ me._limitDecimals(this.y);
+                }
+            },
             plotOptions: {
-                area: {
-                        dataLabels: {
-                            enabled: true
-                        },                    
-                        pointStart: 0,
-                        marker: {
-                            enabled: true,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
-                                }
+                series: {
+                    marker: {
+                        enabled: false,
+                        states: {
+                            hover: {
+                                enabled: true
                             }
                         }
+                    },
+                    groupPadding: 0.2
+                },
+                column: {
+                    tooltip: {
+                        enabled: true
+                    },
+                    pointPadding: 0
                 }
             }
         }
     },
 
-    _makeBottomChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getBottomSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
-        }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getBottomChartConfig(),
-            chartColors: colors
-        },2);
-        this.setLoading(false);
-    },
-    
-
-    
-    _getBottomSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
-        
-        console.log('--', artifacts_by_timebox);
-    
-        var name = "Stories";
-        series.push({
-            name: name,
-            data: this._calculateBottomMeasure(artifacts_by_timebox),
-            type: 'column'
-        });
-
-        return series;
-    },
-
-
-    _calculateBottomMeasure: function(artifacts_by_timebox) {
+    _getSizePlotBands: function(artifacts_by_sprint) {
         var me = this,
-            data = [];
+            bands = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            data.push({ 
-                y: value.total_records,
-                _records: value.records,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  "Records for sprint Day " + key);
-                    }
-                }
+        var start_index = 0;
+        Ext.Object.each(artifacts_by_sprint, function(fibby, sprint_hash){
+            var index = start_index;
+            var name = fibby; 
+            if ( fibby == -1 ) { name = 'Non'; }
+            
+            Ext.Object.each(sprint_hash, function(name,value){
+                index = index + 1;
+            });
+            
+            // skip if no data in there
+            if ( start_index != index ) {
+                
+                bands.push({
+                    borderColor: '#eee',
+                    borderWidth: 2,
+                    from: start_index - 0.5,
+                    to: index - 0.5,
+                    label: {
+                        text: name,
+                        align: 'center',
+                        y: 15
+                    },
+                    zIndex: 3
+                });
+            }
+            
+            start_index = index;
+        });
+        
+        return bands;
+    },
+
+    _limitDecimals: function(initial_value) {
+        return parseInt( 10*initial_value, 10 ) / 10;
+    },
+
+    _getSprintCategories: function(artifacts_by_sprint) {
+        var categories = [];
+        
+        Ext.Object.each(artifacts_by_sprint, function(fibby,sprint_hash){
+            Ext.Object.each(sprint_hash, function(name, value) {
+                
+                categories.push(name);
             });
         });
-        return data;
-    },    
-    
-    _getBottomChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type:'column' },
-            title: { text: 'Acceptance Timing of Stories' },
-            xAxis: {
-                title: { text: 'Sprint Day' }
-            },
-            yAxis: [{ 
-                title: { text: 'Total # Stories Accepted' }
-            }],
-            plotOptions: {
-
-            }
-        }
+        
+        return categories;
     },
-
-
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Array.map(Ext.Object.getKeys(artifacts_by_timebox), function(key) {
+    
+    _getSizeCategories: function(artifacts_by_size) {
+        return Ext.Array.map(Ext.Object.getKeys(artifacts_by_size), function(key) {
             if ( key == -1 ) { return "Non-Fibonacci"; }
             return key;
         });
