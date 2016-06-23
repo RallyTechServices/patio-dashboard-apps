@@ -202,5 +202,21 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getStartFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseStartDate';
+        }
+        
+        return 'StartDate';
+    },
+    
+    getEndFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseDate';
+        }
+        
+        return 'EndDate';
     }
 });
