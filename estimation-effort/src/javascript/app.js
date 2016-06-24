@@ -165,8 +165,11 @@ Ext.define("TSEstimationEffort", {
     _sortIterations: function(iterations) {
         
         Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+            if ( Ext.isFunction(a.get) ) { a = a.getData(); }
+            if ( Ext.isFunction(b.get) ) { b = b.getData(); }
+            
+            if ( a.EndDate < b.EndDate ) { return -1; }
+            if ( a.EndDate > b.EndDate ) { return  1; }
             return 0;
         });
         
@@ -277,16 +280,27 @@ Ext.define("TSEstimationEffort", {
     _collectArtifactsByFibonacciBySprint: function(artifacts_by_size) {
         this.logger.log("_collectArtifactsByFibonacciBySprint", artifacts_by_size);
         
-        var artifacts_by_timebox = {};
+        var me = this,
+            artifacts_by_timebox = {};
+            
         Ext.Object.each(artifacts_by_size, function(fibby, value){
             var records = value.records;
             var iterations = {};
+            
+            
+            var sorted_iterations = me._sortIterations( Ext.Array.map(records, function(record) { return record.get('Iteration'); }) );
+            
+            Ext.Array.each(sorted_iterations, function(i){
+                iterations[i.Name] = {
+                    iteration: i,
+                    records: [],
+                    actuals: []
+                };
+            });
+            
             Ext.Array.each(records, function(item){
                 var iteration_name = item.get('Iteration').Name;
-                if ( Ext.isEmpty(iterations[iteration_name]) ) {
-                    iterations[iteration_name] = { records: [], actuals: [] };
-                }
-                
+
                 var plan_estimate = item.get('PlanEstimate') || 0;
                 var actuals = item.get('TaskActualTotal') || 0;
                 iterations[iteration_name].records.push(item);

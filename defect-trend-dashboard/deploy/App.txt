@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 22 2016 19:59:20 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jun 22 2016 20:33:15 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 22 2016 19:59:20 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jun 22 2016 20:33:15 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 34452437887;
+        var CHECKSUM = 30098819832;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1096,191 +1096,41 @@ Ext.define('CA.techservices.container.GridBox',{
         box.add(config);
     }
 });
-/**
- * A link that pops up a version dialog box
- */
+Ext.define('CA.techservices.calculator.DefectAccumulation', {
+    extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+    config: {
+        granularity: 'day'
+    },
 
-Ext.define('Rally.technicalservices.InfoLink',{
-    extend: 'Rally.ui.dialog.Dialog',
-    alias: 'widget.tsinfolink',
-    
-    /**
-     * @cfg {String} informationHtml
-     * Additional text to be displayed on the popup dialog (for exmaple,
-     * to add a description of the app's use or functionality)
-     */
-    informationHtml: null,
-    
-    /**
-     * 
-     * cfg {String} title
-     * The title for the dialog box
-     */
-    title: "Build Information",
-    
-    defaults: { padding: 5, margin: 5 },
-
-    closable: true,
-     
-    draggable: true,
-
-    autoShow: true,
-   
-    width: 350,
-    
-    informationalConfig: null,
-    
-    items: [{xtype:'container', itemId:'information' }],
-    
-    initComponent: function() {
-        var id = Ext.id(this);
-        this.title =  "<span class='icon-help'> </span>" + this.title;
+    constructor: function(config) {
+        this.initConfig(config);
         this.callParent(arguments);
     },
-    
-    _generateChecksum: function(string){
-        var chk = 0x12345678,
-            i;
-        string = string.replace(/var CHECKSUM = .*;/,"");
-        string = string.replace(/var BUILDER = .*;/,"");
-        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
-       
-        for (i = 0; i < string.length; i++) {
-            chk += (string.charCodeAt(i) * i);
-        }
-   
-        return chk;
+
+    getMetrics: function() {
+        
+        return [{
+            f: 'groupByCount',
+            as: 'Opened',
+            field: 'ObjectID',
+            groupByField: '__ImpliedState',
+            allowedValues: ['Defined',1],
+            display: 'line'
+        }];
     },
     
-    _checkChecksum: function(container) {
-        var deferred = Ext.create('Deft.Deferred');
+    getDerivedFieldsOnInput: function() {
         var me = this;
-        
-        Ext.Ajax.request({
-            url: document.URL,
-            params: {
-                id: 1
-            },
-            success: function (response) {
-                text = response.responseText;
-                if ( CHECKSUM ) {
-                    var stored_checksum = me._generateChecksum(text);
-                    if ( CHECKSUM !== stored_checksum ) {
-                        deferred.resolve(false);
-                        return;
-                    }
+        return [
+            { 
+                as: '__ImpliedState',
+                f : function(snapshot) {
+                    console.log(snapshot.State);
+                    return 1;
                 }
-                deferred.resolve(true);
             }
-        });
-        
-        return deferred.promise;
-    },
-    
-    _addToContainer: function(container){
-        var config = Ext.apply({
-            xtype:'container',
-            height: 200,
-            overflowY: true
-        }, this.informationalConfig);
-        
-        container.add(config);
-    },
-    
-    afterRender: function() {
-        var app = Rally.getApp();
-        
-        if ( !Ext.isEmpty( this.informationalConfig ) ) {
-            var container = this.down('#information');
-            this._addToContainer(container);
-            
-        }
-        
-        if (! app.isExternal() ) {
-            this._checkChecksum(app).then({
-                scope: this,
-                success: function(result){
-                    if ( !result ) {
-                        this.addDocked({
-                            xtype:'container',
-                            cls: 'build-info',
-                            dock: 'bottom',
-                            padding: 2,
-                            html:'<span class="icon-warning"> </span>Checksums do not match'
-                        });
-                    }
-                },
-                failure: function(msg){
-                    console.log("oops:",msg);
-                }
-            });
-        } else {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                dock: 'bottom',
-                html:'... Running externally'
-            });
-        }
-        this.callParent(arguments);
-    },
-    
-    beforeRender: function() {
-        var me = this;
-        this.callParent(arguments);
-
-        if (this.informationHtml) {
-            this.addDocked({
-                xtype: 'component',
-                componentCls: 'intro-panel',
-                padding: 2,
-                html: this.informationHtml,
-                doc: 'top'
-            });
-        }
-        
-        this.addDocked({
-            xtype:'container',
-            cls: 'build-info',
-            padding: 2,
-            dock:'bottom',
-            html:"This app was created by the CA AC Technical Services Team."
-        });
-        
-        if ( APP_BUILD_DATE ) {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                dock: 'bottom',
-                html: Ext.String.format("Build date/time: {0} ({1})",
-                    APP_BUILD_DATE,
-                    BUILDER)
-            });
-        }
+        ];
     }
-});
-
-/*
- */
-Ext.define('Rally.technicalservices.Logger',{
-    constructor: function(config){
-        Ext.apply(this,config);
-    },
-    log: function(args){
-        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
-        //var output_args = arguments;
-        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
-        //output_args = Ext.Array.push(output_args,arguments);
-        
-        var output_args = [];
-        output_args = Ext.Array.push(output_args,[timestamp]);
-        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
-
-        window.console && console.log.apply(console,output_args);
-    }
-
 });
 
 Ext.define("TSDefectTrendDashboard", {
@@ -1331,7 +1181,67 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _makeAccumulationChart: function() {
-        // todo
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectAccumulation',
+            calculatorConfig: {
+            },
+            
+            chartConfig: this._getAccumulationChartConfig()
+        },0);
+    },
+    
+    _getChartStoreConfig: function() {        
+        return {
+           find: {
+               _ProjectHierarchy: this.getContext().getProject().ObjectID , 
+               _TypeHierarchy: 'Defect' 
+           },
+           removeUnauthorizedSnapshots: true,
+           fetch: ['ObjectID','State'],
+           hydrate: ['State'],
+           sort: {
+               '_ValidFrom': 1
+           }
+        };
+    },
+    
+    _getAccumulationChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Defect Accumulation'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 20,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    title: {
+                        text: 'Count'
+                    }
+                }
+            ],
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
     },
     
     getSettingsFields: function() {

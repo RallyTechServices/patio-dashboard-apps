@@ -46,7 +46,67 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _makeAccumulationChart: function() {
-        // todo
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectAccumulation',
+            calculatorConfig: {
+            },
+            
+            chartConfig: this._getAccumulationChartConfig()
+        },0);
+    },
+    
+    _getChartStoreConfig: function() {        
+        return {
+           find: {
+               _ProjectHierarchy: this.getContext().getProject().ObjectID , 
+               _TypeHierarchy: 'Defect' 
+           },
+           removeUnauthorizedSnapshots: true,
+           fetch: ['ObjectID','State'],
+           hydrate: ['State'],
+           sort: {
+               '_ValidFrom': 1
+           }
+        };
+    },
+    
+    _getAccumulationChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Defect Accumulation'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 20,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    title: {
+                        text: 'Count'
+                    }
+                }
+            ],
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
     },
     
     getSettingsFields: function() {
