@@ -73,7 +73,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
          */
         storeConfig: {
             autoLoad: false,
-            fetch: "Name",
+            fetch: ["StringValue"],
             pageSize: 200,
             remoteGroup: false,
             remoteSort: false,
@@ -713,7 +713,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         Rally.data.ModelFactory.getModel({
             type: me.model,
             success: function(model) {
-                me.store = model.getField(me.field).getAllowedValueStore();
+                me.store = model.getField(me.field).getAllowedValueStore(Ext.merge({requester: this}, me.storeConfig));
                 me.relayEvents(me.store, ['datachanged']);
                 deferred.resolve();
 //                model.getField(me.field).getAllowedValueStore().load({
@@ -731,17 +731,6 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
             
         });
 
-//        var storeBuilder = Ext.create('Rally.data.DataStoreBuilder'),
-//            storeConfig = Ext.merge({model: '', requester: this}, this.storeConfig);
-//
-//        return storeBuilder.build(storeConfig).then({
-//            success: function (store) {
-//                this.store = store;
-//                this.relayEvents(this.store, ['datachanged']);
-//            },
-//            scope: this
-//        });
-        
         return deferred.promise;
     },
 

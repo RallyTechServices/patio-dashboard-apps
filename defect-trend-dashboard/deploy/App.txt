@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jun 25 2016 15:47:57 GMT-0700 (PDT) -->
+    <!--  Build Date: Sat Jun 25 2016 16:05:11 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jun 25 2016 15:47:57 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Sat Jun 25 2016 16:05:11 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 110507079569;
+        var CHECKSUM = 109323351700;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -925,7 +925,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
-            console.log('index',index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -1220,7 +1219,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
          */
         storeConfig: {
             autoLoad: false,
-            fetch: "Name",
+            fetch: ["StringValue"],
             pageSize: 200,
             remoteGroup: false,
             remoteSort: false,
@@ -1860,7 +1859,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         Rally.data.ModelFactory.getModel({
             type: me.model,
             success: function(model) {
-                me.store = model.getField(me.field).getAllowedValueStore();
+                me.store = model.getField(me.field).getAllowedValueStore(Ext.merge({requester: this}, me.storeConfig));
                 me.relayEvents(me.store, ['datachanged']);
                 deferred.resolve();
 //                model.getField(me.field).getAllowedValueStore().load({
@@ -1878,17 +1877,6 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
             
         });
 
-//        var storeBuilder = Ext.create('Rally.data.DataStoreBuilder'),
-//            storeConfig = Ext.merge({model: '', requester: this}, this.storeConfig);
-//
-//        return storeBuilder.build(storeConfig).then({
-//            success: function (store) {
-//                this.store = store;
-//                this.relayEvents(this.store, ['datachanged']);
-//            },
-//            scope: this
-//        });
-        
         return deferred.promise;
     },
 
