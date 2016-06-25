@@ -177,13 +177,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
          * Values that will always show selected in the bound list
          */
         alwaysSelectedValues: [],
-
-        /**
-         * @cfg {Boolean}
-         * If true, creates a '-- No Entry --' option in the combobox, with a value of null.
-         */
-        allowNoEntry: false,
-
+        
         /**
          * @cfg {String}
          * Text to use for the '-- No Entry --' option.
@@ -714,6 +708,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
             type: me.model,
             success: function(model) {
                 me.store = model.getField(me.field).getAllowedValueStore(Ext.merge({requester: this}, me.storeConfig));
+                
                 me.relayEvents(me.store, ['datachanged']);
                 deferred.resolve();
 //                model.getField(me.field).getAllowedValueStore().load({
@@ -733,7 +728,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
 
         return deferred.promise;
     },
-
+    
     _createStoreAndExpand: function () {
         this.createStore().then({
             success: this.expand,
@@ -958,7 +953,11 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
     },
 
     getMatchedTextHtml: function(recordData) {
-        return recordData[this.matchFieldName];
+        var value = recordData[this.matchFieldName];
+        if ( Ext.isEmpty(value) ) {
+            value = this.noEntryText;
+        }
+        return value;
     },
 
     getRightListHtml: function () {

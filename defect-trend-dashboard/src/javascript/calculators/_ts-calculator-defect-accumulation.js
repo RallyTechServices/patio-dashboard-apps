@@ -1,7 +1,8 @@
 Ext.define('CA.techservices.calculator.DefectAccumulation', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
     config: {
-        closedStateValues: ['Closed']
+        closedStateValues: ['Closed'],
+        allowedPriorities: []
     },
 
     constructor: function(config) {
@@ -31,18 +32,43 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             { 
                 as: 'wasCreated',
                 f : function(snapshot) {
-                    return 1;
+                    if ( me._matchesPriority(snapshot) ) { 
+                        return 1;
+                    }
+
+                    return 0;
                 }
             },
             {
                 as: 'isClosed',
                 f: function(snapshot) {
                     if ( Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
-                        return 1;
+                        if ( me._matchesPriority(snapshot) ) { 
+                            return 1;
+                        }
+                        return 0;
                     }
                     return 0;
                 }
             }
         ];
+    },
+    
+    _matchesPriority: function(snapshot) {
+        var me = this;
+        
+        if ( Ext.isEmpty(me.allowedPriorities) || me.allowedPriorities.length === 0 ) {
+            return true;
+        }
+        
+        if ( Ext.Array.contains(me.allowedPriorities, snapshot.Priority) ) {
+            return true;
+        }
+        
+        // when hydrated, lookback will return "None" for an empty field
+        if ( snapshot.Priority == 'None' && Ext.Array.contains(me.allowedPriorities, '') ) {
+            return true;
+        }
+        return false;
     }
 });

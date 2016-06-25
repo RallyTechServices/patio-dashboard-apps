@@ -5,8 +5,15 @@ Ext.define("TSDefectTrendDashboard", {
         "<strong>Defect Accumulation</strong><br/>" +
         "<br/>" +
         "What is the defect trend over time? " +
-        "This chart shows the trend of opening and closing defects over time." +
-        "<p/>"
+        "This chart shows the trend of creating and closing defects over time." +
+        "<p/>" + 
+        "Use the priorities drop-down box to determine which defect priorities to " +
+        "display.  If nothing is chosen, the app will display all defects regardless " +
+        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+        "will count the items in the proper state and with that priority on the day of each " +
+        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+        "<p/>" 
         
     ],
     
@@ -35,8 +42,30 @@ Ext.define("TSDefectTrendDashboard", {
                 
         this.applyDescription(this.description[0],0);
         
+        this._addSelectors();
+
         this._updateData();
 
+    },
+
+    _addSelectors: function() {
+
+        this.addToBanner({
+            xtype: 'tsmultifieldvaluepicker',
+            model: 'Defect',
+            field: 'Priority',
+            margin: 10,
+            fieldLabel: 'Include Priorities:',
+            labelWidth: 95,
+            listeners:{
+                blur:function(picker){
+                    this.priorities = Ext.Array.map(picker.getValue(), function(value){ return value.get('StringValue')});
+                    this.logger.log("Chosen Priorities", this.priorities, picker.getValue());
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
     },
     
     _updateData: function() {
@@ -59,7 +88,6 @@ Ext.define("TSDefectTrendDashboard", {
         var closedStates = this.getSetting('closedStateValues');
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
         
-        
         this.setChart({
             xtype: 'rallychart',
             storeType: 'Rally.data.lookback.SnapshotStore',
@@ -67,7 +95,8 @@ Ext.define("TSDefectTrendDashboard", {
             
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
-                closedStateValues: closedStates
+                closedStateValues: closedStates,
+                allowedPriorities: this.priorities
             },
             
             chartConfig: this._getAccumulationChartConfig(),
@@ -82,8 +111,8 @@ Ext.define("TSDefectTrendDashboard", {
                _TypeHierarchy: 'Defect' 
            },
            removeUnauthorizedSnapshots: true,
-           fetch: ['ObjectID','State'],
-           hydrate: ['State'],
+           fetch: ['ObjectID','State','Priority'],
+           hydrate: ['State','Priority'],
            sort: {
                '_ValidFrom': 1
            }
