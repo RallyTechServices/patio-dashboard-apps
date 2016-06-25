@@ -30,11 +30,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
             descriptions = this.descriptions;
         }
-        
-        console.log("descriptions", descriptions);
-        
+                
         Ext.Array.each(descriptions, function(description,index){
-            console.log('index',index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);

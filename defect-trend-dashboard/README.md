@@ -2,6 +2,8 @@
 
 ## Development Notes
 
+* The settings box allows the user to chose one or more states that can mean "closed"
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 

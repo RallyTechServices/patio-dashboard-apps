@@ -25,6 +25,16 @@ Ext.define("TSDefectTrendDashboard", {
     launch: function() {
         this.callParent();
         
+        var closedStates = this.getSetting('closedStateValues');
+        if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
+                
+        this.description[0] += "<strong>Notes:</strong><br/>" +
+            "<ul>" +
+            "<li>States that count as 'Closed' (can be set by administrator): " + closedStates + "</li>" +
+            "</ul>";
+                
+        this.applyDescription(this.description[0],0);
+        
         this._updateData();
 
     },
@@ -46,6 +56,10 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _makeAccumulationChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        
         this.setChart({
             xtype: 'rallychart',
             storeType: 'Rally.data.lookback.SnapshotStore',
@@ -53,7 +67,7 @@ Ext.define("TSDefectTrendDashboard", {
             
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
-                
+                closedStateValues: closedStates
             },
             
             chartConfig: this._getAccumulationChartConfig(),

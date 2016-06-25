@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jun 25 2016 15:25:04 GMT-0700 (PDT) -->
+    <!--  Build Date: Sat Jun 25 2016 15:47:57 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jun 25 2016 15:25:04 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Sat Jun 25 2016 15:47:57 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 108613084912;
+        var CHECKSUM = 110507079569;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -923,9 +923,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
             descriptions = this.descriptions;
         }
-        
-        console.log("descriptions", descriptions);
-        
+                
         Ext.Array.each(descriptions, function(description,index){
             console.log('index',index);
             this._addChartBox(index);
@@ -2294,6 +2292,16 @@ Ext.define("TSDefectTrendDashboard", {
     launch: function() {
         this.callParent();
         
+        var closedStates = this.getSetting('closedStateValues');
+        if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
+                
+        this.description[0] += "<strong>Notes:</strong><br/>" +
+            "<ul>" +
+            "<li>States that count as 'Closed' (can be set by administrator): " + closedStates + "</li>" +
+            "</ul>";
+                
+        this.applyDescription(this.description[0],0);
+        
         this._updateData();
 
     },
@@ -2315,6 +2323,10 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _makeAccumulationChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        
         this.setChart({
             xtype: 'rallychart',
             storeType: 'Rally.data.lookback.SnapshotStore',
@@ -2322,7 +2334,7 @@ Ext.define("TSDefectTrendDashboard", {
             
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
-                
+                closedStateValues: closedStates
             },
             
             chartConfig: this._getAccumulationChartConfig(),
