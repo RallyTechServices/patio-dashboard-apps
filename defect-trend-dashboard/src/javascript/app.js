@@ -42,7 +42,6 @@ Ext.define("TSDefectTrendDashboard", {
                 Ext.Msg.alert('--', msg);
             }
         });
-        
     },
     
     _makeAccumulationChart: function() {
@@ -53,9 +52,11 @@ Ext.define("TSDefectTrendDashboard", {
             
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
+                
             },
             
-            chartConfig: this._getAccumulationChartConfig()
+            chartConfig: this._getAccumulationChartConfig(),
+            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
         },0);
     },
     
@@ -84,18 +85,20 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 20,
+                tickInterval: 30,
                 title: {
                     text: 'Date'
                 }
             },
             yAxis: [
                 {
+                    min: 0,
                     title: {
                         text: 'Count'
                     }
                 }
             ],
+            tooltip: { shared: true },
             plotOptions: {
                 series: {
                     marker: {

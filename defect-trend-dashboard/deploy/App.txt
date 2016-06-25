@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jun 22 2016 20:33:15 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Jun 24 2016 17:01:16 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jun 22 2016 20:33:15 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Fri Jun 24 2016 17:01:16 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 30098819832;
+        var CHECKSUM = 30667411645;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -813,6 +813,8 @@ Ext.define("CA.apps.charts.Colors", {
     purple : "#7832A5",  // $purple,
     pink : "#DA1884",   // $pink,
     grey7 : "#666",
+    red : '#FF2A00',
+    green : '#00FF2A',
 
     cumulativeFlowColors : function() {
         return [
@@ -1099,7 +1101,7 @@ Ext.define('CA.techservices.container.GridBox',{
 Ext.define('CA.techservices.calculator.DefectAccumulation', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
     config: {
-        granularity: 'day'
+        closedStateValues: ['Closed']
     },
 
     constructor: function(config) {
@@ -1108,25 +1110,37 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     },
 
     getMetrics: function() {
-        
         return [{
-            f: 'groupByCount',
-            as: 'Opened',
-            field: 'ObjectID',
-            groupByField: '__ImpliedState',
-            allowedValues: ['Defined',1],
-            display: 'line'
+            'field': 'wasCreated',
+            'as': 'Total Defects Opened',
+            'f': 'sum',
+            'display': 'line'
+        },
+        {
+            'field': 'isClosed',
+            'as': 'Total Defects Closed',
+            'f': 'sum',
+            'display': 'line'
         }];
+        
     },
     
     getDerivedFieldsOnInput: function() {
         var me = this;
         return [
             { 
-                as: '__ImpliedState',
+                as: 'wasCreated',
                 f : function(snapshot) {
-                    console.log(snapshot.State);
                     return 1;
+                }
+            },
+            {
+                as: 'isClosed',
+                f: function(snapshot) {
+                    if ( Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
+                        return 1;
+                    }
+                    return 0;
                 }
             }
         ];
@@ -1177,7 +1191,6 @@ Ext.define("TSDefectTrendDashboard", {
                 Ext.Msg.alert('--', msg);
             }
         });
-        
     },
     
     _makeAccumulationChart: function() {
@@ -1188,9 +1201,11 @@ Ext.define("TSDefectTrendDashboard", {
             
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
+                
             },
             
-            chartConfig: this._getAccumulationChartConfig()
+            chartConfig: this._getAccumulationChartConfig(),
+            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
         },0);
     },
     
@@ -1219,18 +1234,20 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 20,
+                tickInterval: 30,
                 title: {
                     text: 'Date'
                 }
             },
             yAxis: [
                 {
+                    min: 0,
                     title: {
                         text: 'Count'
                     }
                 }
             ],
+            tooltip: { shared: true },
             plotOptions: {
                 series: {
                     marker: {
