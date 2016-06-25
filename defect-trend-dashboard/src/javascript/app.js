@@ -17,7 +17,8 @@ Ext.define("TSDefectTrendDashboard", {
     
     config: {
         defaultSettings: {
-            showPatterns: false
+            showPatterns: false,
+            closedStateValues: ['Closed']
         }
     },
                         
@@ -113,17 +114,25 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     getSettingsFields: function() {
-        return [
+        var left_margin = 5;
+        return [{
+            name: 'closedStateValues',
+            xtype: 'tsmultifieldvaluepicker',
+            model: 'Defect',
+            field: 'State',
+            margin: left_margin,
+            fieldLabel: 'States to Consider Closed',
+            labelWidth: 150
+        },
+        
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
             boxLabelAlign: 'after',
             fieldLabel: '',
-            margin: '0 0 25 25',
+            margin: '0 0 25 ' + left_margin,
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        }
-        
-        ];
+        }];
     },
     
     getDrillDownColumns: function(title) {
