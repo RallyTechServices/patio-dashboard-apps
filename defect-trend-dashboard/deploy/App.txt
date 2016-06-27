@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sat Jun 25 2016 16:43:21 GMT-0700 (PDT) -->
+    <!--  Build Date: Sun Jun 26 2016 18:40:43 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Jun 25 2016 16:43:21 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Sun Jun 26 2016 18:40:43 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 115593727527;
+        var CHECKSUM = 115915239149;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1729,7 +1729,8 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
      * @param record {Ext.data.Model}
      */
     select: function(record) {
-        var key = record.get(this.selectionKey);
+        //here var key = record.get(this.selectionKey);
+        var key = this._getKey(record);
         this.selectedValues.add(key, record);
         this._syncSelection();
     },
@@ -2049,7 +2050,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
     },
 
     _deselectRowCheckbox: function (recordId) {
-        this._getOptionCheckbox(recordId).removeCls('rui-picker-cb-checked');
+        this._getOptionCheckbox(recordId) && this._getOptionCheckbox(recordId).removeCls('rui-picker-cb-checked');
     },
 
     _isRecordInList: function (record) {
@@ -2114,7 +2115,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         this._fireSelectionChange();
     },
 
-    onListItemDeselect: function (record, event, itemEl) {
+    onListItemDeselect: function (record, event, itemEl) {        
         var key = this._getKey(record);
         this.selectedValues.remove(this.selectedValues.get(key));
         this._syncSelection();

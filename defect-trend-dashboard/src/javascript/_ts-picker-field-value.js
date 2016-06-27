@@ -557,7 +557,8 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
      * @param record {Ext.data.Model}
      */
     select: function(record) {
-        var key = record.get(this.selectionKey);
+        //here var key = record.get(this.selectionKey);
+        var key = this._getKey(record);
         this.selectedValues.add(key, record);
         this._syncSelection();
     },
@@ -877,7 +878,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
     },
 
     _deselectRowCheckbox: function (recordId) {
-        this._getOptionCheckbox(recordId).removeCls('rui-picker-cb-checked');
+        this._getOptionCheckbox(recordId) && this._getOptionCheckbox(recordId).removeCls('rui-picker-cb-checked');
     },
 
     _isRecordInList: function (record) {
@@ -942,7 +943,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         this._fireSelectionChange();
     },
 
-    onListItemDeselect: function (record, event, itemEl) {
+    onListItemDeselect: function (record, event, itemEl) {        
         var key = this._getKey(record);
         this.selectedValues.remove(this.selectedValues.get(key));
         this._syncSelection();
