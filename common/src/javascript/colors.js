@@ -16,6 +16,8 @@ Ext.define("CA.apps.charts.Colors", {
     purple : "#7832A5",  // $purple,
     pink : "#DA1884",   // $pink,
     grey7 : "#666",
+    red : '#FF2A00',
+    green : '#00FF2A',
 
     cumulativeFlowColors : function() {
         return [

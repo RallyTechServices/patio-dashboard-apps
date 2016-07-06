@@ -4,29 +4,29 @@ Ext.define("TSDeliveryEffortTaskHours", {
     descriptions: [
         "<strong>Delivery Effort Task Hours</strong><br/>" +
             "<br/>" +
-            "This dashboard shows how many hours are being spent on accepted stories during sprints,  " +
+            "This dashboard shows how many hours are being spent on accepted stories during timeboxes,  " +
             "compared to the estimated hours and hours left to-do." +
             "<p/>" +
             "Click on a bar to see a table with the tasks from that timebox." +
             "<p/> " +
             "<ul/>" +
             "<li>The columns show the count of actual hours on the tasks associated " +
-            "with stories accepted in the sprint.</li>" +
+            "with stories accepted in the timebox.</li>" +
             "<li>The line shows the count of the estimated hours on the tasks " + 
-            "associated with stories accepted in the sprint.</li>" + 
+            "associated with stories accepted in the timebox.</li>" + 
             "</ul>",
         "<strong>Delivery Effort Full Time Equivalents</strong><br/>"+
             "<br/>" +
-            "This dashboard shows the number of actual FTEs spent on accepted stories during sprints,  " +
+            "This dashboard shows the number of actual FTEs spent on accepted stories during timeboxes,  " +
             "compared to the estimated FTEs and FTEs left to-do." +
             "<p/>" +
             "Click on a bar to see a table with the tasks from that timebox." +
             "<p/> " +
             "<ul/>" +
             "<li>The columns show the count of actual hours on the tasks associated " +
-            "with stories accepted in the sprint.</li>" +
+            "with stories accepted in the timebox.</li>" +
             "<li>The line shows the count of the estimated hours on the tasks " + 
-            "associated with stories accepted in the sprint.</li>" + 
+            "associated with stories accepted in the timebox.</li>" + 
             "</ul>"
 
     ],
@@ -43,17 +43,77 @@ Ext.define("TSDeliveryEffortTaskHours", {
                         
     launch: function() {
         this.callParent();
+        
+        this.timebox_limit = 10;
+        this.timebox_type = 'Iteration';
+                
+        this._addSelectors();
         this._updateData();
+    },
+
+    _addSelectors: function() {
+
+        this.addToBanner({
+            xtype: 'numberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Time Box Limit',
+            value: 10,
+            maxValue: 20,
+            minValue: 1,            
+            margin: '0 0 0 50',
+            width: 150,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
+
+        this.addToBanner({
+            xtype      : 'radiogroup',
+            fieldLabel : 'Timebox Type',
+            margin: '0 0 0 50',
+            width: 300,
+            defaults: {
+                flex: 1
+            },
+            layout: 'hbox',
+            items: [
+                {
+                    boxLabel  : 'Iteration',
+                    name      : 'timeBoxType',
+                    inputValue: 'Iteration',
+                    id        : 'radio1',
+                    checked   : true                    
+                }, {
+                    boxLabel  : 'Release',
+                    name      : 'timeBoxType',
+                    inputValue: 'Release',
+                    id        : 'radio2'
+                }
+            ],
+            listeners:{
+                change:function(rb){
+                    this.timebox_type = rb.lastValue.timeBoxType;
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
+
     },
     
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
@@ -73,18 +133,21 @@ Ext.define("TSDeliveryEffortTaskHours", {
     
     _fetchTimeboxes: function() {
         var me = this,
-            deferred = Ext.create('Deft.Deferred'),
-            type = this.timebox_type;
+            deferred = Ext.create('Deft.Deferred');
                 
         this.setLoading("Fetching timeboxes...");
-                
+        
+        var start_date_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+        
         var config = {
-            model: type,
-            limit: 10,
-            pageSize: 10,
-            fetch: ['Name','StartDate','EndDate'],
-            filters: [{property:'EndDate', operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-            sorters: [{property:'EndDate', direction:'DESC'}],
+            model:  this.timebox_type,
+            limit: this.timebox_limit,
+            pageSize: this.timebox_limit,
+            fetch: ['Name',start_date_field,end_date_field],
+            filters: [{property:end_date_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            sorters: [{property:end_date_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
                 projectScopeDown: false
@@ -94,37 +157,33 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
+    _sortTimeboxes: function(timeboxes) {
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
         
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+        Ext.Array.sort(timeboxes, function(a,b){
+            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
+            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
         });
         
-        return iterations;
+        return timeboxes;
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
         
-        var type = this.timebox_type;
         var type_field = this.getSetting('typeField');
         
-        var start_field = "StartDate";
-        var end_field = "EndDate";
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            end_field   = "ReleaseDate";
-        }
+        var start_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
+        var end_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
-            {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: this.timebox_type + '.' + start_field, operator: '>=', value:first_date},
+            {property: this.timebox_type + '.' + start_field, operator: '<=', value:last_date},
             {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
         
@@ -132,9 +191,9 @@ Ext.define("TSDeliveryEffortTaskHours", {
             model:'Task',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
+            fetch: ['FormattedID','Name','ScheduleState',this.timebox_type,'ObjectID',
                 'PlanEstimate','Project','Release',type_field,'Actuals','Estimate',
-                'ToDo','WorkProduct',start_field,end_field]
+                'ToDo','WorkProduct',start_field, end_field]
         };
         
         Deft.Chain.sequence([
@@ -179,14 +238,17 @@ Ext.define("TSDeliveryEffortTaskHours", {
             base_hash.records[value] = [];
         });
         
+        var start_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
+        var end_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+        
         Ext.Array.each(items, function(item){
             var timebox = item.get(timebox_type).Name;
             
-            var start_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).StartDate);
+            var start_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type)[start_field]);
 
-            var end_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type).EndDate);
+            var end_date = Rally.util.DateTime.fromIsoString(item.get(timebox_type)[end_field]);
         
-            var sprint_days_excluding_weekend = Rally.technicalservices.util.Utilities.daysBetween(end_date,start_date,this.true);
+            var sprint_days_excluding_weekend = Rally.technicalservices.util.Utilities.daysBetween(end_date,start_date,true);
 
             if ( Ext.isEmpty(hash[timebox])){
                 
@@ -234,7 +296,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             enableEditing: false,
             showRowActionsColumn: false,     
             store: store,
-            columnCfgs: columns,
+            columnCfgs: columns
         });
 
     },
@@ -307,7 +369,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             enableEditing: false,
             showRowActionsColumn: false,     
             store: store,
-            columnCfgs: columns,
+            columnCfgs: columns
         },1);
 
     },
@@ -536,9 +598,14 @@ Ext.define("TSDeliveryEffortTaskHours", {
     
     _getTopChartConfig: function() {
         var me = this;
+        
+        var timebox_name = "Release"; 
+        if ( this.timebox_type == 'Iteration' ) {
+            timebox_name = 'Sprint';
+        }
         return {
             chart: { type:'column' },
-            title: { text: 'Actual Task Hours by Sprint' },
+            title: { text: 'Actual Task Hours by ' + timebox_name },
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'Hours' }
@@ -558,9 +625,15 @@ Ext.define("TSDeliveryEffortTaskHours", {
     
     _getBottomChartConfig: function() {
         var me = this;
+        
+        var timebox_name = "Release"; 
+        if ( this.timebox_type == 'Iteration' ) {
+            timebox_name = 'Sprint';
+        }
+        
         return {
             chart: { type:'column' },
-            title: { text: 'Actual FTEs by Sprint' },
+            title: { text: 'Actual FTEs by ' + timebox_name },
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'FTEs' }
@@ -670,6 +743,6 @@ Ext.define("TSDeliveryEffortTaskHours", {
     
     _getUnsafeIterationName: function(name) {
         return name.replace(/&#46;/,'.');
-    },
+    }
     
 });

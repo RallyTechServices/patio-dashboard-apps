@@ -33,7 +33,8 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsstoryrequiredfieldrule', requiredFields: ['Release','Owner','Description','Feature',
                 'c_AcceptanceCriteria','c_Type','c_IsTestable']},
             {xtype:'tsstorycompletednoactuals'},
-            {xtype:'tsstorywithoutepmsid'}
+            {xtype:'tsstorywithoutepmsid'},
+            {xtype:'tsstorynonullplanestimaterule' }
         ]
     },
     

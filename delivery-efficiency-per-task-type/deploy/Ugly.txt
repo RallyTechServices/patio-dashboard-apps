@@ -3,10 +3,10 @@
 <head>
     <title>Delivery Efficiency</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jun 09 2016 14:51:17 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Jun 17 2016 10:19:04 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jun 09 2016 14:51:17 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Jun 17 2016 10:19:04 GMT-0700 (PDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     

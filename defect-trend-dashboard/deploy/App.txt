@@ -1,0 +1,2701 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Defect Trend Dashboard</title>
+    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Tue Jul 05 2016 21:25:19 GMT-0700 (PDT) -->
+    
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Jul 05 2016 21:25:19 GMT-0700 (PDT)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 127018099984;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+    <!-- our highcharts (needed so that we can add patterns) -->
+    <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+Ext.define('TSUtilities', {
+    singleton: true,
+      
+    loadWsapiRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+     
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        console.log(editor_permissions);
+        return ( editor_permissions.length > 0 );
+    },
+    
+    getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
+    },
+    
+    // true if sub or workspace admin
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
+        
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    is_workspace_admin = true;
+                }
+            });
+        }
+        
+        return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
+    },
+    
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+        
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        return can_unlock;
+    },
+    
+    _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    getStartFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseStartDate';
+        }
+        
+        return 'StartDate';
+    },
+    
+    getEndFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseDate';
+        }
+        
+        return 'EndDate';
+    }
+});
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+   
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: Ext.String.format("Build date/time: {0} ({1})",
+                    APP_BUILD_DATE,
+                    BUILDER)
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.util.Utilities', {
+    singleton: true,
+    hashToArray: function(hash) {
+        var result = [];
+        for ( var key in hash ) {
+            result.push(hash[key]);
+        }
+        return result;
+    },
+    daysBetweenWithFraction: function(begin_date_js,end_date_js,skip_weekends){
+
+        var days_between = Rally.technicalservices.util.Utilities.daysBetween(begin_date_js, end_date_js, skip_weekends);
+
+        if ( typeof(begin_date_js) == "string" ) {
+           begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+
+        var end_date_beginning_of_day = new Date(Ext.clone(end_date_js).setHours(0,0,0,0)),
+            begin_date_beginning_of_day = new Date(Ext.clone(begin_date_js).setHours(0,0,0,0)),
+            add_minutes = 0,
+            delta_minutes = 0;
+
+        if (this.isWeekday(end_date_js)) {
+            add_minutes = Rally.util.DateTime.getDifference(end_date_js, end_date_beginning_of_day, 'minute');
+        }
+        if (this.isWeekday(begin_date_js)) {
+            delta_minutes = Rally.util.DateTime.getDifference(begin_date_js, begin_date_beginning_of_day, 'minute');
+        }
+        var min = days_between * 1440 + add_minutes - delta_minutes;
+        if (min > 0){
+            min = Math.max(min/1440,0.01);
+        } else {
+            min = 0;
+        }
+        return Number(min.toFixed(2));
+    },
+    daysBetween: function(begin_date_js,end_date_js,skip_weekends){
+
+        if ( typeof(begin_date_js) == "string" ) {
+            begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+        
+        var dDate1 = Ext.clone(begin_date_js).setHours(0,0,0,0);
+        var dDate2 = Ext.clone(end_date_js).setHours(0,0,0,0);
+        
+        if ( dDate1 == dDate2 ) { return 1; }
+        if (typeof dDate1 === "number") { dDate1 = new Date(dDate1); }
+        if (typeof dDate2 === "number") { dDate2 = new Date(dDate2); }
+            
+        if ( !skip_weekends ) {
+            return Math.abs( Rally.util.DateTime.getDifference(dDate1,dDate2,'day') );
+        } else {
+            // shift to the following Monday
+            if (!this.isWeekday(dDate1)) {
+                dDate1 = this.shiftDateToMonday(dDate1);
+            }
+            if (!this.isWeekday(dDate2)) {
+                dDate2 = this.shiftDateToMonday(dDate2);
+            }
+
+
+            // from the sOverflow
+            var iWeeks, iDateDiff, iAdjust = 0;
+            if (dDate2 < dDate1) 
+            { 
+                var x = dDate2;
+                dDate2 = dDate1;
+                dDate1 = x;
+            }
+            var iWeekday1 = dDate1.getDay(); // day of week
+            var iWeekday2 = dDate2.getDay();
+            iWeekday1 = (iWeekday1 == 0) ? 7 : iWeekday1; // change Sunday from 0 to 7
+            iWeekday2 = (iWeekday2 == 0) ? 7 : iWeekday2;
+            if ((iWeekday1 > 5) && (iWeekday2 > 5)) iAdjust = 1; // adjustment if both days on weekend
+            iWeekday1 = (iWeekday1 > 5) ? 5 : iWeekday1; // only count weekdays
+            iWeekday2 = (iWeekday2 > 5) ? 5 : iWeekday2;
+    
+            // calculate differnece in weeks (1000mS * 60sec * 60min * 24hrs * 7 days = 604800000)
+            iWeeks = Math.floor((dDate2.getTime() - dDate1.getTime()) / 604800000)
+    
+            if (iWeekday1 <= iWeekday2) {
+              iDateDiff = (iWeeks * 5) + (iWeekday2 - iWeekday1)
+            } else {
+              iDateDiff = ((iWeeks + 1) * 5) - (iWeekday1 - iWeekday2)
+            }
+    
+            iDateDiff -= iAdjust // take into account both days on weekend
+    
+            if ( iDateDiff < 1 ) { iDateDiff = 1; }
+            console.log(iDateDiff,begin_date_js,end_date_js);
+            return (iDateDiff); 
+        }
+    },
+
+    isWeekday: function(check_date) {
+        var weekday = true;
+        var day = check_date.getDay();
+        
+        if ( day === 0 || day === 6 ) {
+            weekday = false;
+        }
+        return weekday;
+    },
+    shiftDateToMonday: function(check_date) {
+        var day = check_date.getDay();
+        
+        var delta = 0;
+        
+        if ( day === 0 ) {
+            // it's Sunday
+            delta = 1;
+        }
+        if ( day === 6 ) {
+            delta = 2;
+        }
+        
+        var shifted_date = check_date;
+        if ( delta > 0 ) {
+            shifted_date = new Date(check_date.setHours(0));
+            shifted_date = Rally.util.DateTime.add(shifted_date,"day",delta);
+        }
+        return shifted_date;
+    },
+    /*
+     * compress size is the point at which to move to weeks instead of days
+     */
+    arrayOfDaysBetween: function(begin_date_js, end_date_js, skip_weekends, compress_size ) {
+        var the_array = [];
+        if ( typeof(begin_date_js) == "string" ) {
+            begin_date_js = Rally.util.DateTime.fromIsoString(begin_date_js);
+        }
+        if ( typeof(end_date_js) == "string" ) {
+            end_date_js = Rally.util.DateTime.fromIsoString(end_date_js);
+        }
+        if ( begin_date_js > end_date_js ) {
+            var swap_holder = end_date_js;
+            end_date_js = begin_date_js;
+            begin_date_js = swap_holder;
+        }
+                
+        var dDate1 = Ext.clone(begin_date_js).setHours(0,0,0,0);
+        var dDate2 = Ext.clone(end_date_js).setHours(0,0,0,0);
+        
+        var number_of_days = this.daysBetween(begin_date_js,end_date_js,skip_weekends);
+        
+        var add_value = 1;
+        var add_unit = 'day';
+        
+        if ( Ext.isNumber(compress_size) && number_of_days > compress_size ) {
+            add_value = 7;
+        }
+        
+        if ( number_of_days <= 2 ) {
+            add_value = 30;
+            add_unit = 'minute';
+            dDate2 = Ext.clone(end_date_js).setHours(23,59,0,0);
+        }
+       
+        
+        var check_date = new Date(dDate1);
+        
+        while (check_date <= dDate2) {
+            if ( !skip_weekends || this.isWeekday(check_date) || add_value === 7 || add_unit == 'minute' ) {
+                the_array.push(check_date);
+            }
+            check_date = Rally.util.DateTime.add(check_date,add_unit,add_value);
+        }
+        
+        return the_array;
+    }
+    
+});
+(function() {
+
+    'use strict';
+
+    var idCounter = 0,
+        wrap = Highcharts.wrap,
+        each = Highcharts.each;
+
+    /**
+     * Exposed method to add a pattern to the renderer.
+     */
+    Highcharts.SVGRenderer.prototype.addPattern = function (id, options) {
+        var pattern,
+            path,
+            w = options.width || 10,
+            h = options.height || 10,
+            ren = this;
+
+        /**
+         * Add a rectangle for solid color
+         */
+        function rect (fill) {
+            ren.rect(0, 0, w, h)
+                .attr({
+                    fill: fill
+                })
+                .add(pattern);
+        }
+
+        if (!id) {
+            id = 'highcharts-pattern-' + idCounter;
+            idCounter += 1;
+        }
+
+        pattern = this.createElement('pattern').attr({
+            id: id,
+            patternUnits: 'userSpaceOnUse',
+            width: options.width || 10,
+            height: options.height || 10
+        }).add(this.defs);
+
+        // Get id
+        pattern.id = pattern.element.id;
+
+        // Use an SVG path for the pattern
+        if (options.path) {
+            path = options.path;
+
+            // The background
+            if (path.fill) {
+                rect(path.fill);
+            }
+
+            // The pattern
+            this.createElement('path').attr({
+                'd': path.d || path,
+                'stroke': path.stroke || options.color || '#343434',
+                'stroke-width': path.strokeWidth || 2
+            }).add(pattern);
+            pattern.color = options.color;
+
+        // Image pattern
+        } else if (options.image) {
+
+            this.image(options.image, 0, 0, options.width, options.height).add(pattern);
+
+        // A solid color
+        } else if (options.color) {
+
+            rect(options.color);
+
+        }
+
+        if (options.opacity !== undefined) {
+            each(pattern.element.children, function (child) {
+                child.setAttribute('opacity', options.opacity);
+            });
+        }
+
+        return pattern;
+    };
+
+    if (Highcharts.VMLElement) {
+
+        Highcharts.VMLRenderer.prototype.addPattern = function (id, options) {
+
+            var patterns;
+            if (!id) {
+                id = 'highcharts-pattern-' + idCounter;
+                idCounter += 1;
+            }
+            patterns = this.patterns || {};
+            patterns[id] = options;
+            this.patterns = patterns;
+        };
+
+        Highcharts.wrap(Highcharts.VMLRenderer.prototype.Element.prototype, 'fillSetter', function (proceed, color, prop, elem) {
+            if (typeof color === 'string' && color.substring(0, 5) === 'url(#') {
+                var id = color.substring(5, color.length - 1),
+                    pattern = this.renderer.patterns[id],
+                    markup;
+
+                if (pattern.image) {
+                    // Remove Previous fills                    
+                    if (elem.getElementsByTagName('fill').length) {
+                        elem.removeChild(elem.getElementsByTagName('fill')[0]);
+                    }
+
+                    markup = this.renderer.prepVML(['<', prop, ' type="tile" src="', pattern.image, '" />']);
+                    elem.appendChild(document.createElement(markup));
+
+                    // Work around display bug on updating attached nodes
+                    if (elem.parentNode.nodeType === 1) {
+                        elem.outerHTML = elem.outerHTML;
+                    }
+
+                } else if (pattern.color) {
+                    proceed.call(this, pattern.color, prop, elem);
+                } else {
+                    proceed.call(this, '#A0A0A0', prop, elem);
+                }
+            } else {
+                proceed.call(this, color, prop, elem);
+            }
+        });
+    }
+
+    /**
+     * Add the predefined patterns
+     */
+    function addPredefinedPatterns(renderer) {
+        var colors = Highcharts.getOptions().colors;
+
+        each([
+            'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11',
+            'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9',
+            'M 3 0 L 3 10 M 8 0 L 8 10',
+            'M 0 3 L 10 3 M 0 8 L 10 8',
+            'M 0 3 L 5 3 L 5 0 M 5 10 L 5 7 L 10 7',
+            'M 3 3 L 8 3 L 8 8 L 3 8 Z',
+            'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0',
+            'M 10 3 L 5 3 L 5 0 M 5 10 L 5 7 L 0 7',
+            'M 2 5 L 5 2 L 8 5 L 5 8 Z',
+            'M 0 0 L 5 10 L 10 0'
+        ], function (pattern, i) {
+            renderer.addPattern('highcharts-default-pattern-' + i, {
+                path: pattern,
+                color: colors[i]
+            });
+        });
+        
+        var patterns = {
+            'diagonal-down': {path: 'M 0 0 L 10 10 M 9 -1 L 11 1 M -1 9 L 1 11', color: 'black' },
+            'diagonal-up':   {path: 'M 0 10 L 10 0 M -1 1 L 1 -1 M 9 11 L 11 9', color: 'black' },
+            'vertical':      {path: 'M 3 0 L 3 10 M 8 0 L 8 10', color: 'black' },
+            'horizontal':    {path: 'M 0 3 L 10 3 M 0 8 L 10 8', color: 'black' },
+            'circles':       {path: 'M 5 5 m -4 0 a 4 4 0 1 1 8 0 a 4 4 0 1 1 -8 0', color: 'white' },
+            'squares':       {path: 'M 3 3 L 8 3 L 8 8 L 3 8 Z', color: 'black' },
+            'diamonds':      {path: 'M 0 0 L 5 10 L 10 0', color: 'black' }
+
+        };
+        
+        Ext.Object.each(patterns, function(name,config) { 
+            renderer.addPattern(name, config);
+        });
+    }
+
+    // Add patterns to the defs element
+    wrap(Highcharts.Chart.prototype, 'getContainer', function (proceed) {
+        proceed.apply(this);
+
+        var chart = this,
+            renderer = chart.renderer,
+            options = chart.options,
+            patterns = options.defs && options.defs.patterns;
+
+        // First add default patterns
+        addPredefinedPatterns(renderer);
+
+        // Add user defined patterns
+        if (patterns) {
+            each(patterns, function (pattern) {
+                renderer.addPattern(pattern.id, pattern);
+            });
+        }
+
+    });
+
+}());
+Ext.define("CA.apps.charts.Colors", {
+    
+    singleton: true, 
+    
+    // RGB values obtained from here: http://ux-blog.rallydev.com/?cat=23
+    grey4: "#C0C0C0",  // $grey4
+    orange: "#FF8200",  // $orange
+    gold: "#F6A900",  // $gold
+    yellow: "#FAD200",  // $yellow
+    lime: "#8DC63F",  // $lime
+    green_dk: "#1E7C00",  // $green_dk
+    blue_link: "#337EC6",  // $blue_link
+    blue: "#005EB8",  // $blue
+    blue_dark: '#00386e', 
+    blue_light: '#b2cee9',
+    purple : "#7832A5",  // $purple,
+    pink : "#DA1884",   // $pink,
+    grey7 : "#666",
+    red : '#FF2A00',
+    green : '#00FF2A',
+
+    cumulativeFlowColors : function() {
+        return [
+            this.grey4, this.orange, this.gold, this.yellow, this.lime, this.green_dk, this.blue_link, this.blue, this.purple, this.pink
+        ];
+    },
+
+    burnLineColor : function (){ return this.blue; },
+    burnColumnColor : function() { return this.lime; },
+    
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; },
+    
+    getConsistentBarPatterns: function() { 
+        return [
+            'url(#circles)',
+            'url(#diagonal-down)',
+            'url(#diagonal-up)',
+            'url(#vertical)',
+            'url(#horizontal)',
+            'url(#squares)',
+            'url(#diamonds)',
+            'url(#highcharts-default-pattern-6)',
+            'url(#highcharts-default-pattern-7)'
+        ];
+    }
+});
+
+Ext.define('CA.techservices.container.ChartWithDescription',{
+    extend: 'Ext.container.Container',
+    alias:  'widget.tschartwithdescription',
+    
+    layout: 'hbox',
+    
+    items: [
+        {xtype:'container', itemId:'chart_box', flex: 1},
+        {xtype:'container', itemId:'description_box'}
+    ],
+    
+    setDescription: function(description) {
+        var box = this.down('#description_box');
+        box.removeAll();
+        
+        if ( Ext.isEmpty(description) ) {
+            return;
+        }
+        box.add({
+            xtype:'panel',
+            ui: 'info-box',
+            title: '<span class="icon-info-circle"> </span>',
+            collapsible: true,
+            collapsed: true,
+            collapseDirection: 'right',
+            headerPosition: 'left',
+            width: 375,
+            height: 375,
+            margin: 5,
+            overflowY: 'auto',
+            html: description
+            
+        });
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
+        box.removeAll();
+        
+        
+        var chart_config = Ext.apply({
+            xtype:'rallychart',
+            loadMask: false,
+            chartColors: CA.apps.charts.Colors.getConsistentBarColors()
+        }, config);
+        
+        box.add(chart_config);
+    }
+});
+Ext.define("CA.techservices.app.ChartApp", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    padding: 5,
+    
+    description: '<em>Deprecated.  Make an array in this.descriptions instead.</em>',
+    
+    descriptions: [],
+    
+    items: [
+        {xtype:'container', width:'98%', items:[
+            {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
+            {xtype:'container',itemId:'main_display_box'},
+            {xtype:'container',itemId:'additional_display_box'}
+        ]}
+    ],
+
+    config: {
+        defaultSettings: {
+            showPatterns: false
+        }
+    },
+    
+    launch: function() {
+        
+        var descriptions = [this.description];
+        
+        if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
+            descriptions = this.descriptions;
+        }
+                
+        Ext.Array.each(descriptions, function(description,index){
+            this._addChartBox(index);
+            this.applyDescription(description,index);
+            this._addGridBox(index);
+        },this);
+    }, 
+    
+    _addChartBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tschartwithdescription', 
+            itemId: 'main_chart_' + index
+        });
+    },
+    
+    _addGridBox: function(index) {
+        return this.down("#main_display_box").add({
+            xtype:'tsgridbox', 
+            itemId: 'main_grid_' + index
+        });
+    },
+
+    /*
+     * DEPRECATED. Use applyDescription
+     */
+    setDescription: function() {
+        this.applyDescription(this.description,0);
+    },
+    
+    applyDescription: function(description,index) {
+        this.getChartBox(index).setDescription(description);
+    },
+    
+    clearBanner: function() {
+        this.down('#banner_box').removeAll();
+    },
+    
+    addToBanner: function(config) {
+        return this.down('#banner_box').add(config);
+    },
+    
+    
+    /*
+     * DEPRECATED. Use getGridBox, setGrid instead.
+     */
+    clearAdditionalDisplay: function() {
+        this.down('#additional_display_box').removeAll();
+    },
+    
+    addToAdditionalDisplay: function(config) {
+        return this.down('#additional_display_box').add(config);
+    },
+    
+    getChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_chart_' + index);
+    },
+    
+    setChart: function(config,index) {
+        this.getChartBox(index).setChart(config);
+    },
+    
+
+    getGridBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        return this.down('#main_grid_' + index);
+    },
+    
+    setGrid: function(config,index) {
+        this.getGridBox(index).setGrid(config);
+    },
+
+    getDrillDownColumns: function(title) {
+        return [
+            {
+                dataIndex : 'FormattedID',
+                text: "id"
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 1
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'Schedule State'
+            },
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Plan Estimate'
+            }
+        ];
+    },
+    
+    showDrillDown: function(stories, title) {
+        var me = this;
+
+        var store = Ext.create('Rally.data.custom.Store', {
+            data: stories,
+            pageSize: 2000
+        });
+        
+        Ext.create('Rally.ui.dialog.Dialog', {
+            id        : 'detailPopup',
+            title     : title,
+            width     : Ext.getBody().getWidth() - 50,
+            height    : Ext.getBody().getHeight() - 50,
+            closable  : true,
+            layout    : 'border',
+            items     : [
+            {
+                xtype                : 'rallygrid',
+                region               : 'center',
+                layout               : 'fit',
+                sortableColumns      : true,
+                showRowActionsColumn : false,
+                showPagingToolbar    : false,
+                columnCfgs           : this.getDrillDownColumns(title),
+                store : store
+            }]
+        }).show();
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 200',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }
+        ];
+    }
+    
+});
+
+Ext.define('CA.techservices.container.GridBox',{
+    extend: 'Ext.container.Container',
+    alias:  'widget.tsgridbox',
+    
+    items: [
+        {xtype:'container', itemId:'grid_box'},
+    ],
+    
+    setGrid: function(config) {
+        var box = this.down('#grid_box');
+        box.removeAll();
+        
+        box.add(config);
+    }
+});
+Ext.define('CA.techservices.calculator.DefectAccumulation', {
+    extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+    config: {
+        closedStateValues: ['Closed'],
+        allowedPriorities: []
+    },
+
+    constructor: function(config) {
+        this.initConfig(config);
+        this.callParent(arguments);
+    },
+
+    getMetrics: function() {
+        return [{
+            'field': 'wasCreated',
+            'as': 'Total Defects Opened',
+            'f': 'sum',
+            'display': 'line'
+        },
+        {
+            'field': 'isClosed',
+            'as': 'Total Defects Closed',
+            'f': 'sum',
+            'display': 'line'
+        }];
+        
+    },
+    
+    getDerivedFieldsOnInput: function() {
+        var me = this;
+        return [
+            { 
+                as: 'wasCreated',
+                f : function(snapshot) {
+                    if ( me._matchesPriority(snapshot) ) { 
+                        return 1;
+                    }
+
+                    return 0;
+                }
+            },
+            {
+                as: 'isClosed',
+                f: function(snapshot) {
+                    if ( Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
+                        if ( me._matchesPriority(snapshot) ) { 
+                            return 1;
+                        }
+                        return 0;
+                    }
+                    return 0;
+                }
+            }
+        ];
+    },
+    
+    _matchesPriority: function(snapshot) {
+        var me = this;
+        
+        if ( Ext.isEmpty(me.allowedPriorities) || me.allowedPriorities.length === 0 ) {
+            return true;
+        }
+        
+        if ( Ext.Array.contains(me.allowedPriorities, snapshot.Priority) ) {
+            return true;
+        }
+        
+        // when hydrated, lookback will return "None" for an empty field
+        if ( snapshot.Priority == 'None' && Ext.Array.contains(me.allowedPriorities, '') ) {
+            return true;
+        }
+        return false;
+    }
+});
+
+Ext.define('CA.techservices.calculator.DefectDelta', {
+    extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+    config: {
+        closedStateValues: ['Closed'],
+        allowedPriorities: []
+    },
+
+    constructor: function(config) {
+        this.initConfig(config);
+        this.callParent(arguments);
+    },
+
+    getMetrics: function() {
+        return [{
+            'field': 'isOpen',
+            'as': 'Open',
+            'f': 'sum',
+            'display': 'line'
+        }];
+        
+    },
+    
+    getDerivedFieldsOnInput: function() {
+        var me = this;
+        return [
+            {
+                as: 'isOpen',
+                f: function(snapshot) {
+                    if ( !Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
+                        if ( me._matchesPriority(snapshot) ) { 
+                            return 1;
+                        }
+                        return 0;
+                    }
+                    return 0;
+                }
+            }
+        ];
+    },
+    
+    _matchesPriority: function(snapshot) {
+        var me = this;
+        
+        if ( Ext.isEmpty(me.allowedPriorities) || me.allowedPriorities.length === 0 ) {
+            return true;
+        }
+        
+        if ( Ext.Array.contains(me.allowedPriorities, snapshot.Priority) ) {
+            return true;
+        }
+        
+        // when hydrated, lookback will return "None" for an empty field
+        if ( snapshot.Priority == 'None' && Ext.Array.contains(me.allowedPriorities, '') ) {
+            return true;
+        }
+        return false;
+    }
+});
+
+
+/**
+ * A picker which allows selecting multiple field values.
+ *
+ *      @example
+ *      Ext.create('Ext.Container', {
+ *          items: [{
+ *              xtype: 'tsmultifieldvaluepicker',
+ *              model: 'defect',
+ *              field: 'State'
+ *          }],
+ *          renderTo: Ext.getBody().dom
+ *      });
+ */
+Ext.define('CA.techservices.picker.FieldValuePicker', {
+    extend: 'Ext.form.field.Picker',
+    alias: 'widget.tsmultifieldvaluepicker',
+    
+    inheritableStatics: {
+        defaultRowTextCls: 'rui-picker-option-text'
+    },
+
+    componentCls: 'rui-multiobject-picker',
+
+    config: {
+        /**
+         * @cfg {Boolean}
+         * Whether to expand on load
+         */
+        autoExpand: false,
+
+        /**
+         * @cfg {Boolean}
+         * Whether to always be expanded
+         */
+        alwaysExpanded: false,
+
+        /**
+         * @cfg {String}
+         * Text shown during store load
+         */
+        loadingText: 'Loading...',
+
+        /**
+         * @cfg {String}
+         * The key of a value in a selected record. That value is used when saving the record's selected state.
+         */
+        selectionKey: 'StringValue',
+
+        /**
+         * 
+         * @cfg {String} (Required)
+         * The name of a model that a field belongs to.
+         */
+        model: 'UserStory',
+        
+        /**
+         * 
+         * @cfg {String} (Required)
+         * The name of a field on the model 
+         */
+        field: null,
+        
+        /**
+         * @cfg {String}
+         * The key of the value in a record.
+         */
+        recordKey: 'StringValue',
+
+        /**
+         * @cfg {Object}
+         * The DataStore configuration
+         */
+        storeConfig: {
+            autoLoad: false,
+            fetch: ["StringValue"],
+            pageSize: 200,
+            remoteGroup: false,
+            remoteSort: false,
+            remoteFilter: false,
+            limit: Infinity,
+            sorters: [
+                {
+                    property: 'Name',
+                    direction: 'ASC'
+                }
+            ]
+        },
+
+        /**
+         * @cfg {Object}
+         * An object that will be passed to store.load()
+         */
+        storeLoadOptions: undefined,
+
+        /**
+         * @cfg {String}
+         * The picker type
+         */
+        pickerType: 'Ext.container.Container',
+
+        /**
+         * @cfg {Object}
+         * The picker configuration
+         */
+        pickerCfg: {
+            floating: true,
+            hidden: true,
+            focusOnToFront: false,
+            shadow: false,
+            layout: {
+                type: 'vbox',
+                align: 'stretch',
+                shrinkToFit: true
+            },
+            cls: 'multiobject-picker'
+        },
+
+        /**
+         * @cfg {String}
+         * The list type
+         */
+        listType: 'Ext.view.BoundList',
+
+        /**
+         * @cfg {Object}
+         * The list configuration
+         */
+        listCfg: {
+            selModel: {
+                mode: 'SIMPLE'
+            },
+            displayField: "Name",
+            pageSize: 0,
+            autoScroll: true,
+            cls: 'rui-multi-object-list'
+        },
+
+        /**
+         * @cfg {Boolean}
+         * Whether rows are selectable
+         */
+        rowSelectable: false,
+
+        /**
+         * @cfg {String}
+         * The cls to apply to the row checkbox
+         */
+        rowCheckboxCls: 'rui-picker-checkbox',
+
+        /**
+         * @cfg {String}
+         * The place to render validation errors
+         */
+        msgTarget: 'side',
+
+        /**
+         * @cfg {String}
+         * The cls to apply to each row
+         */
+        rowCls: 'rui-multi-object-picker',
+
+        /**
+         * @cfg {String}
+         * The cls to apply to disabled rows
+         */
+        disabledRowCls: 'rui-multi-object-picker-disabled',
+
+        /**
+         * @cfg {Boolean}
+         * Whether to maintain scroll position
+         */
+        maintainScrollPosition: false,
+
+        /**
+         * @cfg {String[]}
+         * Values that will always show selected in the bound list
+         */
+        alwaysSelectedValues: [],
+        
+        /**
+         * @cfg {String}
+         * Text to use for the '-- No Entry --' option.
+         */
+        noEntryText: '-- No Entry --',
+
+        /**
+         * @cfg {String}
+         * The text shown in the text field prior to typing.
+         */
+        emptyText: 'Begin typing...',
+
+        /**
+         * @cfg {String}
+         * The text shown when no matching items are found.
+         */
+        notFoundText: '<div class="rui-multi-object-picker-empty-text">No matching item</div>',
+
+        /**
+         * @cfg {String}
+         * The name of the attribute that will contain the matched text.
+         */
+        matchFieldName: 'StringValue',
+
+        /**
+         * @cfg {String}
+         * The name of the attribute that will be filtered.
+         */
+        filterFieldName: 'Name',
+
+        /**
+         * @cfg {Boolean}
+         * Enables Grouping of 'Selected' and 'Available'
+         */
+        enableGrouping: true,
+
+        /**
+         * @cfg {Boolean}
+         * Enables remote filtering. Defaults to client-side filtering.
+         */
+        remoteFilter: false,
+
+        /**
+         * @cfg {Boolean}
+         * Shows or hides the close 'x' in the top right corner
+         */
+        showCloseButton: false,
+
+        /**
+         * @cfg {Boolean}
+         * Shows or hides the search icon in the input field
+         */
+        showSearchIcon: false
+
+    },
+
+    constructor: function (config) {
+        this.mergeConfig(config);
+        this.plugins = this.plugins || [];
+        if (this.remoteFilter) {
+            this.plugins.push({ptype: 'rallyremotefiltering'});
+        } else {
+            this.plugins.push({ptype: 'rallyclientfiltering'});
+        }
+        if (this.enableGrouping) {
+            this.plugins.push(this._getSelectedGroupableConfig());
+        }
+
+        this.selectedValues = Ext.create('Ext.util.MixedCollection');
+        if (this.alwaysExpanded && !Ext.isDefined(this.config.hideTrigger)) {
+            this.hideTrigger = true;
+        }
+
+        this.callParent([this.config]);
+    },
+
+    initComponent: function() {
+        this.addEvents(
+            /**
+             * @event afteralignpicker
+             * Fires after the picker has been aligned, which is the last thing done when displaying/refreshing the picker.
+             */
+            'afteralignpicker',
+
+            /**
+             * @event select
+             * Fires when a value is selected in the picker
+             * @param {Rally.ui.picker.MultiObjectPicker} picker This picker
+             * @param {Object} value The newly selected value
+             * @param {Object[]} values The currently selected values
+             * @param {Ext.EventObject} event The event that initiated this action
+             */
+            'select',
+
+            /**
+             * @event deselect
+             * Fires when a value is deselected in the picker
+             * @param {Rally.ui.picker.MultiObjectPicker} picker This picker
+             * @param {Object} value The newly deselected value
+             * @param {Object[]} values The currently selected values
+             * @param {Ext.EventObject} event The event that initiated this action
+             */
+            'deselect',
+
+            /**
+             * @event selectionchange
+             * Fires when the selected values change
+             * @param {Rally.ui.picker.MultiObjectPicker} picker This picker
+             * @param {Object[]} values The currently selected values
+             */
+            'selectionchange',
+
+            /**
+             * @event datachanged
+             * Fires when the picker's data changes.
+             */
+            'datachanged'
+
+        );
+
+        this.callParent(arguments);
+    },
+
+    initEvents: function () {
+        this.callParent(arguments);
+        this.on('afterrender', this._onAfterRender, this, {single: true});
+        this.on('afteralignpicker', this._selectCheckboxes, this);
+        this.on('expand', this._onInitialExpand, this, {single: true});
+        this._initInputEvents();
+        this._autoExpand();
+    },
+
+    /**
+     * [setValue sets the values in the picker]
+     * @param {Ext.data.Model[]/String} values
+     */
+    setValue: function (values) {
+        var items = Ext.isString(values) ? values.split(',') : Ext.Array.from(values);
+
+        items = Ext.Array.merge(items, this.alwaysSelectedValues);
+
+        if (!Ext.isEmpty(items) && this.store && this.store.isLoading()) {
+            this.store.on('load', function() {
+                this._selectValues(items);
+            }, this, {single: true});
+        }
+        else {
+            this._selectValues(items);
+        }
+    },
+
+    _selectValues: function (items) {
+        var oldValue = this.selectedValues.getRange();
+        this.selectedValues.clear();
+
+        _.each(items, function (item) {
+            var value = item && item.isModel ? item.get(this.selectionKey) : item;
+            var record = this.findInStore(value);
+
+            if (record) {
+                this.selectedValues.add(this._getKey(record), record);
+            } else if (item.isModel) {
+                this.selectedValues.add(value, item);
+            }
+        }, this);
+
+        if (this.isExpanded) {
+            this._onListRefresh();
+            this._groupSelectedRecords();
+        }
+
+        this.fireEvent('change', this, this.selectedValues.getRange(), oldValue);
+    },
+
+    getValue: function () {
+        return this._getRecordValue();
+    },
+
+    getSubmitData: function () {
+        var ret = {};
+        ret[this.name] = this.getSubmitValue();
+        return ret;
+    },
+
+    getSubmitValue: function(){
+        var submitValue = [];
+        this.selectedValues.eachKey(function (key, value) {
+            if (value.get(this.selectionKey)) {
+                submitValue.push(value.get(this.selectionKey));
+            }
+        }, this);
+        return submitValue;
+    },
+
+    /**
+     * @private
+     */
+    createPicker: function () {
+        this.picker = Ext.create(this.pickerType, this.pickerCfg);
+        this.picker.add(this._createList());
+        if (this.alwaysExpanded) {
+            this.picker.on('beforehide', this._onBeforeHide);
+        }
+        return this.picker;
+    },
+
+    _onBeforeHide: function() {
+        return false;
+    },
+
+    /**
+     * @private
+     */
+    setAlwaysExpanded: function(alwaysExpanded) {
+        if (alwaysExpanded) {
+            this.alwaysExpanded = true;
+            this.picker.on('beforehide', this._onBeforeHide);
+        } else {
+            this.alwaysExpanded = false;
+            this.picker.removeListener('beforehide', this._onBeforeHide);
+        }
+    },
+
+    /**
+     * @private
+     */
+    alignPicker: function () {
+        var heightAbove = this.getPosition()[1] - Ext.getBody().getScroll().top,
+            heightBelow = Ext.Element.getViewHeight() - heightAbove - this.getHeight(),
+            space = Math.max(heightAbove, heightBelow) - 5;
+
+        this._alignPickerAndList();
+
+        if (this.pickerCfg.height) {
+            this.picker.setHeight(this.pickerCfg.height);
+            this.list.setHeight(this.pickerCfg.height);
+        } else if (this._getListHeight() > space) {
+            this.list.setHeight(space);
+            this.picker.setHeight(space);
+        } else if (this._getListHeight() < space) {
+            //this clears out the height so that it shrinks to fit
+            this.list.setHeight(null);
+            this.picker.setHeight(null);
+        }
+
+        // DE17524: Without Ext.defer, alignPicker always uses out-of-date this.inputEl coordinates in IE*
+        if (Ext.isIE && !this.hasDeferedAlign){
+            this.hasDeferedAlign = true;
+            Ext.defer(function() {
+                if (this.picker.isVisible()) {
+                    this.alignPicker();
+                }
+                delete this.hasDeferedAlign;
+            }, 1, this);
+        }
+
+        this.fireEvent('afteralignpicker');
+    },
+
+    _getListHeight: function() {
+        return this.list.listEl.child('ul').getHeight();
+    },
+
+    /**
+     * @override
+     * Wrapping doAlign because Ext 4.2 calls fixDisplay which blindly sets visibility to hidden.
+     * We don't want that to happen.
+     */
+    doAlign: function() {
+        var visibility = this.picker.el.getStyle('visibility');
+
+        this.callParent(arguments);
+
+        // Ext 4.2 calls fixDisplay for some reason, this sets it back to what it was
+        this.picker.el.setStyle({visibility: visibility});
+    },
+
+    _alignPickerAndList: function () {
+        if (this.isExpanded) {
+            if (this.matchFieldWidth) {
+                var labelWidth = 0;
+                if (!!this.fieldLabel && this.labelAlign !== 'top') {
+                    labelWidth = this.labelWidth + 5;
+                }
+                this.list.setSize(this.getWidth() - labelWidth, null);
+                this.picker.setSize(this.getWidth() - labelWidth, this._getPickerHeight());
+            }
+
+            if (this.picker.isFloating()) {
+                this.doAlign();
+            }
+        }
+    },
+
+    expand: function () {
+        if (this.store) {
+            this.callParent(arguments);
+        } else {
+            this._createStoreAndExpand();
+        }
+    },
+
+    /**
+     * @private
+     * Overridden to NOT collapse on mouse scroll event outside of picker
+     */
+    collapseIf: function () {
+        // don't ever collapse
+    },
+
+    collapse: function () {
+        if (!this.alwaysExpanded) {
+            this.callParent(arguments);
+        }
+    },
+
+    /**
+     * @private
+     * Overridden to NOT collapse during list refresh when the user clicks too quickly within the bound list
+     */
+    validateBlur: function (e) {
+        var el = Ext.get(e.target);
+        if (!this.isDestroyed) {
+            return !(el.hasCls(this.rowCls) || el.hasCls(this.self.defaultRowTextCls) || el.hasCls(this.rowCheckboxCls));
+        }
+        return false;
+    },
+
+    /**
+     * Refreshes records displayed in picker.
+     *
+     * @returns {Deft.Promise}
+     */
+    refresh: function() {
+        return this._refreshStore().then({
+            success: this.refreshView,
+            scope: this
+        });
+    },
+
+    /**
+     * Refreshes the view without loading the store.
+     */
+    refreshView: function () {
+        this._initFiltering();
+        this._groupRecords(this._getRecordValue());
+
+        if (this.originalValue) {
+            this.setValue(this.originalValue);
+        }
+
+        if (this.list) {
+            this.list.refresh();
+        }
+    },
+
+    isRecordAlwaysSelected: function(record) {
+        return _.contains(this.alwaysSelectedValues, record.get(this.selectionKey));
+    },
+
+    _initFiltering: function() {
+        this._setMatchedFieldValues();
+    },
+
+    _setMatchedFieldValues: function () {
+        //  Note to future self... if you find yourself having to add another chunk of logic here, maybe you
+        //  should allow a function to be passed in instead. We almost went that route, but decided against
+        //  until the need arises.
+        this.store.each(function(record) {
+            record.set(this.matchFieldName, record.get(this.filterFieldName));
+        }, this);
+    },
+
+    /**
+     * Adds a record to the selection,
+     *
+     * @param record {Ext.data.Model}
+     */
+    select: function(record) {
+        //here var key = record.get(this.selectionKey);
+        var key = this._getKey(record);
+        this.selectedValues.add(key, record);
+        this._syncSelection();
+    },
+
+    /**
+     * Updates the input el text to match the currently selected value.
+     */
+    syncSelectionText: function() {
+        var text = _.map(this.selectedValues.getRange(), function(record) {
+            return record.get(this.filterFieldName);
+        }, this).join(', ');
+
+        if (Ext.isEmpty(text)) {
+            this.focusPlaceholderText();
+        } else {
+            this.setValueText(text);
+        }
+    },
+
+    resetFilters: function (suppressEvent) {
+        this.store.clearFilter(suppressEvent);
+        this.store.filter(this.getBaseFilter());
+    },
+
+    getBaseFilter: Ext.emptyFn,
+
+    onEditorEnter: function () {
+        this.resetFilters(true);
+    },
+
+    onRender: function () {
+        this.callParent(arguments);
+        if (!this.hideTrigger) {
+            this.inputEl.addCls('rui-multi-object-picker-no-trigger');
+        }
+        if(this.showSearchIcon) {
+            var searchIconNode = this.inputEl.insertHtml('afterEnd','<div class="icon-search rally-search-button"></div>');
+            Ext.get(searchIconNode).on('click', function() {
+                // We want clicking on the search icon to open the picker.  Focusing on this does all
+                // the needed wiring and expanding.
+                this.focus();
+            }, this);
+        }
+    },
+
+    /**
+     * Adds a new record to the picker
+     *
+     * @param record
+     * @return Deft.Promise
+     */
+    addRecord: function(record) {
+        var deferred = Ext.create('Deft.Deferred');
+        this.mon(this.list, 'refresh', function() {
+            deferred.resolve(record);
+        }, this, {single: true});
+
+        this.store.loadData([record], true);
+
+        return deferred.promise;
+    },
+
+    _initInputEvents: function() {
+        if (!this.rendered) {
+            this.on('afterrender', this._initInputEvents, this, {single: true});
+            return;
+        }
+
+        this.mon(this.inputEl, 'keydown', this._onInputKeyDown, this);
+        this.mon(this.inputEl, 'keyup', this.validate, this);
+        this.mon(this.inputEl, 'keyup', this._onInputKeyUp, this);
+    },
+
+    _onAfterRender: function() {
+        this.getInputEl().addCls('rui-multi-object-input');
+        this.getEl().on('click', this.expand, this);
+    },
+
+    _onInputKeyUp: function(event) {
+        this._setAppropriateEmptyText();
+
+        //allow shift but disregard other modifiers
+        if (event.shiftKey || !Rally.util.Event.isModifierKey(event)) {
+            this.fireEvent('inputtextchanged', this.getInputTextValue());
+        }
+    },
+
+    _onInputKeyDown: function(event, inputField) {
+        //isSpecialKey() doesn't include Mac's command key, but ctrlKey does. Ignore all of those.
+        if (!event.isSpecialKey() && !event.ctrlKey && !this.isExpanded){
+            this.expand();
+        }
+    },
+
+    _setAppropriateEmptyText: function() {
+        var list = this.getList(),
+            listCfg = this.listCfg;
+
+        if (list && listCfg && listCfg.emptyText) {
+            if (Ext.isEmpty(this.getInputTextValue())) {
+                list.emptyText = listCfg.emptyText;
+            } else {
+                list.emptyText = this.notFoundText;
+            }
+        }
+    },
+
+    _autoExpand: function() {
+        if (!this.rendered) {
+            this.on('afterrender', this._autoExpand, this, {single: true});
+            return;
+        }
+
+        if (this.alwaysExpanded || this.autoExpand) {
+            this.expand();
+        }
+    },
+
+    _onInitialExpand: function(field) {
+        if (field.inputEl) {
+            field.mon(field.inputEl, 'click', function() {
+                var picker = field.getPicker();
+                if (picker) {
+                    // required to set correct zIndex when picker is inside a popover.
+                    picker.zIndexManager.bringToFront(picker);
+                }
+            });
+        }
+
+        this.list.getEl().on('click', this.triggerBlur, this, {
+            delegate: '.rui-multi-object-picker-close-button'
+        });
+
+        this.list.on('refresh', function () {
+            var closeButton = this.list.listEl.down('.rui-multi-object-picker-close-button');
+            if (closeButton) {
+                var scrollBarVisible = this.list.listEl.dom.scrollHeight > this.list.listEl.dom.clientHeight;
+                closeButton.setStyle('padding-right', (scrollBarVisible ? Ext.getScrollbarSize().width : 0) + 'px');
+            }
+        }, this);
+    },
+
+    createStore: function () {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: me.model,
+            success: function(model) {
+                me.store = model.getField(me.field).getAllowedValueStore(Ext.merge({requester: this}, me.storeConfig));
+                
+                me.relayEvents(me.store, ['datachanged']);
+                deferred.resolve();
+//                model.getField(me.field).getAllowedValueStore().load({
+//                    callback: function(records, operation, success) {
+//                        Ext.Array.each(records, function(allowedValue) {
+//                            //each record is an instance of the AllowedAttributeValue model 
+//                            console.log(allowedValue.get('StringValue'));
+//                        });
+//                    }
+//                });
+            },
+            failure: function() {
+                deferred.reject("Problem getting model allowed value store");
+            }
+            
+        });
+
+        return deferred.promise;
+    },
+    
+    _createStoreAndExpand: function () {
+        this.createStore().then({
+            success: this.expand,
+            scope: this
+        });
+    },
+    /**
+     * Retrieve the selected items as an array of records
+     */
+    _getRecordValue: function () {
+        var recordArray = [];
+        this.selectedValues.eachKey(function (key, value) {
+            var record = this.findInStore(value.get(this.selectionKey));
+            if (record) {
+                recordArray.push(record);
+            } else {
+                recordArray.push(value);
+            }
+        }, this);
+        return recordArray;
+    },
+
+    /**
+     * Create the BoundList based on #listCfg and setup listeners to some of its events.
+     */
+    _createList: function () {
+        var listCfg = Ext.apply({
+            store: this.store,
+            tpl: this._getListTpl()
+        }, this.listCfg);
+
+        this.list = Ext.create(this.listType, listCfg);
+
+        this.mon(this.list, {
+            refresh: this._onListRefresh,
+            itemclick: this._onListItemClick,
+            scope: this
+        });
+
+        return this.list;
+    },
+
+    _onStoreLoaded: function(){
+        if (this.allowNoEntry) {
+            var noEntryExists = this.store.count() > 0 && this.store.findRecord(this.listCfg.displayField, this.noEntryText);
+
+            if (!noEntryExists) {
+                var record = Ext.create(this.store.model);
+                record.set(this.listCfg.displayField, this.noEntryText);
+                record.set(this.selectionKey, null);
+                record.set(this.recordKey, 0);
+                this.store.insert(0, record);
+            }
+        }
+
+        this.resetFilters();
+    },
+
+    /**
+     * Select the checkboxes for the selected records
+     */
+    _selectCheckboxes: function () {
+        if (this.list && this.list.getSelectionModel()) {
+            Ext.each(this.list.getSelectionModel().getSelection(), function (record) {
+                this._selectRowCheckbox(record.get(this.recordKey));
+            }, this);
+        }
+    },
+
+    _refreshStore: function() {
+        var loadPromise;
+
+        if (this.store) {
+            this.resetFilters();
+            this.store.clearGrouping();
+            this.store.requester = this;
+
+            if (this.store.getCount() < 1) {
+                loadPromise = this.store.load(this.storeLoadOptions);
+            } else {
+                loadPromise = Deft.Promise.when(this.store.data);
+            }
+        } else {
+            loadPromise = this.createStore().then({
+                success: function() {
+                    return this.store.load(this.storeLoadOptions);
+                },
+                scope: this
+            });
+        }
+
+        return loadPromise.then({
+            success: this._onStoreLoaded,
+            scope: this
+        });
+    },
+
+    /**
+     * Determine the height of the picker panel by adding up the heights of all its children items.
+     */
+    _getPickerHeight: function () {
+        var totalHeight = 0;
+        Ext.each(this.picker.items.getRange(), function (item) {
+            if (item.isVisible()) {
+                totalHeight += item.getHeight();
+            }
+        });
+        return totalHeight;
+    },
+
+    /**
+     * Ensure that the selected rows in the list match the internal array of selected values
+     */
+    _syncSelection: function () {
+        if (this.list) {
+            var selectionModel = this.list.getSelectionModel();
+            selectionModel.deselectAll(true);
+            var selectedInList = Ext.Array.filter(this._getRecordValue(), this._isRecordInList, this);
+
+            this._doWithMaintainedScrollPosition(function() {
+                selectionModel.select(selectedInList, false, true); // records, [keepExisting], [suppressEvent]
+            });
+        }
+    },
+
+    /**
+     * @param recordId the value of the record's ID, which corresponds to the row
+     */
+    _getOptionCheckbox: function (recordId) {
+        var checkboxSelector = 'li.' + this.id + '.' + this._getOptionClass(recordId) + ' .rui-picker-checkbox';
+        return Ext.get(Ext.DomQuery.selectNode(checkboxSelector));
+    },
+
+    /**
+     * @param recordId the value of the record's ID, which corresponds to the row
+     */
+    _getOptionClass: function (recordId) {
+        return 'rui-multi-object-picker-option-id-' + recordId.toString();
+    },
+
+    _selectRowCheckbox: function (recordId) {
+        var checkbox = this._getOptionCheckbox(recordId);
+        if (checkbox) {
+            checkbox.addCls('rui-picker-cb-checked');
+        }
+    },
+
+    _deselectRowCheckbox: function (recordId) {
+        this._getOptionCheckbox(recordId) && this._getOptionCheckbox(recordId).removeCls('rui-picker-cb-checked');
+    },
+
+    _isRecordInList: function (record) {
+        return this.list.getNode(record) ? true : false;
+    },
+
+    /**
+     * @private
+     * @return {Ext.XTemplate} the XTemplate for the list.
+     */
+    _getListTpl: function () {
+        var me = this;
+        return Ext.create('Ext.XTemplate',
+            '<tpl if="this.showCloseButton">',
+                '<div class="rui-multi-object-picker-close-button icon-cancel"></div>',
+            '</tpl>',
+            '<tpl exec="this.headerRendered = false"></tpl>',
+            '<ul>',
+                '<tpl for=".">',
+                    '<tpl if="(!this.headerRendered) || (this.groupSelected !== values.groupSelected)">',
+                        '<tpl exec="this.groupSelected = values.groupSelected"></tpl>',
+                        '<tpl exec="this.headerRendered = true"></tpl>',
+                        '<div class="rally-group-header multi-object-picker-header">',
+                            '{groupSelected}',
+                        '</div>',
+                    '</tpl>',
+                    '<li class="' + Ext.baseCSSPrefix + 'boundlist-item ' + this.rowCls + ' {[this._getDisableClass(values)]} ' + this.id + ' rui-multi-object-picker-option-id-{' + this.recordKey + '}">',
+                        '<div class="' + this.rowCheckboxCls + '" ></div>',
+                        '<div class="{[this._getRowTextCls(values)]}">',
+                            '{[this._getMatchedText(values)]} {[this._getRightListHtml(values)]}',
+                        '</div>',
+                    '</li>',
+                '</tpl>',
+            '</ul>',
+            {
+                showCloseButton: this.showCloseButton,
+                _getDisableClass: function (recordData) {
+                    if (Ext.Array.contains(me.alwaysSelectedValues, recordData[me.selectionKey]) || !me.editable) {
+                        return me.disabledRowCls;
+                    }
+
+                    return '';
+                },
+                _getRightListHtml: function (recordData) {
+                    return me.getRightListHtml(recordData);
+                },
+                _getMatchedText: function(recordData) {
+                    return me.getMatchedTextHtml(recordData);
+                },
+                _getRowTextCls: function(recordData){
+                    return me.getRowTextCls(recordData);
+                }
+            }
+        );
+    },
+
+    onListItemSelect: function (record, event, itemEl) {
+        this.select(record);
+        this._selectRowCheckbox(record.get(this.recordKey));
+        this._groupRecordsAndScroll(this._getRecordValue());
+        this.fireEvent('select', this, record, this.getValue(), event);
+        this._fireSelectionChange();
+    },
+
+    onListItemDeselect: function (record, event, itemEl) {        
+        var key = this._getKey(record);
+        this.selectedValues.remove(this.selectedValues.get(key));
+        this._syncSelection();
+        this._deselectRowCheckbox(record.get(this.recordKey));
+        this._groupRecordsAndScroll(this._getRecordValue());
+        this.fireEvent('deselect', this, record, this.getValue(), event);
+        this._fireSelectionChange();
+    },
+
+    getMatchedTextHtml: function(recordData) {
+        var value = recordData[this.matchFieldName];
+        if ( Ext.isEmpty(value) ) {
+            value = this.noEntryText;
+        }
+        return value;
+    },
+
+    getRightListHtml: function () {
+        return '';
+    },
+
+    getRowTextCls: function(recordData){
+        return this.self.defaultRowTextCls;
+    },
+
+    _getKey: function (record) {
+        return record.get(this.selectionKey) || this.noEntryText;
+    },
+
+    _fireSelectionChange: function () {
+        this.fireEvent('selectionchange', this, this.getValue());
+        this.focus();
+    },
+
+    /**
+     * Listener to list's itemclick event
+     * @private
+     */
+    _onListItemClick: function (view, record, itemEl, index, event) {
+        if (this.isRecordAlwaysSelected(record) || !this.editable) {
+            return false;
+        }
+
+        var selModel = this.list.getSelectionModel();
+        if (selModel.isSelected(record)) {
+            this.onListItemDeselect(record, event, itemEl);
+        } else {
+            this.onListItemSelect(record, event, itemEl);
+        }
+        return false;
+    },
+
+    _onListRefresh: function () {
+        this._syncSelection();
+        this.alignPicker();
+    },
+
+    //TODO: Move this into SelectedGroupable
+    _groupRecordsAndScroll: function (selectedRecords) {
+        var scroll = 0;
+        if (this.maintainScrollPosition) {
+            scroll = this.list.listEl.getScroll();
+        }
+
+        this._groupRecords(selectedRecords);
+
+        if (this.maintainScrollPosition) {
+            Ext.Object.each(scroll, function (key) {
+                this.list.listEl.scrollTo(key, scroll[key]);
+            }, this);
+        }
+    },
+
+    _doWithMaintainedScrollPosition: function(callback) {
+        var scroll = 0;
+        if (this.maintainScrollPosition) {
+            scroll = this.list.listEl.getScroll();
+        }
+
+        callback.call(this);
+
+        if(this.maintainScrollPosition) {
+            Ext.Object.each(scroll, function (key) {
+                this.list.listEl.scrollTo(key, scroll[key]);
+            }, this);
+        }
+    },
+
+    _getSelectedGroupableConfig: function () {
+        var config = {ptype: 'rallypickerselectedgroupable'};
+
+        if (this.selectedTextLabel) {
+            config.selectedTextLabel = this.selectedTextLabel;
+        }
+
+        if (this.availableTextLabel) {
+            config.availableTextLabel = this.availableTextLabel;
+        }
+
+        return  config;
+    },
+
+    getInputTextValue: function() {
+        return this.getInputEl().dom.value;
+    },
+
+    focusPlaceholderText: function() {
+        if (this.emptyText) {
+            // focus and move the cursor to index 0
+            var selectionRange = [0, 0];
+            this.focus(selectionRange);
+        }
+    },
+
+    setValueText: function(text) {
+        var inputEl = this.getInputEl();
+        if (inputEl) {
+            inputEl.dom.value = text;
+        }
+    },
+
+    getInputEl: function() {
+        return this.inputEl;
+    },
+
+    getList: function() {
+        return this.list;
+    },
+
+    containsExactMatch: function() {
+        var store = this.store,
+            inputField = this.filterFieldName,
+            inputText = this.getInputTextValue();
+
+        return store.findBy(function(record) {
+            return record.get(inputField) === inputText;
+        }) > -1;
+    },
+
+    onEnable: function() {
+        this.callParent(arguments);
+
+        if(this.alwaysExpanded){
+            this.getPicker().enable();
+        }
+    },
+
+    onDisable: function() {
+        this.callParent(arguments);
+
+        if(this.alwaysExpanded){
+            this.getPicker().disable();
+        }
+    },
+
+    findInStore: function(value) {
+        return this.store ? this.store.findRecord(this.selectionKey, new RegExp('^' + value + '$')) : null;
+    },
+
+    //TODO: Eliminate the need for this template method. Currently needs to be here for SelectedGroupable
+    _groupRecords: Ext.emptyFn,
+    _groupSelectedRecords: Ext.emptyFn
+});
+Ext.define("TSDefectTrendDashboard", {
+    extend: 'CA.techservices.app.ChartApp',
+
+    descriptions: [
+        "<strong>Defect Accumulation</strong><br/>" +
+        "<br/>" +
+        "What is the defect trend over time? " +
+        "This chart shows the trend of creating and closing defects over time." +
+        "<p/>" + 
+        "Use the priorities drop-down box to determine which defect priorities to " +
+        "display.  If nothing is chosen, the app will display all defects regardless " +
+        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+        "will count the items in the proper state and with that priority on the day of each " +
+        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+        "<p/>",
+        
+        "<strong>Open Defects</strong><br/>" +
+        "<br/>" +
+        "What is the defect trend over time? " +
+        "This chart shows result of defects that remain open over time." +
+        "<p/>" + 
+        "Use the priorities drop-down box to determine which defect priorities to " +
+        "display.  If nothing is chosen, the app will display all defects regardless " +
+        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+        "will count the items in the proper state and with that priority on the day of each " +
+        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+        "<p/>"       
+        
+    ],
+    
+    integrationHeaders : {
+        name : "TSDefectTrendDashboard"
+    },
+
+    
+    config: {
+        defaultSettings: {
+            showPatterns: false,
+            closedStateValues: ['Closed']
+        }
+    },
+                        
+    launch: function() {
+        this.callParent();
+        
+        var closedStates = this.getSetting('closedStateValues');
+        if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
+                
+        this.description[0] += "<strong>Notes:</strong><br/>" +
+            "<ul>" +
+            "<li>States that count as 'Closed' (can be set by administrator): " + closedStates + "</li>" +
+            "</ul>";
+                
+        this.applyDescription(this.description[0],0);
+        
+        this._addSelectors();
+
+        this._updateData();
+
+    },
+
+    _addSelectors: function() {
+
+        this.addToBanner({
+            xtype: 'tsmultifieldvaluepicker',
+            model: 'Defect',
+            field: 'Priority',
+            margin: 10,
+            fieldLabel: 'Include Priorities:',
+            labelWidth: 95,
+            listeners:{
+                blur:function(picker){
+                    this.priorities = Ext.Array.map(picker.getValue(), function(value){ return value.get('StringValue')});
+                    this.logger.log("Chosen Priorities", this.priorities, picker.getValue());
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
+    },
+    
+    _updateData: function() {
+        var me = this;
+        
+        Deft.Chain.pipeline([
+            this._makeAccumulationChart,
+            this._makeDeltaChart
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                //
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('--', msg);
+            }
+        });
+    },
+    
+    _makeAccumulationChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectAccumulation',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                allowedPriorities: this.priorities
+            },
+            
+            chartConfig: this._getAccumulationChartConfig(),
+            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
+        },0);
+    },
+    
+    _makeDeltaChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectDelta',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                allowedPriorities: this.priorities
+            },
+            
+            chartConfig: this._getDeltaChartConfig(),
+            chartColors: ['#000']
+        },1);
+    },
+    
+    _getChartStoreConfig: function() {        
+        return {
+           find: {
+               _ProjectHierarchy: this.getContext().getProject().ObjectID , 
+               _TypeHierarchy: 'Defect' 
+           },
+           removeUnauthorizedSnapshots: true,
+           fetch: ['ObjectID','State','Priority'],
+           hydrate: ['State','Priority'],
+           sort: {
+               '_ValidFrom': 1
+           }
+        };
+    },
+    
+    _getAccumulationChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Defect Accumulation'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 30,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Total Defects'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    _getDeltaChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: ''
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 30,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Total Open Defects'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    getSettingsFields: function() {
+        var left_margin = 5;
+        return [{
+            name: 'closedStateValues',
+            xtype: 'tsmultifieldvaluepicker',
+            model: 'Defect',
+            field: 'State',
+            margin: left_margin,
+            fieldLabel: 'States to Consider Closed',
+            labelWidth: 150
+        },
+        
+        { 
+            name: 'showPatterns',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 ' + left_margin,
+            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        }];
+    },
+    
+    getDrillDownColumns: function(title) {
+        var columns = [
+            {
+                dataIndex : 'FormattedID',
+                text: "id",
+                flex:1
+            },
+            {
+                dataIndex : 'Name',
+                text: "Name",
+                flex: 3
+            },
+            {
+                dataIndex: 'WorkProduct',
+                text: 'Work Product',
+                flex:1,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value.FormattedID + ": " + value.Name;
+                }
+            },
+            {
+                dataIndex: 'Estimate',
+                text: 'Task Hours (Est)'
+            },
+            {
+                dataIndex: 'Actuals',
+                text: 'Task Hours (Actual)'
+            },
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                renderer:function(Project){
+                        return Project.Name;
+                },
+                flex: 1
+            }
+        ];
+        
+        if ( /\(multiple\)/.test(title)) {
+            columns.push({
+                dataIndex: 'Name',
+                text: 'Count of Moves',
+                renderer: function(value, meta, record) {
+                    
+                    return value.split('[Continued]').length;
+                }
+            });
+        }
+        
+        
+        return columns;
+    }
+    
+});
+
+            
+               Rally.launchApp('TSDefectTrendDashboard', {
+                   name: 'Defect Trend Dashboard'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.x-panel-body-info-box {
+    color: black;
+    font-size: 10px;
+    background: white;
+    padding: 5px;
+}
+
+.x-panel-info-box {
+    border: 0px dashed blue;
+}
+    
+.x-panel-header-info-box {
+    background-color: #ddd;
+    color: white;
+    font-size: 14px;
+}
+
+.x-panel-header-info-box-vertical {
+    padding: 3px;
+    color: white;
+}
+
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>

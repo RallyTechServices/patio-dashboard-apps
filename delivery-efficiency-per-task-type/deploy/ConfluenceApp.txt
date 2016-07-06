@@ -2,13 +2,13 @@
 
     <title>Delivery Efficiency</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jun 09 2016 14:51:17 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Jun 17 2016 10:19:04 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jun 09 2016 14:51:17 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Jun 17 2016 10:19:04 GMT-0700 (PDT)";
     </script>
     
-    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.0/sdk-debug.js?apiKey=__PUT_API_KEY_HERE__"></script>
+    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.0/sdk-debug.js?apiKey=__PUT_API_KEY_HERE__"></script>
 
 <!-- for confluence, don't render as a viewport, so we override the app creation step -->
 
@@ -1116,12 +1116,17 @@ Ext.define("TSDeliveryEfficiency", {
     config: {
         defaultSettings: {
             showPatterns: false,
-            typeField: 'c_Type'
+            typeField: null
         }
     },
                         
     launch: function() {
         this.callParent();
+        
+        if ( Ext.isEmpty(this.getSetting('typeField')) ) { 
+            Ext.Msg.alert('Configuration Note', 'Use the App Settings item on the gear menu to set the field that defines task type.');
+            return;
+        }
         
         this._getAllowedValues('UserStory',this.getSetting('typeField')).then({
             scope: this,
