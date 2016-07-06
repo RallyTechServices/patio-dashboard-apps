@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Jun 26 2016 18:40:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Jul 05 2016 21:25:19 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Jun 26 2016 18:40:43 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Tue Jul 05 2016 21:25:19 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 115915239149;
+        var CHECKSUM = 127018099984;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1170,6 +1170,65 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     }
 });
 
+Ext.define('CA.techservices.calculator.DefectDelta', {
+    extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+    config: {
+        closedStateValues: ['Closed'],
+        allowedPriorities: []
+    },
+
+    constructor: function(config) {
+        this.initConfig(config);
+        this.callParent(arguments);
+    },
+
+    getMetrics: function() {
+        return [{
+            'field': 'isOpen',
+            'as': 'Open',
+            'f': 'sum',
+            'display': 'line'
+        }];
+        
+    },
+    
+    getDerivedFieldsOnInput: function() {
+        var me = this;
+        return [
+            {
+                as: 'isOpen',
+                f: function(snapshot) {
+                    if ( !Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
+                        if ( me._matchesPriority(snapshot) ) { 
+                            return 1;
+                        }
+                        return 0;
+                    }
+                    return 0;
+                }
+            }
+        ];
+    },
+    
+    _matchesPriority: function(snapshot) {
+        var me = this;
+        
+        if ( Ext.isEmpty(me.allowedPriorities) || me.allowedPriorities.length === 0 ) {
+            return true;
+        }
+        
+        if ( Ext.Array.contains(me.allowedPriorities, snapshot.Priority) ) {
+            return true;
+        }
+        
+        // when hydrated, lookback will return "None" for an empty field
+        if ( snapshot.Priority == 'None' && Ext.Array.contains(me.allowedPriorities, '') ) {
+            return true;
+        }
+        return false;
+    }
+});
+
 
 /**
  * A picker which allows selecting multiple field values.
@@ -2282,7 +2341,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
 Ext.define("TSDefectTrendDashboard", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: [
+    descriptions: [
         "<strong>Defect Accumulation</strong><br/>" +
         "<br/>" +
         "What is the defect trend over time? " +
@@ -2294,7 +2353,20 @@ Ext.define("TSDefectTrendDashboard", {
         "will count the items in the proper state and with that priority on the day of each " +
         "point.  For example, if you choose High priority, a defect created on Monday as Low " +
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-        "<p/>" 
+        "<p/>",
+        
+        "<strong>Open Defects</strong><br/>" +
+        "<br/>" +
+        "What is the defect trend over time? " +
+        "This chart shows result of defects that remain open over time." +
+        "<p/>" + 
+        "Use the priorities drop-down box to determine which defect priorities to " +
+        "display.  If nothing is chosen, the app will display all defects regardless " +
+        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+        "will count the items in the proper state and with that priority on the day of each " +
+        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+        "<p/>"       
         
     ],
     
@@ -2353,7 +2425,8 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         
         Deft.Chain.pipeline([
-            this._makeAccumulationChart
+            this._makeAccumulationChart,
+            this._makeDeltaChart
         ],this).then({
             scope: this,
             success: function(results) {
@@ -2383,6 +2456,26 @@ Ext.define("TSDefectTrendDashboard", {
             chartConfig: this._getAccumulationChartConfig(),
             chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
         },0);
+    },
+    
+    _makeDeltaChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectDelta',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                allowedPriorities: this.priorities
+            },
+            
+            chartConfig: this._getDeltaChartConfig(),
+            chartColors: ['#000']
+        },1);
     },
     
     _getChartStoreConfig: function() {        
@@ -2419,7 +2512,44 @@ Ext.define("TSDefectTrendDashboard", {
                 {
                     min: 0,
                     title: {
-                        text: 'Count'
+                        text: 'Total Defects'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    _getDeltaChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: ''
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 30,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Total Open Defects'
                     }
                 }
             ],

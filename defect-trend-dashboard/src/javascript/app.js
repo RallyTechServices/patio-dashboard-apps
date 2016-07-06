@@ -1,7 +1,7 @@
 Ext.define("TSDefectTrendDashboard", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: [
+    descriptions: [
         "<strong>Defect Accumulation</strong><br/>" +
         "<br/>" +
         "What is the defect trend over time? " +
@@ -13,7 +13,20 @@ Ext.define("TSDefectTrendDashboard", {
         "will count the items in the proper state and with that priority on the day of each " +
         "point.  For example, if you choose High priority, a defect created on Monday as Low " +
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-        "<p/>" 
+        "<p/>",
+        
+        "<strong>Open Defects</strong><br/>" +
+        "<br/>" +
+        "What is the defect trend over time? " +
+        "This chart shows result of defects that remain open over time." +
+        "<p/>" + 
+        "Use the priorities drop-down box to determine which defect priorities to " +
+        "display.  If nothing is chosen, the app will display all defects regardless " +
+        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+        "will count the items in the proper state and with that priority on the day of each " +
+        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+        "<p/>"       
         
     ],
     
@@ -72,7 +85,8 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         
         Deft.Chain.pipeline([
-            this._makeAccumulationChart
+            this._makeAccumulationChart,
+            this._makeDeltaChart
         ],this).then({
             scope: this,
             success: function(results) {
@@ -102,6 +116,26 @@ Ext.define("TSDefectTrendDashboard", {
             chartConfig: this._getAccumulationChartConfig(),
             chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
         },0);
+    },
+    
+    _makeDeltaChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.techservices.calculator.DefectDelta',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                allowedPriorities: this.priorities
+            },
+            
+            chartConfig: this._getDeltaChartConfig(),
+            chartColors: ['#000']
+        },1);
     },
     
     _getChartStoreConfig: function() {        
@@ -138,7 +172,44 @@ Ext.define("TSDefectTrendDashboard", {
                 {
                     min: 0,
                     title: {
-                        text: 'Count'
+                        text: 'Total Defects'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    _getDeltaChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: ''
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                tickInterval: 30,
+                title: {
+                    text: 'Date'
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Total Open Defects'
                     }
                 }
             ],
