@@ -13,7 +13,8 @@ Ext.define("TSDefectTrendDashboard", {
         "will count the items in the proper state and with that priority on the day of each " +
         "point.  For example, if you choose High priority, a defect created on Monday as Low " +
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-        "<p/>",
+        "<p/>" +
+        "The administrator can use the App Settings... dialog to define what defect states count as 'Closed'",
         
 //        "<strong>Open Defects</strong><br/>" +
 //        "<br/>" +
@@ -28,18 +29,15 @@ Ext.define("TSDefectTrendDashboard", {
 //        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
 //        "<p/>",
         
-//        "<strong>Defect Accumulation</strong><br/>" +
-//        "<br/>" +
-//        "What is the defect trend over time? " +
-//        "This chart shows the trend of creating and closing defects over time." +
-//        "<p/>" + 
-//        "Use the priorities drop-down box to determine which defect priorities to " +
-//        "display.  If nothing is chosen, the app will display all defects regardless " +
-//        "of priority.  Keep in mind that if filtering on priority, then the data line " +
-//        "will count the items in the proper state and with that priority on the day of each " +
-//        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
-//        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-//        "<p/>"
+        "<strong>Open Defect Aging (Days Open) by Priority</strong><br/>" +
+        "<br/>" +
+        "How long do things stay open? " +
+        "This chart shows the number of defects by how long they've been open. " +
+        "Each bar represents a range of day counts and the number is the number of defects that are " +
+        "currently open and how long it has been since they were created.  The bar is segmented by priority." +
+        "<p/>" + 
+        "This chart shows all priorities. " +
+        "<p/>"
         
     ],
     
@@ -151,6 +149,7 @@ Ext.define("TSDefectTrendDashboard", {
         
         Deft.Chain.pipeline([
             this._makeAccumulationChart,
+            this._makeDefectAgingChart
             //this._makeDeltaChart
         ],this).then({
             scope: this,
@@ -183,6 +182,142 @@ Ext.define("TSDefectTrendDashboard", {
             chartConfig: this._getAccumulationChartConfig(),
             chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light]
         },0);
+    },
+    
+    _makeDefectAgingChart: function() {
+        var me = this,
+            closedStates = this.getSetting('closedStateValues');
+            
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this._fetchOpenDefects(closedStates).then({
+            scope: this,
+            success: function(defects) {
+                Ext.Array.each(defects, function(defect){
+                    defect.set('__age', me._getAge(defect));
+                });
+                
+                var defects_by_age = this._collectDefectsByAge(defects);
+                this.logger.log('buckets:', defects_by_age);
+                var categories = Ext.Object.getKeys(defects_by_age);
+                var series = this._getAgingSeries(defects_by_age);
+                var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+                if ( this.getSetting('showPatterns') ) {
+                    colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+                }
+                this.setChart({
+                    chartData: { series: series, categories: categories },
+                    chartConfig: this._getAgingChartConfig(),
+                    chartColors: colors
+                },1);
+                this.setLoading(false);
+                
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+    },
+    
+    _fetchOpenDefects: function(closed_states) {
+        var filters = Ext.Array.map(closed_states, function(state){
+            return {property:'State', operator: '!=', value: state}
+        });
+        
+        var config = {
+            model: 'Defect',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','Release','ObjectID',
+                'PlanEstimate','Project','State','CreationDate']
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _getAge: function(item){
+        return Rally.util.DateTime.getDifference(new Date(), item.get('CreationDate'),'day');
+    },
+    
+    _collectDefectsByAge: function(defects) {
+        var buckets = {
+            "0-14 Days": [],
+            "15-30 Days": [],
+            "31-60 Days": [],
+            "61-90 Days": [],
+            "91-200 Days": [],
+            "201-300 Days": [],
+            "301+ Days": []
+        };
+        
+        Ext.Array.each(defects, function(defect){
+            var age = defect.get('__age');
+            if ( age < 15 ) { buckets["0-14 Days"].push(defect); return; }
+            if ( age < 31 ) { buckets["15-30 Days"].push(defect); return; }
+            if ( age < 61 ) { buckets["31-60 Days"].push(defect); return; }
+            if ( age < 91 ) { buckets["61-90 Days"].push(defect); return; }
+            if ( age < 201) { buckets["91-200 Days"].push(defect); return; }
+            if ( age < 301) { buckets["201-300 Days"].push(defect); return; }
+            buckets["301+ Days"].push(defect);
+        });
+        
+        return buckets;
+        
+    },
+    
+    _getAgingSeries: function(defects_by_age){
+        var series = [];
+        
+        series.push({
+            name: 'Defects',
+            data: this._calculateAgingMeasures(defects_by_age),
+            type:'column',
+            stack: 'a'
+        });
+        
+        return series;
+    },
+    
+    _calculateAgingMeasures: function(defects_by_age) {
+        var me = this,
+            data = [];
+            
+        Ext.Object.each(defects_by_age, function(bucket,value){
+            data.push({
+                y: value.length,
+                _records: value,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records, bucket);
+                    }
+                }
+            });
+        });
+        
+        return data;
+    },
+    
+    _getAgingChartConfig: function() {
+        var me = this;
+        return {
+            chart: { type:'column' },
+            title: { text: 'Open Defect Aging (Days Open)' },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'Open Defects' }
+            }],
+            plotOptions: {
+                column: {
+                    stacking: 'normal'
+                }
+            },
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                }
+            }
+        }
     },
     
     _makeDeltaChart: function() {
@@ -355,24 +490,15 @@ Ext.define("TSDefectTrendDashboard", {
             {
                 dataIndex : 'Name',
                 text: "Name",
-                flex: 3
+                flex: 2
             },
             {
-                dataIndex: 'WorkProduct',
-                text: 'Work Product',
-                flex:1,
-                renderer: function(value,meta,record) {
-                    if ( Ext.isEmpty(value) ) { return ""; }
-                    return value.FormattedID + ": " + value.Name;
-                }
+                dataIndex: 'CreationDate',
+                text: 'Created'
             },
             {
-                dataIndex: 'Estimate',
-                text: 'Task Hours (Est)'
-            },
-            {
-                dataIndex: 'Actuals',
-                text: 'Task Hours (Actual)'
+                dataIndex: '__age',
+                text: 'Age (Days)'
             },
             {
                 dataIndex: 'Project',
@@ -407,6 +533,7 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         console.log('point',point);
         var iso_date = this._getDateFromPoint(point);
+        
         
 //        var store = Ext.create('Rally.data.custom.Store', {
 //            data: stories,

@@ -122,9 +122,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         updated_chart_data = this._removeEarlyDates(updated_chart_data,this.timeboxCount);
 
         updated_chart_data = this._splitCharts(updated_chart_data);
-        
-        console.log('--',updated_chart_data);
-        
+                
         return updated_chart_data;
     },
     
@@ -148,7 +146,6 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         var series = data.series;
         
         Ext.Array.each(series, function(s) {
-            console.log('s', s);
             s.data = Ext.Array.map(s.data, function(datum){
                 return {
                     y: datum,
