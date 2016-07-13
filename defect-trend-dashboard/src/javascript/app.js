@@ -41,7 +41,11 @@ Ext.define("TSDefectTrendDashboard", {
             closedStateValues: ['Closed']
         }
     },
-                        
+        
+    priorities: null,
+    
+    granularity: 'day',
+    
     launch: function() {
         this.callParent();
         
@@ -79,6 +83,32 @@ Ext.define("TSDefectTrendDashboard", {
                 scope:this
             }
         });
+        
+        var granularity_store = Ext.create('Rally.data.custom.Store',{
+            data:[
+                { value:'day', display: 'Day' },
+                { value:'month', display: 'Month' },
+                { value:'quarter', display: 'Quarter' }
+            ]
+        });
+        
+        this.addToBanner({
+            xtype:'rallycombobox',
+            store: granularity_store,
+            displayField:'display',
+            valueField:'value',
+            margin: 10,
+            fieldLabel: 'Timebox Granularity:',
+            labelWidth: 115,
+            listeners: {
+                select: function(cb) {
+                    this.granularity = cb.getValue();
+                    this._updateData();
+                },
+                scope: this
+            }
+        });
+        
     },
     
     _updateData: function() {
@@ -110,7 +140,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities
+                allowedPriorities: this.priorities,
+                granularity: this.granularity
             },
             
             chartConfig: this._getAccumulationChartConfig(),
@@ -130,7 +161,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectDelta',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities
+                allowedPriorities: this.priorities,
+                granularity: this.granularity
             },
             
             chartConfig: this._getDeltaChartConfig(),
@@ -153,6 +185,17 @@ Ext.define("TSDefectTrendDashboard", {
         };
     },
     
+    _getTickInterval: function(granularity) {
+        if ( Ext.isEmpty(granularity) ) { return 30; }
+        
+        
+        granularity = granularity.toLowerCase();
+        if ( granularity == 'day' ) { return 30; }
+        
+        return 1;
+        
+    },
+    
     _getAccumulationChartConfig: function() {
         return {
             chart: {
@@ -163,9 +206,12 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 30,
+                tickInterval: this._getTickInterval(this.granularity),
                 title: {
                     text: 'Date'
+                },
+                labels            : {
+                    rotation : -45
                 }
             },
             yAxis: [
@@ -200,9 +246,12 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 30,
+                tickInterval: this._getTickInterval(this.granularity),
                 title: {
                     text: 'Date'
+                },
+                labels            : {
+                    rotation : -45
                 }
             },
             yAxis: [

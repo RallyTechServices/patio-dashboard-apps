@@ -2,12 +2,31 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
     config: {
         closedStateValues: ['Closed'],
-        allowedPriorities: []
+        allowedPriorities: [],
+        /*
+         * granularity: "month"|"year"|"day"|"quarter"
+         */
+        granularity: "day"
     },
 
     constructor: function(config) {
         this.initConfig(config);
         this.callParent(arguments);
+        
+        if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
+        this.granularity = this.granularity.toLowerCase();
+        
+    },
+    
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {

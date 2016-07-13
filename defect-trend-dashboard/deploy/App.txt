@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jul 05 2016 21:25:19 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jul 13 2016 09:52:43 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jul 05 2016 21:25:19 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jul 13 2016 09:52:43 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 127018099984;
+        var CHECKSUM = 135632957976;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1099,12 +1099,31 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
     config: {
         closedStateValues: ['Closed'],
-        allowedPriorities: []
+        allowedPriorities: [],
+        /*
+         * granularity: "month"|"year"|"day"|"quarter"
+         */
+        granularity: "day"
     },
 
     constructor: function(config) {
         this.initConfig(config);
         this.callParent(arguments);
+        
+        if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
+        this.granularity = this.granularity.toLowerCase();
+        
+    },
+    
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {
@@ -1174,12 +1193,31 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
     config: {
         closedStateValues: ['Closed'],
-        allowedPriorities: []
+        allowedPriorities: [],
+        /*
+         * granularity: "month"|"year"|"day"|"quarter"
+         */
+        granularity: "day"
     },
 
     constructor: function(config) {
         this.initConfig(config);
         this.callParent(arguments);
+        
+        if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
+        this.granularity = this.granularity.toLowerCase();
+        
+    },
+    
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {
@@ -2381,7 +2419,11 @@ Ext.define("TSDefectTrendDashboard", {
             closedStateValues: ['Closed']
         }
     },
-                        
+        
+    priorities: null,
+    
+    granularity: 'day',
+    
     launch: function() {
         this.callParent();
         
@@ -2419,6 +2461,32 @@ Ext.define("TSDefectTrendDashboard", {
                 scope:this
             }
         });
+        
+        var granularity_store = Ext.create('Rally.data.custom.Store',{
+            data:[
+                { value:'day', display: 'Day' },
+                { value:'month', display: 'Month' },
+                { value:'quarter', display: 'Quarter' }
+            ]
+        });
+        
+        this.addToBanner({
+            xtype:'rallycombobox',
+            store: granularity_store,
+            displayField:'display',
+            valueField:'value',
+            margin: 10,
+            fieldLabel: 'Timebox Granularity:',
+            labelWidth: 115,
+            listeners: {
+                select: function(cb) {
+                    this.granularity = cb.getValue();
+                    this._updateData();
+                },
+                scope: this
+            }
+        });
+        
     },
     
     _updateData: function() {
@@ -2450,7 +2518,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities
+                allowedPriorities: this.priorities,
+                granularity: this.granularity
             },
             
             chartConfig: this._getAccumulationChartConfig(),
@@ -2470,7 +2539,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectDelta',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities
+                allowedPriorities: this.priorities,
+                granularity: this.granularity
             },
             
             chartConfig: this._getDeltaChartConfig(),
@@ -2493,6 +2563,17 @@ Ext.define("TSDefectTrendDashboard", {
         };
     },
     
+    _getTickInterval: function(granularity) {
+        if ( Ext.isEmpty(granularity) ) { return 30; }
+        
+        
+        granularity = granularity.toLowerCase();
+        if ( granularity == 'day' ) { return 30; }
+        
+        return 1;
+        
+    },
+    
     _getAccumulationChartConfig: function() {
         return {
             chart: {
@@ -2503,9 +2584,12 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 30,
+                tickInterval: this._getTickInterval(this.granularity),
                 title: {
                     text: 'Date'
+                },
+                labels            : {
+                    rotation : -45
                 }
             },
             yAxis: [
@@ -2540,9 +2624,12 @@ Ext.define("TSDefectTrendDashboard", {
             },
             xAxis: {
                 tickmarkPlacement: 'on',
-                tickInterval: 30,
+                tickInterval: this._getTickInterval(this.granularity),
                 title: {
                     text: 'Date'
+                },
+                labels            : {
+                    rotation : -45
                 }
             },
             yAxis: [
