@@ -37,6 +37,13 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             'as': 'Total Defects Closed',
             'f': 'sum',
             'display': 'line'
+        },
+        // added for delta series:
+        {
+            'field': 'isOpen',
+            'as': 'Open',
+            'f': 'sum',
+            'display': 'column'
         }];
         
     },
@@ -58,6 +65,18 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
                 as: 'isClosed',
                 f: function(snapshot) {
                     if ( Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
+                        if ( me._matchesPriority(snapshot) ) { 
+                            return 1;
+                        }
+                        return 0;
+                    }
+                    return 0;
+                }
+            },
+            {
+                as: 'isOpen',
+                f: function(snapshot) {
+                    if ( !Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
                         if ( me._matchesPriority(snapshot) ) { 
                             return 1;
                         }
@@ -99,7 +118,27 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         
         var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
 
-        return limited_chart_data;
+        var updated_chart_data = this._splitCharts(limited_chart_data);
+        
+        console.log('--', updated_chart_data);
+        
+        return updated_chart_data;
+    },
+    
+    _splitCharts: function(data) {
+        var series = data.series;
+        
+        Ext.Array.each(series, function(s) {
+            var zindex = 3;
+            if ( s.name == "Open" ) { 
+                zindex = 2;
+                s.yAxis = 1
+            }
+            s.zIndex = zindex;
+            
+        });
+        
+        return data;
     },
     
     // override to allow for assigning granularity
@@ -130,7 +169,5 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             series: series_group 
         };
             
-        
-        
     }
 });

@@ -15,18 +15,31 @@ Ext.define("TSDefectTrendDashboard", {
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
         "<p/>",
         
-        "<strong>Open Defects</strong><br/>" +
-        "<br/>" +
-        "What is the defect trend over time? " +
-        "This chart shows result of defects that remain open over time." +
-        "<p/>" + 
-        "Use the priorities drop-down box to determine which defect priorities to " +
-        "display.  If nothing is chosen, the app will display all defects regardless " +
-        "of priority.  Keep in mind that if filtering on priority, then the data line " +
-        "will count the items in the proper state and with that priority on the day of each " +
-        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
-        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-        "<p/>"       
+//        "<strong>Open Defects</strong><br/>" +
+//        "<br/>" +
+//        "What is the defect trend over time? " +
+//        "This chart shows result of defects that remain open over time." +
+//        "<p/>" + 
+//        "Use the priorities drop-down box to determine which defect priorities to " +
+//        "display.  If nothing is chosen, the app will display all defects regardless " +
+//        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+//        "will count the items in the proper state and with that priority on the day of each " +
+//        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+//        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+//        "<p/>",
+        
+//        "<strong>Defect Accumulation</strong><br/>" +
+//        "<br/>" +
+//        "What is the defect trend over time? " +
+//        "This chart shows the trend of creating and closing defects over time." +
+//        "<p/>" + 
+//        "Use the priorities drop-down box to determine which defect priorities to " +
+//        "display.  If nothing is chosen, the app will display all defects regardless " +
+//        "of priority.  Keep in mind that if filtering on priority, then the data line " +
+//        "will count the items in the proper state and with that priority on the day of each " +
+//        "point.  For example, if you choose High priority, a defect created on Monday as Low " +
+//        "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
+//        "<p/>"
         
     ],
     
@@ -86,9 +99,9 @@ Ext.define("TSDefectTrendDashboard", {
         
         var granularity_store = Ext.create('Rally.data.custom.Store',{
             data:[
-                { value:'day', display: 'Day' },
                 { value:'month', display: 'Month' },
-                { value:'quarter', display: 'Quarter' }
+                { value:'quarter', display: 'Quarter' },
+                { value:'day', display: 'Day' }
             ]
         });
         
@@ -138,7 +151,7 @@ Ext.define("TSDefectTrendDashboard", {
         
         Deft.Chain.pipeline([
             this._makeAccumulationChart,
-            this._makeDeltaChart
+            //this._makeDeltaChart
         ],this).then({
             scope: this,
             success: function(results) {
@@ -168,7 +181,7 @@ Ext.define("TSDefectTrendDashboard", {
             },
             
             chartConfig: this._getAccumulationChartConfig(),
-            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green]
+            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light]
         },0);
     },
     
@@ -245,8 +258,15 @@ Ext.define("TSDefectTrendDashboard", {
                 {
                     min: 0,
                     title: {
-                        text: 'Total Defects'
+                        text: 'Total Defects (cumulative)'
                     }
+                },
+                {
+                    min: 0,
+                    title: {
+                        text: 'Total Defects'
+                    },
+                    opposite: true
                 }
             ],
             tooltip: { shared: true },
