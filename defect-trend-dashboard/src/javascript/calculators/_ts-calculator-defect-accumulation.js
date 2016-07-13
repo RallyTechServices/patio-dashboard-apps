@@ -15,7 +15,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         
         timeboxCount: null
     },
-
+    
     constructor: function(config) {
         this.initConfig(config);
         this.callParent(arguments);
@@ -55,6 +55,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
                 as: 'wasCreated',
                 f : function(snapshot) {
                     if ( me._matchesPriority(snapshot) ) { 
+
                         return 1;
                     }
 
@@ -107,7 +108,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     },
     
     // override to limit number of x points displayed
-    runCalculation: function (snapshots) {
+    runCalculation: function (snapshots) {        
         var calculatorConfig = this._prepareCalculatorConfig(),
             seriesConfig = this._buildSeriesConfig(calculatorConfig);
 
@@ -116,11 +117,13 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
 
         var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
         
-        var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
+        var updated_chart_data = this._addEvents(chart_data);
 
-        var updated_chart_data = this._splitCharts(limited_chart_data);
+        updated_chart_data = this._removeEarlyDates(updated_chart_data,this.timeboxCount);
+
+        updated_chart_data = this._splitCharts(updated_chart_data);
         
-        console.log('--', updated_chart_data);
+        console.log('--',updated_chart_data);
         
         return updated_chart_data;
     },
@@ -135,6 +138,28 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
                 s.yAxis = 1
             }
             s.zIndex = zindex;
+            
+        });
+        
+        return data;
+    },
+    
+    _addEvents: function(data){
+        var series = data.series;
+        
+        Ext.Array.each(series, function(s) {
+            console.log('s', s);
+            s.data = Ext.Array.map(s.data, function(datum){
+                return {
+                    y: datum,
+                    events: {
+                        click: function() {
+                            Rally.getApp().showTrendDrillDown(this);
+                        }
+                    }
+                }
+            });
+            
             
         });
         

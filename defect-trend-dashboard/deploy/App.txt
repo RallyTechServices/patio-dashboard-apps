@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 13 2016 12:55:37 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jul 13 2016 13:48:03 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 13 2016 12:55:37 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jul 13 2016 13:48:03 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 156564304603;
+        var CHECKSUM = 162531741508;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -842,6 +842,15 @@ Ext.define("CA.apps.charts.Colors", {
     }
 });
 
+Ext.override(Rally.ui.chart.Chart,{
+
+    // override to allow for data to be pushed in more complicated objects
+    _isData: function(point) {
+        return point > 0 || point.y > 0 ;
+    }
+    
+});
+
 Ext.define('CA.techservices.container.ChartWithDescription',{
     extend: 'Ext.container.Container',
     alias:  'widget.tschartwithdescription',
@@ -1112,7 +1121,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         
         timeboxCount: null
     },
-
+    
     constructor: function(config) {
         this.initConfig(config);
         this.callParent(arguments);
@@ -1152,6 +1161,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
                 as: 'wasCreated',
                 f : function(snapshot) {
                     if ( me._matchesPriority(snapshot) ) { 
+
                         return 1;
                     }
 
@@ -1204,7 +1214,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     },
     
     // override to limit number of x points displayed
-    runCalculation: function (snapshots) {
+    runCalculation: function (snapshots) {        
         var calculatorConfig = this._prepareCalculatorConfig(),
             seriesConfig = this._buildSeriesConfig(calculatorConfig);
 
@@ -1213,11 +1223,13 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
 
         var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
         
-        var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
+        var updated_chart_data = this._addEvents(chart_data);
 
-        var updated_chart_data = this._splitCharts(limited_chart_data);
+        updated_chart_data = this._removeEarlyDates(updated_chart_data,this.timeboxCount);
+
+        updated_chart_data = this._splitCharts(updated_chart_data);
         
-        console.log('--', updated_chart_data);
+        console.log('--',updated_chart_data);
         
         return updated_chart_data;
     },
@@ -1232,6 +1244,28 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
                 s.yAxis = 1
             }
             s.zIndex = zindex;
+            
+        });
+        
+        return data;
+    },
+    
+    _addEvents: function(data){
+        var series = data.series;
+        
+        Ext.Array.each(series, function(s) {
+            console.log('s', s);
+            s.data = Ext.Array.map(s.data, function(datum){
+                return {
+                    y: datum,
+                    events: {
+                        click: function() {
+                            Rally.getApp().showTrendDrillDown(this);
+                        }
+                    }
+                }
+            });
+            
             
         });
         
@@ -2554,7 +2588,7 @@ Ext.define("TSDefectTrendDashboard", {
     },
         
     priorities: null,
-    granularity: 'day',
+    granularity: 'month',
     timebox_limit: 5,
     
     launch: function() {
@@ -2895,7 +2929,43 @@ Ext.define("TSDefectTrendDashboard", {
         
         
         return columns;
+    },
+    
+    _getDateFromPoint: function(point) {
+        return point.category;
+    },
+    
+    showTrendDrillDown: function(point) {
+        var me = this;
+        console.log('point',point);
+        var iso_date = this._getDateFromPoint(point);
+        
+//        var store = Ext.create('Rally.data.custom.Store', {
+//            data: stories,
+//            pageSize: 2000
+//        });
+//        
+//        Ext.create('Rally.ui.dialog.Dialog', {
+//            id        : 'detailPopup',
+//            title     : title,
+//            width     : Ext.getBody().getWidth() - 50,
+//            height    : Ext.getBody().getHeight() - 50,
+//            closable  : true,
+//            layout    : 'border',
+//            items     : [
+//            {
+//                xtype                : 'rallygrid',
+//                region               : 'center',
+//                layout               : 'fit',
+//                sortableColumns      : true,
+//                showRowActionsColumn : false,
+//                showPagingToolbar    : false,
+//                columnCfgs           : this.getDrillDownColumns(title),
+//                store : store
+//            }]
+//        }).show();
     }
+    
     
 });
 

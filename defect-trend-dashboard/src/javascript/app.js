@@ -56,7 +56,7 @@ Ext.define("TSDefectTrendDashboard", {
     },
         
     priorities: null,
-    granularity: 'day',
+    granularity: 'month',
     timebox_limit: 5,
     
     launch: function() {
@@ -397,6 +397,42 @@ Ext.define("TSDefectTrendDashboard", {
         
         
         return columns;
+    },
+    
+    _getDateFromPoint: function(point) {
+        return point.category;
+    },
+    
+    showTrendDrillDown: function(point) {
+        var me = this;
+        console.log('point',point);
+        var iso_date = this._getDateFromPoint(point);
+        
+//        var store = Ext.create('Rally.data.custom.Store', {
+//            data: stories,
+//            pageSize: 2000
+//        });
+//        
+//        Ext.create('Rally.ui.dialog.Dialog', {
+//            id        : 'detailPopup',
+//            title     : title,
+//            width     : Ext.getBody().getWidth() - 50,
+//            height    : Ext.getBody().getHeight() - 50,
+//            closable  : true,
+//            layout    : 'border',
+//            items     : [
+//            {
+//                xtype                : 'rallygrid',
+//                region               : 'center',
+//                layout               : 'fit',
+//                sortableColumns      : true,
+//                showRowActionsColumn : false,
+//                showPagingToolbar    : false,
+//                columnCfgs           : this.getDrillDownColumns(title),
+//                store : store
+//            }]
+//        }).show();
     }
+    
     
 });

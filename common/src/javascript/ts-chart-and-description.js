@@ -1,3 +1,12 @@
+Ext.override(Rally.ui.chart.Chart,{
+
+    // override to allow for data to be pushed in more complicated objects
+    _isData: function(point) {
+        return point > 0 || point.y > 0 ;
+    }
+    
+});
+
 Ext.define('CA.techservices.container.ChartWithDescription',{
     extend: 'Ext.container.Container',
     alias:  'widget.tschartwithdescription',
