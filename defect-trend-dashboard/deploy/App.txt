@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 13 2016 09:52:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Jul 13 2016 10:51:20 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 13 2016 09:52:43 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Jul 13 2016 10:51:20 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 135632957976;
+        var CHECKSUM = 149997292603;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1103,7 +1103,14 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         /*
          * granularity: "month"|"year"|"day"|"quarter"
          */
-        granularity: "day"
+        granularity: "day",
+        /*
+         * timeboxCount:  number of days/months/quarters to display back from current
+         * 
+         * (null to display whatever data is available)
+         */
+        
+        timeboxCount: null
     },
 
     constructor: function(config) {
@@ -1113,17 +1120,6 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
         if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
         this.granularity = this.granularity.toLowerCase();
         
-    },
-    
-    prepareCalculator: function (calculatorConfig) {
-        var config = Ext.Object.merge(calculatorConfig, {
-            granularity: this.granularity || this.lumenize.Time.DAY,
-            tz: this.config.timeZone,
-            holidays: this.config.holidays,
-            workDays: this._getWorkdays()
-        });
-
-        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {
@@ -1186,6 +1182,53 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             return true;
         }
         return false;
+    },
+    
+    // override to limit number of x points displayed
+    runCalculation: function (snapshots) {
+        var calculatorConfig = this._prepareCalculatorConfig(),
+            seriesConfig = this._buildSeriesConfig(calculatorConfig);
+
+        var calculator = this.prepareCalculator(calculatorConfig);
+        calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+
+        var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+        
+        var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
+
+        return limited_chart_data;
+    },
+    
+    // override to allow for assigning granularity
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
+    },
+    
+    _removeEarlyDates: function(chart_data,timebox_count) {
+        if ( Ext.isEmpty(timebox_count) ) { return chart_data; }
+        
+        var categories = Ext.Array.slice(chart_data.categories, -1 * timebox_count);
+        var series_group = Ext.Array.map(chart_data.series, function(series) {
+            var data = Ext.Array.slice(series.data, -1 * timebox_count);
+            // this format is to prevent the series from being modified:
+            return Ext.Object.merge( {}, series, { data: data } );
+        });
+        
+        
+        return { 
+            categories: categories, 
+            series: series_group 
+        };
+            
+        
+        
     }
 });
 
@@ -1197,7 +1240,14 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
         /*
          * granularity: "month"|"year"|"day"|"quarter"
          */
-        granularity: "day"
+        granularity: "day",
+        /*
+         * timeboxCount:  number of days/months/quarters to display back from current
+         * 
+         * (null to display whatever data is available)
+         */
+        
+        timeboxCount: null
     },
 
     constructor: function(config) {
@@ -1207,17 +1257,6 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
         if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
         this.granularity = this.granularity.toLowerCase();
         
-    },
-    
-    prepareCalculator: function (calculatorConfig) {
-        var config = Ext.Object.merge(calculatorConfig, {
-            granularity: this.granularity || this.lumenize.Time.DAY,
-            tz: this.config.timeZone,
-            holidays: this.config.holidays,
-            workDays: this._getWorkdays()
-        });
-
-        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {
@@ -1264,6 +1303,50 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
             return true;
         }
         return false;
+    },
+    
+    // override to limit number of x points displayed
+    runCalculation: function (snapshots) {
+        var calculatorConfig = this._prepareCalculatorConfig(),
+            seriesConfig = this._buildSeriesConfig(calculatorConfig);
+
+        var calculator = this.prepareCalculator(calculatorConfig);
+        calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+
+        var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+                
+        var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
+                
+        return limited_chart_data;
+    },
+    
+    // override to allow for assigning granularity
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
+    },
+    
+    _removeEarlyDates: function(chart_data,timebox_count) {
+        if ( Ext.isEmpty(timebox_count) ) { return chart_data; }
+        
+        var categories = Ext.Array.slice(chart_data.categories, -1 * timebox_count);
+        var series_group = Ext.Array.map(chart_data.series, function(series) {
+            var data = Ext.Array.slice(series.data, -1 * timebox_count);
+            // this format is to prevent the series from being modified:
+            return Ext.Object.merge( {}, series, { data: data } );
+        });
+        
+        
+        return { 
+            categories: categories, 
+            series: series_group 
+        };
     }
 });
 
@@ -2421,8 +2504,8 @@ Ext.define("TSDefectTrendDashboard", {
     },
         
     priorities: null,
-    
     granularity: 'day',
+    timebox_limit: 5,
     
     launch: function() {
         this.callParent();
@@ -2487,6 +2570,28 @@ Ext.define("TSDefectTrendDashboard", {
             }
         });
         
+        this.addToBanner({
+            xtype: 'rallynumberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Number of Timeboxes:',
+            value: this.timebox_limit,
+            minValue: 1,
+            margin: 10,
+            labelWidth: 135,
+            width: 200,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+        
+        
     },
     
     _updateData: function() {
@@ -2519,7 +2624,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 allowedPriorities: this.priorities,
-                granularity: this.granularity
+                granularity: this.granularity,
+                timeboxCount: this.timebox_limit
             },
             
             chartConfig: this._getAccumulationChartConfig(),
@@ -2540,7 +2646,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 allowedPriorities: this.priorities,
-                granularity: this.granularity
+                granularity: this.granularity,
+                timeboxCount: this.timebox_limit
             },
             
             chartConfig: this._getDeltaChartConfig(),
@@ -2568,6 +2675,9 @@ Ext.define("TSDefectTrendDashboard", {
         
         
         granularity = granularity.toLowerCase();
+        if (this.timebox_limit < 30) {
+            return 1;
+        }
         if ( granularity == 'day' ) { return 30; }
         
         return 1;

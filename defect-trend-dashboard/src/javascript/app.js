@@ -43,8 +43,8 @@ Ext.define("TSDefectTrendDashboard", {
     },
         
     priorities: null,
-    
     granularity: 'day',
+    timebox_limit: 5,
     
     launch: function() {
         this.callParent();
@@ -109,6 +109,28 @@ Ext.define("TSDefectTrendDashboard", {
             }
         });
         
+        this.addToBanner({
+            xtype: 'rallynumberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Number of Timeboxes:',
+            value: this.timebox_limit,
+            minValue: 1,
+            margin: 10,
+            labelWidth: 135,
+            width: 200,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timebox_limit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+        
+        
     },
     
     _updateData: function() {
@@ -141,7 +163,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 allowedPriorities: this.priorities,
-                granularity: this.granularity
+                granularity: this.granularity,
+                timeboxCount: this.timebox_limit
             },
             
             chartConfig: this._getAccumulationChartConfig(),
@@ -162,7 +185,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 allowedPriorities: this.priorities,
-                granularity: this.granularity
+                granularity: this.granularity,
+                timeboxCount: this.timebox_limit
             },
             
             chartConfig: this._getDeltaChartConfig(),
@@ -190,6 +214,9 @@ Ext.define("TSDefectTrendDashboard", {
         
         
         granularity = granularity.toLowerCase();
+        if (this.timebox_limit < 30) {
+            return 1;
+        }
         if ( granularity == 'day' ) { return 30; }
         
         return 1;

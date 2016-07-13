@@ -6,7 +6,14 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
         /*
          * granularity: "month"|"year"|"day"|"quarter"
          */
-        granularity: "day"
+        granularity: "day",
+        /*
+         * timeboxCount:  number of days/months/quarters to display back from current
+         * 
+         * (null to display whatever data is available)
+         */
+        
+        timeboxCount: null
     },
 
     constructor: function(config) {
@@ -16,17 +23,6 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
         if ( Ext.isEmpty(this.granularity) ) { this.granularity = "day"; }
         this.granularity = this.granularity.toLowerCase();
         
-    },
-    
-    prepareCalculator: function (calculatorConfig) {
-        var config = Ext.Object.merge(calculatorConfig, {
-            granularity: this.granularity || this.lumenize.Time.DAY,
-            tz: this.config.timeZone,
-            holidays: this.config.holidays,
-            workDays: this._getWorkdays()
-        });
-
-        return new this.lumenize.TimeSeriesCalculator(config);
     },
 
     getMetrics: function() {
@@ -73,5 +69,49 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
             return true;
         }
         return false;
+    },
+    
+    // override to limit number of x points displayed
+    runCalculation: function (snapshots) {
+        var calculatorConfig = this._prepareCalculatorConfig(),
+            seriesConfig = this._buildSeriesConfig(calculatorConfig);
+
+        var calculator = this.prepareCalculator(calculatorConfig);
+        calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+
+        var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+                
+        var limited_chart_data = this._removeEarlyDates(chart_data,this.timeboxCount);
+                
+        return limited_chart_data;
+    },
+    
+    // override to allow for assigning granularity
+    prepareCalculator: function (calculatorConfig) {
+        var config = Ext.Object.merge(calculatorConfig, {
+            granularity: this.granularity || this.lumenize.Time.DAY,
+            tz: this.config.timeZone,
+            holidays: this.config.holidays,
+            workDays: this._getWorkdays()
+        });
+
+        return new this.lumenize.TimeSeriesCalculator(config);
+    },
+    
+    _removeEarlyDates: function(chart_data,timebox_count) {
+        if ( Ext.isEmpty(timebox_count) ) { return chart_data; }
+        
+        var categories = Ext.Array.slice(chart_data.categories, -1 * timebox_count);
+        var series_group = Ext.Array.map(chart_data.series, function(series) {
+            var data = Ext.Array.slice(series.data, -1 * timebox_count);
+            // this format is to prevent the series from being modified:
+            return Ext.Object.merge( {}, series, { data: data } );
+        });
+        
+        
+        return { 
+            categories: categories, 
+            series: series_group 
+        };
     }
 });
