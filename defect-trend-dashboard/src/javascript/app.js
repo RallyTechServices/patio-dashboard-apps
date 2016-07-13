@@ -13,8 +13,7 @@ Ext.define("TSDefectTrendDashboard", {
         "will count the items in the proper state and with that priority on the day of each " +
         "point.  For example, if you choose High priority, a defect created on Monday as Low " +
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
-        "<p/>" +
-        "The administrator can use the App Settings... dialog to define what defect states count as 'Closed'",
+        "<p/>",
         
 //        "<strong>Open Defects</strong><br/>" +
 //        "<br/>" +
@@ -56,6 +55,7 @@ Ext.define("TSDefectTrendDashboard", {
     priorities: null,
     granularity: 'month',
     timebox_limit: 5,
+    all_priorities: [],
     
     launch: function() {
         this.callParent();
@@ -63,17 +63,25 @@ Ext.define("TSDefectTrendDashboard", {
         var closedStates = this.getSetting('closedStateValues');
         if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
                 
-        this.description[0] += "<strong>Notes:</strong><br/>" +
+        this.descriptions[0] += "<strong>Notes:</strong><br/>" +
             "<ul>" +
             "<li>States that count as 'Closed' (can be set by administrator): " + closedStates + "</li>" +
             "</ul>";
                 
-        this.applyDescription(this.description[0],0);
+        this.applyDescription(this.descriptions[0],0);
         
-        this._addSelectors();
-
-        this._updateData();
-
+        TSUtilities.getAllowedValues('Defect','Priority').then({
+            scope: this,
+            success: function(priorities) {
+                this.all_priorities = priorities;
+                
+                this._addSelectors();
+                this._updateData();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem reading priorities", msg);
+            }
+        });
     },
 
     _addSelectors: function() {
@@ -230,7 +238,7 @@ Ext.define("TSDefectTrendDashboard", {
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','Release','ObjectID',
-                'PlanEstimate','Project','State','CreationDate']
+                'PlanEstimate','Project','State','CreationDate','Priority']
         };
         
         return TSUtilities.loadWsapiRecords(config);
@@ -241,52 +249,86 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _collectDefectsByAge: function(defects) {
-        var buckets = {
-            "0-14 Days": [],
-            "15-30 Days": [],
-            "31-60 Days": [],
-            "61-90 Days": [],
-            "91-200 Days": [],
-            "201-300 Days": [],
-            "301+ Days": []
-        };
+        
+        var me = this,
+            priorities = this.all_priorities;
+
+        var bucket_names = [
+            "0-14 Days",
+            "15-30 Days",
+            "31-60 Days",
+            "61-90 Days",
+            "91-200 Days",
+            "201-300 Days",
+            "301+ Days"
+        ];
+        
+        var buckets = {};
+        
+        Ext.Array.each(bucket_names, function(name){
+            buckets[name] = { all: [] };
+            Ext.Array.each(priorities, function(priority){
+                if ( priority == "" ) { priority = "None"; }
+                buckets[name][priority] = [];
+            });
+        });
+        
+        console.log(buckets);
         
         Ext.Array.each(defects, function(defect){
             var age = defect.get('__age');
-            if ( age < 15 ) { buckets["0-14 Days"].push(defect); return; }
-            if ( age < 31 ) { buckets["15-30 Days"].push(defect); return; }
-            if ( age < 61 ) { buckets["31-60 Days"].push(defect); return; }
-            if ( age < 91 ) { buckets["61-90 Days"].push(defect); return; }
-            if ( age < 201) { buckets["91-200 Days"].push(defect); return; }
-            if ( age < 301) { buckets["201-300 Days"].push(defect); return; }
-            buckets["301+ Days"].push(defect);
+            var priority = defect.get('Priority');
+                        
+            var name = "301+ Days";
+            
+            if ( age < 15 ) { name = "0-14 Days"; }
+            else if ( age < 31 ) { name = "15-30 Days"; }
+            else if ( age < 61 ) { name = "31-60 Days" }
+            else if ( age < 91 ) { name = "61-90 Days" }
+            else if ( age < 201) { name = "91-200 Days" }
+            else if ( age < 301) { name = "201-300 Days" }
+            
+            buckets = me._pushIntoBuckets(buckets, name, priority, defect);
         });
         
+        console.log('buckets:', buckets);
         return buckets;
         
     },
     
+    _pushIntoBuckets: function(buckets, name, priority, item) {
+        buckets[name].all.push(item);
+        buckets[name][priority].push(item); 
+        return buckets;
+    },
+    
     _getAgingSeries: function(defects_by_age){
-        var series = [];
+        var me = this,
+            series = [],
+            priorities = this.all_priorities;
         
-        series.push({
-            name: 'Defects',
-            data: this._calculateAgingMeasures(defects_by_age),
-            type:'column',
-            stack: 'a'
+        Ext.Array.each(priorities, function(priority){
+            if ( priority == "" ) { priority = "None"; }
+            
+            series.push({
+                name: priority,
+                data: me._calculateAgingMeasures(defects_by_age, priority),
+                type:'column',
+                stack: 'a'
+            });
         });
         
         return series;
     },
     
-    _calculateAgingMeasures: function(defects_by_age) {
+    _calculateAgingMeasures: function(defects_by_age,priority) {
         var me = this,
             data = [];
             
         Ext.Object.each(defects_by_age, function(bucket,value){
             data.push({
-                y: value.length,
-                _records: value,
+                y: value[priority].length,
+                _records: value.all,
                 events: {
                     click: function() {
                         me.showDrillDown(this._records, bucket);
@@ -499,6 +541,14 @@ Ext.define("TSDefectTrendDashboard", {
             {
                 dataIndex: '__age',
                 text: 'Age (Days)'
+            },
+            { 
+                dataIndex: 'Priority',
+                text: 'Priority'
+            },
+            {
+                dataIndex: 'State',
+                text: 'State'
             },
             {
                 dataIndex: 'Project',
