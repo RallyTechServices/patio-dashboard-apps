@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Defect Density</title>
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Jul 20 2016 16:28:53 GMT-0400 (EDT)";
+    </script>
+    
+    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            Rally.loadScripts(["../common/src/javascript/__ts-general-utils.js","../common/src/javascript/__ts-info-link.js","../common/src/javascript/__ts-logger.js","../common/src/javascript/_ts-date-calc-utils.js","../common/src/javascript/_ts-patterns.js","../common/src/javascript/colors.js","../common/src/javascript/ts-chart-and-description.js","../common/src/javascript/ts-chart-app.js","../common/src/javascript/ts-grid-box.js","src/javascript/app.js"],
+	            function() {
+	                Rally.launchApp('DDApp', {
+	                    name: 'Defect Density'
+	                })
+	            }, true);
+        });
+    </script>
+<link rel="stylesheet" type="text/css" href="../common/src/style/info-panel.css"><link rel="stylesheet" type="text/css" href="src/style/app.css">
+
+</head>
+<body></body>
+</html>
