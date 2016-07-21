@@ -16,6 +16,7 @@ Ext.define("TSDefectTrendDashboard", {
         "<p/>" +
         "The administrator can use the App Settings... dialog to define what defect states count as 'Closed'",
         
+        
 //        "<strong>Open Defects</strong><br/>" +
 //        "<br/>" +
 //        "What is the defect trend over time? " +
@@ -31,8 +32,18 @@ Ext.define("TSDefectTrendDashboard", {
         
         "<strong>Open Defect Aging (Days Open) by Priority</strong><br/>" +
         "<br/>" +
-        "How long do things stay open? " +
+        "How long have things been open? " +
         "This chart shows the number of defects by how long they've been open. " +
+        "Each bar represents a range of day counts and the number is the number of defects that are " +
+        "currently open and how long it has been since they were created.  The bar is segmented by priority." +
+        "<p/>" + 
+        "This chart shows all priorities. " +
+        "<p/>",
+        
+        "<strong>Defect Closure Durations by Priority</strong><br/>" +
+        "<br/>" +
+        "How long do things stay open before closure? " +
+        "This chart shows the number of defects by how long they were open before closing. " +
         "Each bar represents a range of day counts and the number is the number of defects that are " +
         "currently open and how long it has been since they were created.  The bar is segmented by priority." +
         "<p/>" + 
@@ -149,8 +160,9 @@ Ext.define("TSDefectTrendDashboard", {
         
         Deft.Chain.pipeline([
             this._makeAccumulationChart,
-            this._makeDefectAgingChart
-            //this._makeDeltaChart
+            //this._makeDeltaChart,
+            this._makeDefectAgingChart,
+            this._makeDefectOpenTimeChart
         ],this).then({
             scope: this,
             success: function(results) {
@@ -182,6 +194,32 @@ Ext.define("TSDefectTrendDashboard", {
             chartConfig: this._getAccumulationChartConfig(),
             chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light]
         },0);
+    },
+    
+    _makeDefectOpenTimeChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.TechnicalServices.calculator.DefectResponseTimeCalculator',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                granularity: 'day',
+                buckets: this._getBucketRanges()
+            },
+            
+            chartConfig: this._getClosureChartConfig(),
+            chartColors: colors
+        },2);
     },
     
     _makeDefectAgingChart: function() {
@@ -240,26 +278,39 @@ Ext.define("TSDefectTrendDashboard", {
         return Rally.util.DateTime.getDifference(new Date(), item.get('CreationDate'),'day');
     },
     
-    _collectDefectsByAge: function(defects) {
-        var buckets = {
-            "0-14 Days": [],
-            "15-30 Days": [],
-            "31-60 Days": [],
-            "61-90 Days": [],
-            "91-200 Days": [],
-            "201-300 Days": [],
-            "301+ Days": []
+    _getBucketRanges: function() {
+        return {
+            "0-14 Days":  0,
+            "15-30 Days": 15,
+            "31-60 Days": 31,
+            "61-90 Days": 61,
+            "91-200 Days": 91,
+            "201-300 Days": 201,
+            "301+ Days": 301
         };
+    },
+    
+    _collectDefectsByAge: function(defects) {
+        
+        var bucket_ranges = this._getBucketRanges();
+        var buckets = {};
+        
+        Ext.Object.each(bucket_ranges, function(key, value){
+            buckets[key] = [];
+        });
         
         Ext.Array.each(defects, function(defect){
             var age = defect.get('__age');
-            if ( age < 15 ) { buckets["0-14 Days"].push(defect); return; }
-            if ( age < 31 ) { buckets["15-30 Days"].push(defect); return; }
-            if ( age < 61 ) { buckets["31-60 Days"].push(defect); return; }
-            if ( age < 91 ) { buckets["61-90 Days"].push(defect); return; }
-            if ( age < 201) { buckets["91-200 Days"].push(defect); return; }
-            if ( age < 301) { buckets["201-300 Days"].push(defect); return; }
-            buckets["301+ Days"].push(defect);
+            
+            var bucket_choice = null;
+            Ext.Object.each( bucket_ranges, function( key, value ) {
+                if ( age >= value ) {
+                    bucket_choice = key;
+                }
+            });
+            
+            buckets[bucket_choice].push(defect);
+            
         });
         
         return buckets;
@@ -349,7 +400,7 @@ Ext.define("TSDefectTrendDashboard", {
                _TypeHierarchy: 'Defect' 
            },
            removeUnauthorizedSnapshots: true,
-           fetch: ['ObjectID','State','Priority'],
+           fetch: ['ObjectID','State','Priority','CreationDate'],
            hydrate: ['State','Priority'],
            sort: {
                '_ValidFrom': 1
@@ -452,6 +503,45 @@ Ext.define("TSDefectTrendDashboard", {
                     }
                 },
                 area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    _getClosureChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Defect Closure Durations by Priority'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                title: {
+                    text: ''
+                },
+                labels            : {
+                    rotation : -45
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Days to Close'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                column: {
                     stacking: 'normal'
                 }
             }
