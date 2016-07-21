@@ -3,11 +3,11 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 20 2016 16:28:53 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Jul 21 2016 08:12:51 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 20 2016 16:28:53 GMT-0400 (EDT)";
-        var CHECKSUM = 50793794254;
+        var APP_BUILD_DATE = "Thu Jul 21 2016 08:12:51 GMT-0400 (EDT)";
+        var CHECKSUM = 50427571385;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1100,13 +1100,13 @@ Ext.define("DDApp", {
         "<strong>Defect Density per Timebox</strong><br/>" +
             "<br/>" +
             "The top stacked bar chart displaysthetotal number of stories versus stories with at least one defect" 
-        //     ,
-        // "<strong>Acceptance Timing of Stories - %</strong><br/>"+
-        //     "<br/>" +
-        //     "This dashboard shows Acceptance Timing of Stories by %" ,
-        // "<strong>Delivery Effort Full Time Equivalents</strong><br/>"+
-        //      "<br/>" +
-        //     "This dashboard shows Acceptance Timing of Stories by  the total number of stories for each sprint day." 
+            ,
+        "<strong>Percentage of stories with defects</strong><br/>"+
+            "<br/>" +
+            "The brown line graph displays the percentage of stories that are affected by at least one defect" ,
+        "<strong>Percentage of points affected by defects</strong><br/>"+
+             "<br/>" +
+            "The red line graph displays the percentage of points that are affected by defects in the sprint" 
 
     ],
     
@@ -1202,8 +1202,8 @@ Ext.define("DDApp", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
-                //this._makeMiddleChart(artifacts_by_timebox);
-                //this._makeBottomChart(artifacts_by_timebox);
+                this._makeMiddleChart(artifacts_by_timebox);
+                this._makeBottomChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -1374,7 +1374,7 @@ Ext.define("DDApp", {
 
             series.push({
                 name: name,
-                color: allowed_type == 'all' ? 'rgba(165,170,217,1)':'rgba(126,86,134,.9)',
+                color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
                 data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
                 type: 'column',
                 pointPadding: allowed_type == 'all' ? 0.15 : 0.25,
@@ -1455,7 +1455,7 @@ Ext.define("DDApp", {
     _getMiddleSeries: function(artifacts_by_timebox) {
         var series = [];
         
-        var name = "Stories";
+        var name = "Percentage";
         series.push({
             name: name,
             data: this._calculateMiddleMeasure(artifacts_by_timebox)
@@ -1467,17 +1467,10 @@ Ext.define("DDApp", {
 
     _calculateMiddleMeasure: function(artifacts_by_timebox) {
         var me = this,
-            data = [],
-            pct_total = 0,
-            sum_total_records = 0;
+            data = [];
 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            pct_total += value.records.all.length;
-        });
-
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            sum_total_records += value.records.all.length;
-            y_value = Math.round((sum_total_records / pct_total) * 100);
+            y_value = value.records.all.length > 0 ? Math.round((value.records.with_defects.length / value.records.all.length) * 100):0;
             data.push({ 
                 y: y_value
             });
@@ -1489,26 +1482,20 @@ Ext.define("DDApp", {
     _getMiddleChartConfig: function() {
         var me = this;
         return {
-            chart: { type: 'area' },
-            title: { text: 'Acceptance Timing of Stories' },
+            chart: { type: 'line' },
+            title: { text: 'Percentage of stories with defects' },
             xAxis: {
-                title: { text: 'Sprint Day' }
+                title: { }
             },
             yAxis: [{ 
-                title: { text: 'Acceptance %' }
+                title: { text: '% of stories w/ defects' }
             }],
             plotOptions: {
-                area: {
+                line: {
+                        color: '#808080',
                         dataLabels: {
                             enabled: true,
-                            //format: '{y} %',
-                            formatter: function(){
-                                if(parseInt(this.x)==0){
-                                    return this.y + '%';
-                                }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
-                                    return this.y  + '%';;
-                                }
-                            }
+                            format: '{y} %',
                         },                    
                         pointStart: 0,
                         marker: {
@@ -1554,7 +1541,6 @@ Ext.define("DDApp", {
         series.push({
             name: name,
             data: this._calculateBottomMeasure(artifacts_by_timebox),
-            type: 'column'
         });
 
         return series;
@@ -1564,35 +1550,60 @@ Ext.define("DDApp", {
     _calculateBottomMeasure: function(artifacts_by_timebox) {
         var me = this,
             data = [];
-        
+
         Ext.Object.each(artifacts_by_timebox, function(key, value){
+            
+            var all_points =0;
+            var defect_points = 0;
+            Ext.Array.each(value.records.all,function(story){
+                all_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
+            });
+
+            Ext.Array.each(value.records.with_defects,function(story){
+                defect_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
+            });
+
+            y_value = all_points > 0 ? Math.round((defect_points / all_points) * 100):0;
+
             data.push({ 
-                y: value.records.all.length,
-                _records: value.records.all,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  "Records for sprint Day " + key);
-                    }
-                }
+                y: y_value
             });
         });
+
         return data;
     },    
     
     _getBottomChartConfig: function() {
         var me = this;
         return {
-            chart: { type:'column' },
-            title: { text: 'Acceptance Timing of Stories' },
+            chart: { type: 'line' },
+            title: { text: 'Percentage of points affected by defects' },
             xAxis: {
-                title: { text: 'Sprint Day' }
+                title: { }
             },
             yAxis: [{ 
-                title: { text: 'Total # Stories Accepted' }
+                title: { text: '% of points affected by defects' }
             }],
             plotOptions: {
-
-            },
+                line: {
+                        color: 'red',
+                        dataLabels: {
+                            enabled: true,
+                            format: '{y} %',
+                        },                    
+                        pointStart: 0,
+                        marker: {
+                            enabled: true,
+                            symbol: 'circle',
+                            radius: 2,
+                            states: {
+                                hover: {
+                                    enabled: true
+                                }
+                            }
+                        }
+                }
+            }
         }
     },
 
@@ -1610,15 +1621,7 @@ Ext.define("DDApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        },
-        { 
-            name: 'showNonFibonacciCategory',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 25',
-            boxLabel: 'Show non-Fibonacci Category<br/><span style="color:#999999;"><i>Tick to use show a category for items that have sizes not in the Fibonacci series.</i></span>'
-        }        
+        }       
         
         ];
     },
