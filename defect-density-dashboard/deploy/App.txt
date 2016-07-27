@@ -3,11 +3,11 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jul 21 2016 08:12:51 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Jul 27 2016 13:23:12 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jul 21 2016 08:12:51 GMT-0400 (EDT)";
-        var CHECKSUM = 50427571385;
+        var APP_BUILD_DATE = "Wed Jul 27 2016 13:23:12 GMT-0400 (EDT)";
+        var CHECKSUM = 59975311219;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1116,7 +1116,8 @@ Ext.define("DDApp", {
     
     config: {
         defaultSettings: {
-            showPatterns: false
+            showPatterns: false,
+            foundByColumn: 'c_foundBy'
         }
     },
                         
@@ -1204,6 +1205,7 @@ Ext.define("DDApp", {
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeMiddleChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
+                this._makeRawBottomGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -1269,11 +1271,10 @@ Ext.define("DDApp", {
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
-        
+
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
-            {property:'AcceptedDate', operator: '!=', value: null }
+            {property: type + '.' + start_field, operator: '<=', value:last_date}
         ];
         
         var config = {
@@ -1310,9 +1311,12 @@ Ext.define("DDApp", {
      */
 
     _collectArtifactsByTimebox: function(items) {
+
+        var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
-       
+               var foundByColumn = this.getSetting('foundByColumn');
+
         
         if ( items.length === 0 ) { return hash; }
         
@@ -1332,7 +1336,18 @@ Ext.define("DDApp", {
             }
             hash[timebox].records.all.push(item);
 
-            if(item.get('Defects').Count > 0){
+            var filters =   [
+                    { property: foundByColumn, value:'FTD'},
+                    { property: foundByColumn, value:'UAT'}
+                ];
+
+            var filter = Rally.data.wsapi.Filter.or(filters).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
+
+            // if(me.fetchWsapiCount('Defect',filter) > 0 ){
+            //     hash[timebox].records['with_defects'].push(item);
+            // }
+
+            if(item.get('Defects').Count > 0 ){
                 hash[timebox].records['with_defects'].push(item);
             }
             
@@ -1377,7 +1392,7 @@ Ext.define("DDApp", {
                 color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
                 data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
                 type: 'column',
-                pointPadding: allowed_type == 'all' ? 0.15 : 0.25,
+                pointPadding: allowed_type == 'all' ? 0 : 0.15,
                 pointPlacement: 0                
             });
         },this);
@@ -1537,7 +1552,7 @@ Ext.define("DDApp", {
     _getBottomSeries: function(artifacts_by_timebox) {
         var series = [];
             
-        var name = "Stories";
+        var name = "Percentage";
         series.push({
             name: name,
             data: this._calculateBottomMeasure(artifacts_by_timebox),
@@ -1607,6 +1622,97 @@ Ext.define("DDApp", {
         }
     },
 
+    _makeRawBottomGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        this.logger.log('_makeRawGrid', artifacts_by_timebox);
+       
+        var columns = [{dataIndex:'Name',text:'Counts'}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
+        });
+        
+        this.logger.log('about to get Raw Rows');
+        var rows = this._getRawBottomRows(artifacts_by_timebox);
+        
+        this.logger.log('about to create store', rows);
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        this.logger.log('about to add', store, columns);
+
+        this.setGrid({
+            xtype:'rallygrid',
+            padding: 5,
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,     
+            store: store,
+            columnCfgs: columns
+        },2);
+
+    },
+    
+    _getRawBottomRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        
+        var row_fields = this._getCategories(artifacts_by_timebox);
+         
+        this.logger.log('row_fields', row_fields);
+        
+        var rows = [
+            {Type:'TotalStoryCount', Name: 'Total Story Count'},
+            {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
+            {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
+        ];
+
+        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+        //     rows.push({Type:rowname.name,Name:rowname.name});
+        // })
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        this.logger.log('rows >>',rows);
+
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
+              
+                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
+                
+            });
+        });
+        
+        return rows;
+    },
+
+
+    _getBottomSize:function(value,type){
+
+            var size = 0;
+
+            if('TotalStoryCount' == type){
+                size = value.records.all.length;
+            }else if('StoryCountInDefects' == type){
+                size = value.records.with_defects.length;
+            }else if('TotalDefectCount' == type){
+                Ext.Array.each(value.records.with_defects, function(story){
+                    size += story.get('Defects').Count;
+                }); 
+            }
+
+            return size;
+    },
+
 
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
@@ -1614,6 +1720,12 @@ Ext.define("DDApp", {
 
     getSettingsFields: function() {
         return [
+        {
+            name: 'typeField',
+            xtype: 'rallyfieldcombobox',
+            model: 'Defect',
+            margin: '0 0 25 25'
+        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -1694,6 +1806,28 @@ Ext.define("DDApp", {
     
     _getUnsafeIterationName: function(name) {
         return name.replace(/&#46;/,'.');
+    },
+
+    fetchWsapiCount: function(model, query_filters){
+        var deferred = Ext.create('Deft.Deferred');
+
+        Ext.create('Rally.data.wsapi.Store',{
+            model: model,
+            fetch: ['ObjectID'],
+            enablePostGet: true,
+            filters: query_filters,
+            limit: 1,
+            pageSize: 1
+        }).load({
+            callback: function(records, operation, success){
+                if (success){
+                    deferred.resolve(operation.resultSet.totalRecords);
+                } else {
+                    deferred.reject(Ext.String.format("Error getting {0} count for {1}: {2}", model, query_filters.toString(), operation.error.errors.join(',')));
+                }
+            }
+        });
+        return deferred;
     },
     
 });
