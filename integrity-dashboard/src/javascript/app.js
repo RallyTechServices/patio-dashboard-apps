@@ -1,28 +1,27 @@
-Ext.define("DDApp", {
+Ext.define("IntegrityApp", {
     extend: 'CA.techservices.app.ChartApp',
 
     descriptions: [
-        "<strong>Defect Density per Timebox</strong><br/>" +
+        "<strong>Percentage of stories with Functional Test Coverage</strong><br/>" +
             "<br/>" +
-            "The top stacked bar chart displaysthetotal number of stories versus stories with at least one defect" 
+            "The top stacked bar chart displays your total test case coverage (by %) for user stories in the sprint (e.g., 100% indicates every testable user story had at least one testcase)" 
             ,
-        "<strong>Percentage of stories with defects</strong><br/>"+
+        "<strong>Percentage passed</strong><br/>"+
             "<br/>" +
-            "The brown line graph displays the percentage of stories that are affected by at least one defect" ,
-        "<strong>Percentage of points affected by defects</strong><br/>"+
-             "<br/>" +
-            "The red line graph displays the percentage of points that are affected by defects in the sprint" 
-
+            "The gold line graph displays the pass rate of all the test cases completed in the sprint bytest casetype. <br/>" +
+            "The green line graph displays the pass rate of stories tested in the sprint" 
     ],
     
     integrationHeaders : {
-        name : "DDApp"
+        name : "IntegrityApp"
     },
     
     config: {
         defaultSettings: {
             showPatterns: false,
-            foundByColumn: 'c_foundBy'
+            typeField: 'TestCase',
+            isTestableField: 'c_IsTestable',
+            gridThreshold: 2
         }
     },
                         
@@ -108,7 +107,6 @@ Ext.define("DDApp", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
-                this._makeMiddleChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
                 this._makeRawBottomGrid(artifacts_by_timebox);
             },
@@ -162,10 +160,13 @@ Ext.define("DDApp", {
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
+        var me = this;
         if ( timeboxes.length === 0 ) { return; }
         
         var type = this.timebox_type;
         
+        var isTestableField = me.getSetting('isTestableField');
+
         var start_field = "StartDate";
         var end_field = "EndDate";
         if ( type == "Release" ) {
@@ -182,12 +183,14 @@ Ext.define("DDApp", {
             {property: type + '.' + start_field, operator: '<=', value:last_date}
         ];
         
+        filters = Rally.data.wsapi.Filter.and(filters).and({property: isTestableField, operator: '=', value: true});
+
         var config = {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate',start_field,end_field]
+                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',start_field,end_field]
         };
         
         Deft.Chain.sequence([
@@ -212,7 +215,7 @@ Ext.define("DDApp", {
      *    which then provides an array of items that match the allowed value 
      *    and timebox
      * as in
-     * { "iteration 1": { "records": { "all": [o,o,o], "with_defects": [o,o] } } }
+     * { "iteration 1": { "records": { "all": [o,o,o], "with_test_cases": [o,o] } } }
      */
 
     _collectArtifactsByTimebox: function(items) {
@@ -234,7 +237,7 @@ Ext.define("DDApp", {
         var base_hash = {
             records: {
                 all: [],
-                with_defects:[]
+                with_test_cases:[]
             }
         };
 
@@ -249,12 +252,9 @@ Ext.define("DDApp", {
 
             var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
 
-            console.log('defect filter ',filter.toString());
-
-            if(item.get('Defects').Count > 0 ){
-                hash[timebox].records['with_defects'].push(item);
+            if(item.get('TestCaseCount') > 0 ){
+                hash[timebox].records['with_test_cases'].push(item);
             }
-            
             
         });
         
@@ -284,7 +284,7 @@ Ext.define("DDApp", {
 
     _getTopSeries: function(artifacts_by_timebox) {
         var series = [],
-            allowed_types = ['all','with_defects'];
+            allowed_types = ['all','with_test_cases'];
         
 
 
@@ -295,9 +295,7 @@ Ext.define("DDApp", {
                 name: name,
                 color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
                 data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
-                type: 'column',
-                pointPadding: allowed_type == 'all' ? 0 : 0.15,
-                pointPlacement: 0                
+                type: 'column'              
             });
         },this);
         
@@ -311,9 +309,16 @@ Ext.define("DDApp", {
 
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
+            var y_value = 0;
+
+            if('all' == allowed_type){
+                y_value = 100;
+            } else if ('with_test_cases' == allowed_type){
+                y_value = (records.length / value.records['all'].length) * 100;
+            }
 
             data.push({ 
-                y:records.length,
+                y:y_value,
                 _records: records,
                 events: {
                     click: function() {
@@ -332,12 +337,29 @@ Ext.define("DDApp", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Defect Density - Stories vs Stories with Defects' },
+            title: { text: 'Percentage of stories with Functional Test Coverage' },
             xAxis: {},
-            yAxis: [{ 
-                title: { text: 'Total stories vs stories w/ defects' }
-            }],
+            yAxis: { 
+                min: 0,
+                title: { text: '%' },
+                stackLabels: {
+                    enabled: true,
+                    style: {
+                        fontWeight: 'bold',
+                        color: 'gray'
+                    }
+                }   
+            },
             plotOptions: {
+                stacking: 'normal',
+                dataLabels: {
+                    enabled: true,
+                    color:'gray',
+                    style: {
+                        textShadow: '0 0 3px black'
+                    },
+                    format: '{y} %',
+                },                
                 column: {
                     grouping: false,
                     shadow: false,
@@ -346,91 +368,13 @@ Ext.define("DDApp", {
             },
             tooltip: {
                 formatter: function() {
-                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
+                    return '<b>'+ this.series.name +'</b>: '+ Math.round(this.point.y) + ' %';
                 }
             }
         }
     },
 
-     _makeMiddleChart: function(artifacts_by_timebox) {
-        var me = this;
 
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getMiddleSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
-        }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getMiddleChartConfig(),
-            chartColors: colors
-        },1);
-        this.setLoading(false);
-    },
-
-    _getMiddleSeries: function(artifacts_by_timebox) {
-        var series = [];
-        
-        var name = "Percentage";
-        series.push({
-            name: name,
-            data: this._calculateMiddleMeasure(artifacts_by_timebox)
-        });
-
-        return series;
-    },
-
-
-    _calculateMiddleMeasure: function(artifacts_by_timebox) {
-        var me = this,
-            data = [];
-
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            y_value = value.records.all.length > 0 ? Math.round((value.records.with_defects.length / value.records.all.length) * 100):0;
-            data.push({ 
-                y: y_value
-            });
-        });
-        return data;
-    },       
-
-
-    _getMiddleChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type: 'line' },
-            title: { text: 'Percentage of stories with defects' },
-            xAxis: {
-                title: { }
-            },
-            yAxis: [{ 
-                title: { text: '% of stories w/ defects' }
-            }],
-            plotOptions: {
-                line: {
-                        color: '#808080',
-                        dataLabels: {
-                            enabled: true,
-                            format: '{y} %',
-                        },                    
-                        pointStart: 0,
-                        marker: {
-                            enabled: true,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    },
 
     _makeBottomChart: function(artifacts_by_timebox) {
         var me = this;
@@ -447,7 +391,7 @@ Ext.define("DDApp", {
             chartData: { series: series, categories: categories },
             chartConfig: this._getBottomChartConfig(),
             chartColors: colors
-        },2);
+        },1);
         this.setLoading(false);
     },
     
@@ -456,33 +400,42 @@ Ext.define("DDApp", {
     _getBottomSeries: function(artifacts_by_timebox) {
         var series = [];
             
-        var name = "Percentage";
         series.push({
-            name: name,
-            data: this._calculateBottomMeasure(artifacts_by_timebox),
+            name: 'Pass Rate of Stories',
+            data: this._calculateBottomMeasure(artifacts_by_timebox,'Stories'),
+            color: 'green'
+        });
+
+        series.push({
+            name: 'Pass Rate of Test Cases',
+            data: this._calculateBottomMeasure(artifacts_by_timebox,'TestCase'),
+            color: '#FFD700' // Gold.
         });
 
         return series;
     },
 
 
-    _calculateBottomMeasure: function(artifacts_by_timebox) {
+    _calculateBottomMeasure: function(artifacts_by_timebox,graph_type) {
         var me = this,
             data = [];
 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            
-            var all_points =0;
-            var defect_points = 0;
-            Ext.Array.each(value.records.all,function(story){
-                all_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
+            var y_value = 0;
+            var all_length = value.records.all.length;
+            var pass_length = 0;
+            var test_case_length = value.records.with_test_cases.length;
+            Ext.Array.each(value.records.with_test_cases,function(story){
+                if("ALL_RUN_ALL_PASSING" == story.get('TestCaseStatus')){
+                    pass_length += 1;
+                }                
             });
 
-            Ext.Array.each(value.records.with_defects,function(story){
-                defect_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
-            });
-
-            y_value = all_points > 0 ? Math.round((defect_points / all_points) * 100):0;
+            if("Stories" == graph_type){
+                y_value = all_length > 0 ? Math.round((pass_length / all_length) * 100):0;
+            } else  if("TestCase" == graph_type){
+                y_value = test_case_length > 0 ? Math.round((pass_length / test_case_length) * 100):0;
+            }
 
             data.push({ 
                 y: y_value
@@ -496,31 +449,32 @@ Ext.define("DDApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            title: { text: 'Percentage of points affected by defects' },
+            //title: { text: 'Percentage of points affected by defects' },
             xAxis: {
                 title: { }
             },
             yAxis: [{ 
-                title: { text: '% of points affected by defects' }
+                //min: 0,
+                title: { text: '% Passed' }
             }],
             plotOptions: {
                 line: {
-                        color: 'red',
-                        dataLabels: {
-                            enabled: true,
-                            format: '{y} %',
-                        },                    
-                        pointStart: 0,
-                        marker: {
-                            enabled: true,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
-                                }
+                    // color: 'red',
+                    dataLabels: {
+                        enabled: true,
+                        format: '{y} %',
+                    },                    
+                    pointStart: 0,
+                    marker: {
+                        enabled: true,
+                        symbol: 'circle',
+                        radius: 2,
+                        states: {
+                            hover: {
+                                enabled: true
                             }
                         }
+                    }
                 }
             }
         }
@@ -533,7 +487,17 @@ Ext.define("DDApp", {
        
         var columns = [{dataIndex:'Name',text:'Counts'}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", 
+                            text: field, 
+                            align: 'center',
+                            flex:1,
+                            renderer: function(value,metaData){
+                                if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
+                                     metaData.style = 'text-align:center;background-color:red';    
+                                }
+                                return value;
+                            }
+                        });
         });
         
         this.logger.log('about to get Raw Rows');
@@ -552,7 +516,7 @@ Ext.define("DDApp", {
             showRowActionsColumn: false,     
             store: store,
             columnCfgs: columns
-        },2);
+        },1);
 
     },
     
@@ -565,9 +529,9 @@ Ext.define("DDApp", {
         this.logger.log('row_fields', row_fields);
         
         var rows = [
-            {Type:'TotalStoryCount', Name: 'Total Story Count'},
-            {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
-            {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
+            {Type:'TotalStoryCount', Name: 'Testable Stories'},
+            {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Case' },
+            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Pass Test Case' }
         ];
 
         // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
@@ -606,11 +570,13 @@ Ext.define("DDApp", {
 
             if('TotalStoryCount' == type){
                 size = value.records.all.length;
-            }else if('StoryCountInDefects' == type){
-                size = value.records.with_defects.length;
-            }else if('TotalDefectCount' == type){
-                Ext.Array.each(value.records.with_defects, function(story){
-                    size += story.get('Defects').Count;
+            }else if('TotalTCStoryCount' == type){
+                size = value.records.with_test_cases.length;
+            }else if('TotalTCPassStoryCount' == type){
+                Ext.Array.each(value.records.with_test_cases, function(story){
+                    if("ALL_RUN_ALL_PASSING" == story.get('TestCaseStatus')){
+                        size += 1;
+                    }    
                 }); 
             }
 
@@ -622,84 +588,33 @@ Ext.define("DDApp", {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
 
-/*
-{
-                name: 'kanbanProcessField',
-                itemId:'kanbanProcessField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Kanban Process',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'UserStory',
-                hiddenName:'Kanban',
-                bubbleEvents: ['kanbanProcessFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        // console.log('CB-Kanban',cb);
-                        me._filterOutWthString(cb.getStore(),'Kanban');
-                    },
-                    change: function(cb) {
-                        this.fireEvent('kanbanProcessFieldChange',cb);
-                    }
-                },                
-                readyEvent: 'ready'
-            },
-            {
-                name: 'kanbanProcessFieldValue',
-                itemId:'kanbanProcessFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Kanban Process Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'UserStory',
-                field: 'ScheduleState',
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('kanbanProcessFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    kanbanProcessFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-                readyEvent: 'ready'                
-            },
-
-*/
-
-
-
 
     getSettingsFields: function() {
         var me = this;
         return [
-        // {
-        //     name: 'typeField',
-        //     xtype: 'rallyfieldcombobox',
-        //     model: 'Defect',
-        //     margin: '0 0 25 25'
-        // },
+        {
+                name: 'isTestableField',
+                xtype: 'rallyfieldcombobox',
+                itemId: 'isTestableField',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,            
+                fieldLabel: 'Is Testable Field',
+                model: 'HierarchicalRequirement',
+                margin: '10 10 10 10'
+        },
         {
                 name: 'typeField',
                 itemId:'typeField',
                 xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Found By Field',
+                fieldLabel: 'Test Type Field',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
                 margin: '10 10 10 10',
                 autoExpand: false,
                 alwaysExpanded: false,                
-                model: 'Defect',
+                model: 'TestCase',
                 bubbleEvents: ['typeFieldChange'],
                 listeners: {
                     ready: function(cb) {
@@ -715,15 +630,15 @@ Ext.define("DDApp", {
                 name: 'typeFieldValue',
                 itemId:'typeFieldValue',
                 xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Found By Field Value',
+                fieldLabel: 'Test Type Field Value',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
                 margin: '10 10 10 10',
                 autoExpand: true,
                 alwaysExpanded: true,                
-                model: 'Defect',
-                field: 'c_foundBy',
+                model: 'TestCase',
+                field: 'Type',
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
@@ -736,15 +651,25 @@ Ext.define("DDApp", {
                     }
                 },
                 readyEvent: 'ready'                
+            },
+            {
+                name:'gridThreshold',
+                xtype:'textfield',
+                fieldLabel: 'Grid Threshold',
+                itemId: 'gridThreshold',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: '10 10 10 10'
             },        
-        { 
-            name: 'showPatterns',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 25',
-            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        }       
+            { 
+                name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: '0 0 25 25',
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+            }      
         
         ];
     },
@@ -785,11 +710,13 @@ Ext.define("DDApp", {
                 flex: 1
             },
             {
-                dataIndex: 'Defects',
-                text: 'Defect Count',
-                renderer:function(Defects){
-                        return Defects.Count;
-                },
+                dataIndex: 'TestCaseCount',
+                text: 'Test Case Count',
+                flex: 1
+            },
+            {
+                dataIndex: 'TestCaseStatus',
+                text: 'Test Case Status',
                 flex: 1
             }
         ];

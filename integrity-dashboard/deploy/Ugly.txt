@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Defect Density</title>
+    <title>Integrity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 27 2016 15:30:43 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Jul 28 2016 14:02:20 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 27 2016 15:30:43 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Thu Jul 28 2016 14:02:20 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('DDApp', {
-                   name: 'Defect Density'
+               Rally.launchApp('IntegrityApp', {
+                   name: 'Integrity'
                });
         });
     </script>
