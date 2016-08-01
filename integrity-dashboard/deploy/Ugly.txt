@@ -3,10 +3,10 @@
 <head>
     <title>Integrity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jul 28 2016 14:02:20 GMT-0400 (EDT) -->
+    <!--  Build Date: Mon Aug 01 2016 09:17:45 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jul 28 2016 14:02:20 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Mon Aug 01 2016 09:17:45 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     

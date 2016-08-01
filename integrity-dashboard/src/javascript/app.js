@@ -20,6 +20,7 @@ Ext.define("IntegrityApp", {
         defaultSettings: {
             showPatterns: false,
             typeField: 'TestCase',
+            typeFieldValue: 'Acceptance',
             isTestableField: 'c_IsTestable',
             gridThreshold: 2
         }
@@ -174,6 +175,16 @@ Ext.define("IntegrityApp", {
             end_field   = "ReleaseDate";
         }
         
+        var foundByColumn = this.getSetting('typeField');
+        var foundByValues = me.getSetting('typeFieldValue').split(',');
+
+        var foundByFilter = [];
+
+        Ext.Array.each(foundByValues, function(val){
+            foundByFilter.push({property: 'TestCases.'+foundByColumn, value:val});
+        });
+
+
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
@@ -185,21 +196,35 @@ Ext.define("IntegrityApp", {
         
         filters = Rally.data.wsapi.Filter.and(filters).and({property: isTestableField, operator: '=', value: true});
 
+        foundByFilter = filters.and(Rally.data.wsapi.Filter.or(foundByFilter));
+
         var config = {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',start_field,end_field]
+                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',foundByColumn, start_field,end_field]
         };
-        
+
+        var config1 = {
+            model:'HierarchicalRequirement',
+            limit: Infinity,
+            filters: foundByFilter,
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
+                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',foundByColumn, start_field,end_field]
+        };
+        // make two calls to get the ones with test cases of specific type.
         Deft.Chain.sequence([
             function() { 
                 return TSUtilities.loadWsapiRecords(config);
+            },
+            function() { 
+                return TSUtilities.loadWsapiRecords(config1);
             }
         ],this).then({
             success: function(results) {
-                deferred.resolve(Ext.Array.flatten(results));
+                //deferred.resolve(Ext.Array.flatten(results));
+                deferred.resolve(results);
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -219,20 +244,21 @@ Ext.define("IntegrityApp", {
      */
 
     _collectArtifactsByTimebox: function(items) {
+        //console.log('items >>', items);
+        
+        var test_cases_object_ids = [];
+
+        Ext.Array.each(items[1],function(item){
+            test_cases_object_ids.push(item.get('ObjectID'));
+        });
+
 
         var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
-        var foundByColumn = this.getSetting('foundByColumn');
-        var foundByValues = me.getSetting('typeFieldValue').split(',');
 
-        var foundByFilter = [];
-
-        Ext.Array.each(foundByValues, function(val){
-            foundByFilter.push({property: foundByColumn, value:val});
-        });
         
-        if ( items.length === 0 ) { return hash; }
+        if ( items[0].length === 0 ) { return hash; }
         
         var base_hash = {
             records: {
@@ -241,7 +267,7 @@ Ext.define("IntegrityApp", {
             }
         };
 
-        Ext.Array.each(items, function(item){
+        Ext.Array.each(items[0], function(item){
             var timebox = item.get(timebox_type).Name;
             
             if ( Ext.isEmpty(hash[timebox])){
@@ -250,12 +276,11 @@ Ext.define("IntegrityApp", {
             }
             hash[timebox].records.all.push(item);
 
-            var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
-
-            if(item.get('TestCaseCount') > 0 ){
+            //var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
+            if(Ext.Array.contains(test_cases_object_ids,item.get('ObjectID'))){
                 hash[timebox].records['with_test_cases'].push(item);
             }
-            
+           
         });
         
         return hash;
@@ -485,7 +510,7 @@ Ext.define("IntegrityApp", {
         
         this.logger.log('_makeRawGrid', artifacts_by_timebox);
        
-        var columns = [{dataIndex:'Name',text:'Counts'}];
+        var columns = [{dataIndex:'Name',text:'Counts',flex:2}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", 
                             text: field, 
@@ -493,7 +518,7 @@ Ext.define("IntegrityApp", {
                             flex:1,
                             renderer: function(value,metaData){
                                 if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
-                                     metaData.style = 'text-align:center;background-color:red';    
+                                     metaData.style = 'text-align:center;background-color:#ff9999';    
                                 }
                                 return value;
                             }
