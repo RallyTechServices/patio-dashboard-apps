@@ -31,20 +31,20 @@ Ext.define('quarter-item-selector', {
     _addSelector: function(){
         // The data store containing the list of states
         var quarters = Ext.create('Ext.data.Store', {
-            fields: ['abbr', 'name'],
+            fields: ['abbr', 'name','startDate','endDate'],
             data : [
-                {"abbr":"Q12015", "name":"2015 - Q1", "quarterStartDate":"2014-10-1", "quarterEndDate":"2014-12-31"},
-                {"abbr":"Q22015", "name":"2015 - Q2", "quarterStartDate":"2015-1-1", "quarterEndDate":"2015-3-31"},
-                {"abbr":"Q32015", "name":"2015 - Q3", "quarterStartDate":"2015-4-1", "quarterEndDate":"2015-6-30"},
-                {"abbr":"Q42015", "name":"2015 - Q4", "quarterStartDate":"2015-7-1", "quarterEndDate":"2015-9-30"},            
-                {"abbr":"Q12016", "name":"2016 - Q1", "quarterStartDate":"2015-10-1", "quarterEndDate":"2015-12-31"},
-                {"abbr":"Q22016", "name":"2016 - Q2", "quarterStartDate":"2016-1-1", "quarterEndDate":"2016-3-31"},
-                {"abbr":"Q32016", "name":"2016 - Q3", "quarterStartDate":"2016-4-1", "quarterEndDate":"2016-6-30"},
-                {"abbr":"Q42016", "name":"2016 - Q4", "quarterStartDate":"2016-7-1", "quarterEndDate":"2016-9-30"},
-                {"abbr":"Q12017", "name":"2017 - Q1", "quarterStartDate":"2016-10-1", "quarterEndDate":"2016-12-31"},
-                {"abbr":"Q22017", "name":"2017 - Q2", "quarterStartDate":"2017-1-1", "quarterEndDate":"2017-3-31"},
-                {"abbr":"Q32017", "name":"2017 - Q3", "quarterStartDate":"2017-4-1", "quarterEndDate":"2017-6-30"},
-                {"abbr":"Q42017", "name":"2017 - Q4", "quarterStartDate":"2017-7-1", "quarterEndDate":"2016-9-30"}                
+                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-1", "endDate":"2014-12-31"},
+                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-1-1", "endDate":"2015-3-31"},
+                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-4-1", "endDate":"2015-6-30"},
+                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-7-1", "endDate":"2015-9-30"},            
+                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-1", "endDate":"2015-12-31"},
+                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-1-1", "endDate":"2016-3-31"},
+                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-4-1", "endDate":"2016-6-30"},
+                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-7-1", "endDate":"2016-9-30"},
+                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-1", "endDate":"2016-12-31"},
+                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-1-1", "endDate":"2017-3-31"},
+                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-4-1", "endDate":"2017-6-30"},
+                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-7-1", "endDate":"2016-9-30"}                
             ]
         });
 
@@ -88,6 +88,7 @@ Ext.define('quarter-item-selector', {
         if (cb){
             var quarter = cb.findRecordByValue(cb.value);
             this.quarter = quarter;
+            this.fireEvent('change', quarter);
             this.publish('quarterSelected', quarter);
             if (this.stateful && this.stateId){
                 this.saveState();
