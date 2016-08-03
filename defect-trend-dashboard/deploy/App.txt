@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 13 2016 15:08:03 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Aug 03 2016 16:20:28 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 13 2016 15:08:03 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Aug 03 2016 16:20:28 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 182530623902;
+        var CHECKSUM = 224933750369;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -866,7 +866,9 @@ Ext.override(Rally.ui.chart.Chart,{
 
     // override to allow for data to be pushed in more complicated objects
     _isData: function(point) {
-        return point > 0 || point.y > 0 ;
+        if ( point > 0 ) { return true; }
+        if ( point && point.y && point.y > 0 ) { return true; }
+        return false;
     }
     
 });
@@ -901,7 +903,15 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             height: 375,
             margin: 5,
             overflowY: 'auto',
-            html: description
+            html: description,
+            listeners:{
+                collapse: function(){
+                    this.up().previousSibling().focus();
+                },
+                expand: function(){
+                    this.up().previousSibling().focus();
+                }
+            }
             
         });
     },
@@ -1123,6 +1133,125 @@ Ext.define('CA.techservices.container.GridBox',{
         
         box.add(config);
     }
+});
+Ext.define('quarter-item-selector', {
+    extend : 'Ext.Container',
+    componentCls : 'app',
+    alias : 'widget.quarteritemselector',
+    layout : 'hbox',
+    width : '100%',
+    mixins : [
+        'Rally.Messageable',
+        'Ext.state.Stateful'
+    ],
+    stateful: true,
+    stateEvents: ['change'],
+
+    buttonPushed: false,
+    constructor : function(config)
+    {
+        this.callParent(arguments);
+    },
+
+    initComponent : function()
+    {
+        this.callParent(arguments);
+        this.removeAll();
+
+        this._addSelector();
+        // configured to allow others to ask what the current selection is,
+        // in case they missed the initial message
+        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
+
+    },
+    _addSelector: function(){
+        // The data store containing the list of states
+        var quarters = Ext.create('Ext.data.Store', {
+            fields: ['abbr', 'name','startDate','endDate'],
+            data : [
+                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-1", "endDate":"2014-12-31"},
+                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-1-1", "endDate":"2015-3-31"},
+                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-4-1", "endDate":"2015-6-30"},
+                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-7-1", "endDate":"2015-9-30"},            
+                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-1", "endDate":"2015-12-31"},
+                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-1-1", "endDate":"2016-3-31"},
+                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-4-1", "endDate":"2016-6-30"},
+                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-7-1", "endDate":"2016-9-30"},
+                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-1", "endDate":"2016-12-31"},
+                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-1-1", "endDate":"2017-3-31"},
+                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-4-1", "endDate":"2017-6-30"},
+                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-7-1", "endDate":"2016-9-30"}                
+            ]
+        });
+
+        
+
+        this.add({
+            xtype: 'combobox',
+            fieldLabel: 'Choose Quarter',
+            itemId: 'quarter-combobox',
+            store: quarters,
+            queryMode: 'local',
+            displayField: 'name',
+            valueField: 'abbr',
+            margin: 10,
+            listeners:{
+                change: this._updateGoButton,
+                scope: this,
+            }
+
+        });
+
+        this.add({
+                xtype: 'rallybutton',
+                text: 'Go',
+                itemId: 'cb-go-button',
+                cls: 'rly-small primary',
+                disabled: true,
+                margin: 10,
+                listeners: {
+                    scope: this,
+                    click: this._updateQuarter
+                }
+        });
+
+    },
+
+    _updateQuarter: function(){
+        this.buttonPushed = true;
+        var cb = this.down('#quarter-combobox');
+        
+        if (cb){
+            var quarter = cb.findRecordByValue(cb.value);
+            this.quarter = quarter;
+            this.fireEvent('change', quarter);
+            this.publish('quarterSelected', quarter);
+            if (this.stateful && this.stateId){
+                this.saveState();
+            }
+        }
+
+    },
+
+    _updateGoButton: function(cb) {
+        if ( !Ext.isEmpty(cb.getValue()) ) {
+            this.down('#cb-go-button').setDisabled(false);
+        } else {
+            this.down('#cb-go-button').setDisabled(true);
+        }
+    },
+
+    _requestQuarter : function() {
+        // only publish if the go button has been pushed
+        if ( this.buttonPushed ) {
+            this.publish('quarterSelected', this.quarter || null);
+            return;
+        }
+        
+        console.log("Requested Quarter, but the user hasn't pushed the Go button");
+        
+    },
+
 });
 Ext.define('CA.techservices.calculator.DefectAccumulation', {
     extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
@@ -1438,6 +1567,127 @@ Ext.define('CA.techservices.calculator.DefectDelta', {
     }
 });
 
+Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
+    extend: "Rally.data.lookback.calculator.TimeInStateCalculator",
+
+    config: {
+        closedStateValues: ['Fixed','Closed','Junked','Duplicate'],
+        productionDefects: [],
+        showOnlyProduction: false,
+        chartType: 'column', /* column or pie */
+        buckets: {} /* a hash of values >= */
+    },
+    
+    _isCreatedAfterStart: function(snapshot) {
+        var me = this;
+        
+        if ( me.config.showOnlyProduction) {
+            var production_defect_oids = Ext.Array.map(this.config.productionDefects,function(d){
+                return d.get('ObjectID')
+            });
+            
+            return (
+                snapshot.CreationDate >= Rally.util.DateTime.toIsoString(me.startDate)
+                && Ext.Array.contains(production_defect_oids,snapshot.ObjectID)
+            );
+        }
+        return (snapshot.CreationDate >= Rally.util.DateTime.toIsoString(me.startDate));
+
+    },
+    
+    _isResolved: function(snapshot) {
+        var me = this;
+        var killed_states = this.config.closedStateValues;
+
+        if ( me.config.showOnlyProduction) {
+            var production_defect_oids = Ext.Array.map(this.config.productionDefects,function(d){
+                return d.get('ObjectID')
+            });
+            
+            return (
+                Ext.Array.contains(killed_states,snapshot.State)
+                && Ext.Array.contains(production_defect_oids,snapshot.ObjectID)
+                && snapshot.CreationDate >= Rally.util.DateTime.toIsoString(me.startDate)
+            );
+        }
+
+        return ( 
+            Ext.Array.contains(killed_states,snapshot.State)
+            && snapshot.CreationDate >= Rally.util.DateTime.toIsoString(me.startDate) 
+        );
+
+    },
+    
+    runCalculation: function (snapshots) {
+        var me = this;
+        
+        console.log('closed states:', me.closedStateValues, snapshots.length);
+        
+        this.startDate = this.startDate || this._getStartDate(snapshots);
+        this.endDate = this.endDate || this._getEndDate(snapshots);
+            
+        var final_snaps = Ext.Array.filter(snapshots, function(snapshot){
+            return ( me._isResolved(snapshot)  && snapshot._ValidTo == "9999-01-01T00:00:00.000Z" );
+        });
+        
+        var cycle_times = [];
+        
+        Ext.Array.each(final_snaps,function(snapshot){
+            var creation_date_in_js = Rally.util.DateTime.fromIsoString(snapshot.CreationDate);
+            var state_date_in_js =    Rally.util.DateTime.fromIsoString(snapshot._ValidFrom);
+            
+            var time_difference = Rally.util.DateTime.getDifference(state_date_in_js,creation_date_in_js,'hour');
+            cycle_times.push(time_difference);
+            
+            snapshot.__cycle = time_difference;
+            if ( me.granularity == 'day' ) { snapshot.__cycle = time_difference / 24; }
+        });
+
+        var series = [];
+        var categories = Ext.Object.getKeys(this.buckets);
+        
+        series = [{type: 'column', name:'Defects',data: this._putTimesInBuckets(cycle_times)}];
+        
+        return {
+            categories: categories,
+            series: series
+        }
+    },
+    
+    _putTimesInBuckets: function(ages) {
+        var bucket_ranges = this.buckets;
+        var buckets = {};
+        
+        Ext.Object.each(bucket_ranges, function(key, value){
+            buckets[key] = [];
+        });
+        
+        Ext.Array.each(ages, function(age){
+            
+            var bucket_choice = null;
+            Ext.Object.each( bucket_ranges, function( key, value ) {
+                if ( age >= value ) {
+                    bucket_choice = key;
+                }
+            });
+            
+            buckets[bucket_choice].push(age);
+            
+        });
+        
+        var data = [];
+        Ext.Object.each(buckets, function(key,items){
+            data.push(items.length);
+        });
+        
+        return data;
+    },
+    
+    onPointClick: function(evt) {
+        // override with configuration setting
+    }
+    
+ });
 
 /**
  * A picker which allows selecting multiple field values.
@@ -2564,6 +2814,7 @@ Ext.define("TSDefectTrendDashboard", {
         "priority but set to High on Wednesday won't get counted on the chart until Wednesday. " +
         "<p/>",
         
+        
 //        "<strong>Open Defects</strong><br/>" +
 //        "<br/>" +
 //        "What is the defect trend over time? " +
@@ -2579,8 +2830,18 @@ Ext.define("TSDefectTrendDashboard", {
         
         "<strong>Open Defect Aging (Days Open) by Priority</strong><br/>" +
         "<br/>" +
-        "How long do things stay open? " +
+        "How long have things been open? " +
         "This chart shows the number of defects by how long they've been open. " +
+        "Each bar represents a range of day counts and the number is the number of defects that are " +
+        "currently open and how long it has been since they were created.  The bar is segmented by priority." +
+        "<p/>" + 
+        "This chart shows all priorities. " +
+        "<p/>",
+        
+        "<strong>Defect Closure Durations by Priority</strong><br/>" +
+        "<br/>" +
+        "How long do things stay open before closure? " +
+        "This chart shows the number of defects by how long they were open before closing. " +
         "Each bar represents a range of day counts and the number is the number of defects that are " +
         "currently open and how long it has been since they were created.  The bar is segmented by priority." +
         "<p/>" + 
@@ -2706,8 +2967,9 @@ Ext.define("TSDefectTrendDashboard", {
         
         Deft.Chain.pipeline([
             this._makeAccumulationChart,
-            this._makeDefectAgingChart
-            //this._makeDeltaChart
+            //this._makeDeltaChart,
+            this._makeDefectAgingChart,
+            this._makeDefectOpenTimeChart
         ],this).then({
             scope: this,
             success: function(results) {
@@ -2739,6 +3001,32 @@ Ext.define("TSDefectTrendDashboard", {
             chartConfig: this._getAccumulationChartConfig(),
             chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light]
         },0);
+    },
+    
+    _makeDefectOpenTimeChart: function() {
+        var closedStates = this.getSetting('closedStateValues');
+        if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+        
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+        this.setChart({
+            xtype: 'rallychart',
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getChartStoreConfig(),
+            
+            calculatorType: 'CA.TechnicalServices.calculator.DefectResponseTimeCalculator',
+            calculatorConfig: {
+                closedStateValues: closedStates,
+                granularity: 'day',
+                buckets: this._getBucketRanges()
+            },
+            
+            chartConfig: this._getClosureChartConfig(),
+            chartColors: colors
+        },2);
     },
     
     _makeDefectAgingChart: function() {
@@ -2797,47 +3085,39 @@ Ext.define("TSDefectTrendDashboard", {
         return Rally.util.DateTime.getDifference(new Date(), item.get('CreationDate'),'day');
     },
     
+    _getBucketRanges: function() {
+        return {
+            "0-14 Days":  0,
+            "15-30 Days": 15,
+            "31-60 Days": 31,
+            "61-90 Days": 61,
+            "91-200 Days": 91,
+            "201-300 Days": 201,
+            "301+ Days": 301
+        };
+    },
+    
     _collectDefectsByAge: function(defects) {
         
-        var me = this,
-            priorities = this.all_priorities;
-
-        var bucket_names = [
-            "0-14 Days",
-            "15-30 Days",
-            "31-60 Days",
-            "61-90 Days",
-            "91-200 Days",
-            "201-300 Days",
-            "301+ Days"
-        ];
-        
+        var bucket_ranges = this._getBucketRanges();
         var buckets = {};
         
-        Ext.Array.each(bucket_names, function(name){
-            buckets[name] = { all: [] };
-            Ext.Array.each(priorities, function(priority){
-                if ( priority == "" ) { priority = "None"; }
-                buckets[name][priority] = [];
-            });
+        Ext.Object.each(bucket_ranges, function(key, value){
+            buckets[key] = [];
         });
-        
-        console.log(buckets);
         
         Ext.Array.each(defects, function(defect){
             var age = defect.get('__age');
-            var priority = defect.get('Priority');
-                        
-            var name = "301+ Days";
             
-            if ( age < 15 ) { name = "0-14 Days"; }
-            else if ( age < 31 ) { name = "15-30 Days"; }
-            else if ( age < 61 ) { name = "31-60 Days" }
-            else if ( age < 91 ) { name = "61-90 Days" }
-            else if ( age < 201) { name = "91-200 Days" }
-            else if ( age < 301) { name = "201-300 Days" }
+            var bucket_choice = null;
+            Ext.Object.each( bucket_ranges, function( key, value ) {
+                if ( age >= value ) {
+                    bucket_choice = key;
+                }
+            });
             
-            buckets = me._pushIntoBuckets(buckets, name, priority, defect);
+            buckets[bucket_choice].push(defect);
+            
         });
         
         console.log('buckets:', buckets);
@@ -2940,7 +3220,7 @@ Ext.define("TSDefectTrendDashboard", {
                _TypeHierarchy: 'Defect' 
            },
            removeUnauthorizedSnapshots: true,
-           fetch: ['ObjectID','State','Priority'],
+           fetch: ['ObjectID','State','Priority','CreationDate'],
            hydrate: ['State','Priority'],
            sort: {
                '_ValidFrom': 1
@@ -3043,6 +3323,45 @@ Ext.define("TSDefectTrendDashboard", {
                     }
                 },
                 area: {
+                    stacking: 'normal'
+                }
+            }
+        };
+    },
+    
+    _getClosureChartConfig: function() {
+        return {
+            chart: {
+                zoomType: 'xy'
+            },
+            title: {
+                text: 'Defect Closure Durations by Priority'
+            },
+            xAxis: {
+                tickmarkPlacement: 'on',
+                title: {
+                    text: ''
+                },
+                labels            : {
+                    rotation : -45
+                }
+            },
+            yAxis: [
+                {
+                    min: 0,
+                    title: {
+                        text: 'Days to Close'
+                    }
+                }
+            ],
+            tooltip: { shared: true },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false
+                    }
+                },
+                column: {
                     stacking: 'normal'
                 }
             }
