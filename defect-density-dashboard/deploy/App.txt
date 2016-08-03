@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Acceptance Timing</title>
+    <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 03 2016 12:42:33 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Jul 27 2016 15:30:42 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 03 2016 12:42:33 GMT-0400 (EDT)";
-        var CHECKSUM = 64800847176;
+        var APP_BUILD_DATE = "Wed Jul 27 2016 15:30:42 GMT-0400 (EDT)";
+        var CHECKSUM = 66170267520;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -870,15 +870,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             height: 375,
             margin: 5,
             overflowY: 'auto',
-            html: description,
-            listeners:{
-                collapse: function(){
-                    this.up().previousSibling().focus();
-                },
-                expand: function(){
-                    this.up().previousSibling().focus();
-                }
-            }
+            html: description
             
         });
     },
@@ -1101,165 +1093,38 @@ Ext.define('CA.techservices.container.GridBox',{
         box.add(config);
     }
 });
-Ext.define('quarter-item-selector', {
-    extend : 'Ext.Container',
-    componentCls : 'app',
-    alias : 'widget.quarteritemselector',
-    layout : 'hbox',
-    width : '100%',
-    mixins : [
-        'Rally.Messageable',
-        'Ext.state.Stateful'
-    ],
-    stateful: true,
-    stateEvents: ['change'],
-
-    buttonPushed: false,
-    constructor : function(config)
-    {
-        this.callParent(arguments);
-    },
-
-    initComponent : function()
-    {
-        this.callParent(arguments);
-        this.removeAll();
-
-        this._addSelector();
-        // configured to allow others to ask what the current selection is,
-        // in case they missed the initial message
-        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
-
-    },
-    _addSelector: function(){
-        // The data store containing the list of states
-        var quarters = Ext.create('Ext.data.Store', {
-            fields: ['abbr', 'name','startDate','endDate'],
-            data : [
-                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-1", "endDate":"2014-12-31"},
-                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-1-1", "endDate":"2015-3-31"},
-                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-4-1", "endDate":"2015-6-30"},
-                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-7-1", "endDate":"2015-9-30"},            
-                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-1", "endDate":"2015-12-31"},
-                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-1-1", "endDate":"2016-3-31"},
-                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-4-1", "endDate":"2016-6-30"},
-                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-7-1", "endDate":"2016-9-30"},
-                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-1", "endDate":"2016-12-31"},
-                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-1-1", "endDate":"2017-3-31"},
-                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-4-1", "endDate":"2017-6-30"},
-                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-7-1", "endDate":"2016-9-30"}                
-            ]
-        });
-
-        
-
-        this.add({
-            xtype: 'combobox',
-            fieldLabel: 'Choose Quarter',
-            itemId: 'quarter-combobox',
-            store: quarters,
-            queryMode: 'local',
-            displayField: 'name',
-            valueField: 'abbr',
-            margin: 10,
-            listeners:{
-                change: this._updateGoButton,
-                scope: this,
-            }
-
-        });
-
-        this.add({
-                xtype: 'rallybutton',
-                text: 'Go',
-                itemId: 'cb-go-button',
-                cls: 'rly-small primary',
-                disabled: true,
-                margin: 10,
-                listeners: {
-                    scope: this,
-                    click: this._updateQuarter
-                }
-        });
-
-    },
-
-    _updateQuarter: function(){
-        this.buttonPushed = true;
-        var cb = this.down('#quarter-combobox');
-        
-        if (cb){
-            var quarter = cb.findRecordByValue(cb.value);
-            this.quarter = quarter;
-            this.fireEvent('change', quarter);
-            this.publish('quarterSelected', quarter);
-            if (this.stateful && this.stateId){
-                this.saveState();
-            }
-        }
-
-    },
-
-    _updateGoButton: function(cb) {
-        if ( !Ext.isEmpty(cb.getValue()) ) {
-            this.down('#cb-go-button').setDisabled(false);
-        } else {
-            this.down('#cb-go-button').setDisabled(true);
-        }
-    },
-
-    _requestQuarter : function() {
-        // only publish if the go button has been pushed
-        if ( this.buttonPushed ) {
-            this.publish('quarterSelected', this.quarter || null);
-            return;
-        }
-        
-        console.log("Requested Quarter, but the user hasn't pushed the Go button");
-        
-    },
-
-});
-Ext.define("ATApp", {
+Ext.define("DDApp", {
     extend: 'CA.techservices.app.ChartApp',
 
     descriptions: [
-        "<strong>Acceptance Timing of Stories</strong><br/>" +
+        "<strong>Defect Density per Timebox</strong><br/>" +
             "<br/>" +
-            "This dashboard shows Acceptance Timing of Stories by number of stories for each Plan Estimate size" ,
-        "<strong>Acceptance Timing of Stories - %</strong><br/>"+
+            "The top stacked bar chart displaysthetotal number of stories versus stories with at least one defect" 
+            ,
+        "<strong>Percentage of stories with defects</strong><br/>"+
             "<br/>" +
-            "This dashboard shows Acceptance Timing of Stories by %" ,
-        "<strong>Delivery Effort Full Time Equivalents</strong><br/>"+
+            "The brown line graph displays the percentage of stories that are affected by at least one defect" ,
+        "<strong>Percentage of points affected by defects</strong><br/>"+
              "<br/>" +
-            "This dashboard shows Acceptance Timing of Stories by  the total number of stories for each sprint day." 
+            "The red line graph displays the percentage of points that are affected by defects in the sprint" 
 
     ],
     
     integrationHeaders : {
-        name : "ATApp"
+        name : "DDApp"
     },
     
     config: {
         defaultSettings: {
             showPatterns: false,
-            showNonFibonacciCategory: true
+            foundByColumn: 'c_foundBy'
         }
     },
                         
     launch: function() {
-        this.fib_types = this._getFibTypes();
         this.callParent();
         this._addSelectors();
         this._updateData();
-    },
-
-    _getFibTypes: function(){
-        var fibonacci = [1,2,3,5,8,13,21];
-        if ( this.getSetting('showNonFibonacciCategory') ) {
-            fibonacci.push(-1);
-        }
-        return fibonacci;
     },
 
     _addSelectors: function() {
@@ -1340,6 +1205,7 @@ Ext.define("ATApp", {
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeMiddleChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
+                this._makeRawBottomGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -1405,18 +1271,17 @@ Ext.define("ATApp", {
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(start_field);
-        
+
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
-            {property:'AcceptedDate', operator: '!=', value: null }
+            {property: type + '.' + start_field, operator: '<=', value:last_date}
         ];
         
         var config = {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
                 'PlanEstimate','Project','Release','AcceptedDate',start_field,end_field]
         };
         
@@ -1436,89 +1301,62 @@ Ext.define("ATApp", {
     },
     
     /* 
-     * returns a hash of hashes -- key is sprint day name value is
+     * returns a hash of hashes -- key is iteration name value is
      * another hash where the records key holds a hash
+     *    the records hash has a key for each allowed value 
+     *    which then provides an array of items that match the allowed value 
+     *    and timebox
      * as in
-     * {1:{"records":{"all":{item1,item2},"1":{item1}},"accepted_sprint_day"}, 2:{"records":{"all":{item1,item2},"1":{item1}},"accepted_sprint_day"}}
+     * { "iteration 1": { "records": { "all": [o,o,o], "with_defects": [o,o] } } }
      */
 
     _collectArtifactsByTimebox: function(items) {
+
+        var me = this;
         var hash = {},
-            fib_types = this.fib_types;
+            timebox_type = this.timebox_type;
+        var foundByColumn = this.getSetting('foundByColumn');
+        var foundByValues = me.getSetting('typeFieldValue').split(',');
 
-        var artifacts_with_timings = [];
-        Ext.Array.each(items,function(artifact){
-            var accepted_sprint_day = Rally.technicalservices.util.Utilities.daysBetween(artifact.get('Iteration').StartDate,artifact.get('AcceptedDate'),false);
-            artifacts_with_timings.push({'artifact':artifact,'accepted_sprint_day':accepted_sprint_day});
+        var foundByFilter = [];
+
+        Ext.Array.each(foundByValues, function(val){
+            foundByFilter.push({property: foundByColumn, value:val});
         });
-
+        
+        if ( items.length === 0 ) { return hash; }
+        
         var base_hash = {
-            total_records:0,
             records: {
-                all: []
+                all: [],
+                with_defects:[]
             }
         };
-        Ext.Array.each(fib_types, function(value) {
-            base_hash.records[value] = [];
-        });
 
-        Ext.Array.each(artifacts_with_timings, function(item){
+        Ext.Array.each(items, function(item){
+            var timebox = item.get(timebox_type).Name;
             
-            var type = item.artifact.get('PlanEstimate') || -1;
-
-            if(hash[item.accepted_sprint_day]){
-
-                if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
-                    hash[item.accepted_sprint_day].records[type] = [item.artifact];
-                }else{
-                    hash[item.accepted_sprint_day].records[type].push(item.artifact);
-                }
-                hash[item.accepted_sprint_day].records.all.push(item.artifact);
-                hash[item.accepted_sprint_day].total_records++;
+            if ( Ext.isEmpty(hash[timebox])){
+                
+                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            else{
+            hash[timebox].records.all.push(item);
 
-                hash[item.accepted_sprint_day] = Ext.Object.merge(Ext.clone(base_hash),{total_records:1,records:{all:[item.artifact]}} );
-                if ( Ext.isEmpty(hash[item.accepted_sprint_day].records[type]) ) {
-                    hash[item.accepted_sprint_day].records[type] = [item.artifact];
-                }else{
-                    hash[item.accepted_sprint_day].records[type].push(item.artifact);
-                }
+            var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
+
+            console.log('defect filter ',filter.toString());
+
+            if(item.get('Defects').Count > 0 ){
+                hash[timebox].records['with_defects'].push(item);
             }
-
-
+            
+            
         });
-
-
-        // Ext.Array.each(artifacts_with_timings,function(item){
-        //     if(hash[item.accepted_sprint_day]){
-        //         hash[item.accepted_sprint_day].records.push(item.artifact);
-        //         hash[item.accepted_sprint_day].records.all.push(item.artifact);
-        //         hash[item.accepted_sprint_day].total_records++;
-        //     }
-        //     else{
-        //         hash[item.accepted_sprint_day] = {total_records:1,records:{all:[item.artifact]}};
-        //     }
-        // })
-
-
-
-        var temp = [];
-
-        Ext.Array.each(Ext.Object.getKeys(hash),function(key){temp.push(parseInt(key));});
-
-        var max_day = Math.max.apply(Math,temp);
-
-        for(var i=0;i<=max_day;i++){
-            if(!hash[i]){
-               hash[i] = base_hash;
-            }
-        }
-
-
+        
         return hash;
     },
 
+   
     _makeTopChart: function(artifacts_by_timebox) {
         var me = this;
 
@@ -1538,85 +1376,78 @@ Ext.define("ATApp", {
         this.setLoading(false);
     },
 
+
     _getTopSeries: function(artifacts_by_timebox) {
-        var series = [];
-        var fib_types = this.fib_types;
-        var name = "Stories";
-        series.push({
-            name: 'All',
-            data: this._calculateTopMeasure(artifacts_by_timebox,'all')
-        }); 
-        Ext.Array.each(fib_types, function(fib_type){
-            name = fib_type;
+        var series = [],
+            allowed_types = ['all','with_defects'];
+        
+
+
+        Ext.Array.each(allowed_types, function(allowed_type){
+            var name = allowed_type;
+
             series.push({
                 name: name,
-                data: this._calculateTopMeasure(artifacts_by_timebox,fib_type)
-            });            
+                color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
+                data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
+                type: 'column',
+                pointPadding: allowed_type == 'all' ? 0 : 0.15,
+                pointPlacement: 0                
+            });
         },this);
+        
         return series;
     },
 
 
-    _calculateTopMeasure: function(artifacts_by_timebox,fib_type) {
+    _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
-            data = [],
-            sum_total_records = 0;
+        data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            var records = value.records[fib_type] || [];
-            sum_total_records += records.length
+        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+            var records = value.records[allowed_type] || [];
+
             data.push({ 
-                y: sum_total_records
+                y:records.length,
+                _records: records,
+                events: {
+                    click: function() {
+                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
+                    }
+                }
             });
+
+
         });
-        return data;
+
+        return data
     },       
 
     _getTopChartConfig: function() {
         var me = this;
         return {
-            chart: { type: 'area' },
-            title: { text: 'Acceptance Timing of Stories' },
-            xAxis: {
-                title: { text: 'Sprint Day' }
-            },
+            chart: { type:'column' },
+            title: { text: 'Defect Density - Stories vs Stories with Defects' },
+            xAxis: {},
             yAxis: [{ 
-                title: { text: 'Total # Stories Accepted' }
+                title: { text: 'Total stories vs stories w/ defects' }
             }],
-            legend: {
-                labelFormatter: function(){
-                    //console.log(this.name);
-                    return this.name == "-1"?"Non-Fibonacci":this.name;
+            plotOptions: {
+                column: {
+                    grouping: false,
+                    shadow: false,
+                    borderWidth: 0
                 }
             },
-            plotOptions: {
-                area: {
-                        stacking: 'normal',
-
-                        dataLabels: {
-                            enabled: true,
-                            formatter: function(){
-                                if(parseInt(this.x)==0){
-                                    return this.y;
-                                }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
-                                    return this.y;
-                                }
-                            }
-                        },                      
-                        lineColor: '#666666',
-                        lineWidth: 1
-                        // ,
-                        // marker: {
-                        //     lineWidth: 1,
-                        //     lineColor: '#666666'
-                        // }
+            tooltip: {
+                formatter: function() {
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
                 }
             }
         }
     },
 
-
-    _makeMiddleChart: function(artifacts_by_timebox) {
+     _makeMiddleChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -1638,7 +1469,7 @@ Ext.define("ATApp", {
     _getMiddleSeries: function(artifacts_by_timebox) {
         var series = [];
         
-        var name = "Stories";
+        var name = "Percentage";
         series.push({
             name: name,
             data: this._calculateMiddleMeasure(artifacts_by_timebox)
@@ -1650,17 +1481,10 @@ Ext.define("ATApp", {
 
     _calculateMiddleMeasure: function(artifacts_by_timebox) {
         var me = this,
-            data = [],
-            pct_total = 0,
-            sum_total_records = 0;
+            data = [];
 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
-            pct_total += value.records.all.length;
-        });
-
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            sum_total_records += value.records.all.length;
-            y_value = Math.round((sum_total_records / pct_total) * 100);
+            y_value = value.records.all.length > 0 ? Math.round((value.records.with_defects.length / value.records.all.length) * 100):0;
             data.push({ 
                 y: y_value
             });
@@ -1672,26 +1496,20 @@ Ext.define("ATApp", {
     _getMiddleChartConfig: function() {
         var me = this;
         return {
-            chart: { type: 'area' },
-            title: { text: 'Acceptance Timing of Stories' },
+            chart: { type: 'line' },
+            title: { text: 'Percentage of stories with defects' },
             xAxis: {
-                title: { text: 'Sprint Day' }
+                title: { }
             },
             yAxis: [{ 
-                title: { text: 'Acceptance %' }
+                title: { text: '% of stories w/ defects' }
             }],
             plotOptions: {
-                area: {
+                line: {
+                        color: '#808080',
                         dataLabels: {
                             enabled: true,
-                            //format: '{y} %',
-                            formatter: function(){
-                                if(parseInt(this.x)==0){
-                                    return this.y + '%';
-                                }else if(this.series.yData[parseInt(this.x)-1]!=this.series.yData[parseInt(this.x)]){
-                                    return this.y  + '%';;
-                                }
-                            }
+                            format: '{y} %',
                         },                    
                         pointStart: 0,
                         marker: {
@@ -1733,11 +1551,10 @@ Ext.define("ATApp", {
     _getBottomSeries: function(artifacts_by_timebox) {
         var series = [];
             
-        var name = "Stories";
+        var name = "Percentage";
         series.push({
             name: name,
             data: this._calculateBottomMeasure(artifacts_by_timebox),
-            type: 'column'
         });
 
         return series;
@@ -1747,36 +1564,152 @@ Ext.define("ATApp", {
     _calculateBottomMeasure: function(artifacts_by_timebox) {
         var me = this,
             data = [];
-        
+
         Ext.Object.each(artifacts_by_timebox, function(key, value){
+            
+            var all_points =0;
+            var defect_points = 0;
+            Ext.Array.each(value.records.all,function(story){
+                all_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
+            });
+
+            Ext.Array.each(value.records.with_defects,function(story){
+                defect_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
+            });
+
+            y_value = all_points > 0 ? Math.round((defect_points / all_points) * 100):0;
+
             data.push({ 
-                y: value.records.all.length,
-                _records: value.records.all,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  "Records for sprint Day " + key);
-                    }
-                }
+                y: y_value
             });
         });
+
         return data;
     },    
     
     _getBottomChartConfig: function() {
         var me = this;
         return {
-            chart: { type:'column' },
-            title: { text: 'Acceptance Timing of Stories' },
+            chart: { type: 'line' },
+            title: { text: 'Percentage of points affected by defects' },
             xAxis: {
-                title: { text: 'Sprint Day' }
+                title: { }
             },
             yAxis: [{ 
-                title: { text: 'Total # Stories Accepted' }
+                title: { text: '% of points affected by defects' }
             }],
             plotOptions: {
-
-            },
+                line: {
+                        color: 'red',
+                        dataLabels: {
+                            enabled: true,
+                            format: '{y} %',
+                        },                    
+                        pointStart: 0,
+                        marker: {
+                            enabled: true,
+                            symbol: 'circle',
+                            radius: 2,
+                            states: {
+                                hover: {
+                                    enabled: true
+                                }
+                            }
+                        }
+                }
+            }
         }
+    },
+
+    _makeRawBottomGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        this.logger.log('_makeRawGrid', artifacts_by_timebox);
+       
+        var columns = [{dataIndex:'Name',text:'Counts'}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
+        });
+        
+        this.logger.log('about to get Raw Rows');
+        var rows = this._getRawBottomRows(artifacts_by_timebox);
+        
+        this.logger.log('about to create store', rows);
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        this.logger.log('about to add', store, columns);
+
+        this.setGrid({
+            xtype:'rallygrid',
+            padding: 5,
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,     
+            store: store,
+            columnCfgs: columns
+        },2);
+
+    },
+    
+    _getRawBottomRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        
+        var row_fields = this._getCategories(artifacts_by_timebox);
+         
+        this.logger.log('row_fields', row_fields);
+        
+        var rows = [
+            {Type:'TotalStoryCount', Name: 'Total Story Count'},
+            {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
+            {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
+        ];
+
+        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+        //     rows.push({Type:rowname.name,Name:rowname.name});
+        // })
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+        
+        this.logger.log('rows >>',rows);
+
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
+              
+                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
+                
+            });
+        });
+        
+        return rows;
+    },
+
+
+    _getBottomSize:function(value,type){
+
+            var size = 0;
+
+            if('TotalStoryCount' == type){
+                size = value.records.all.length;
+            }else if('StoryCountInDefects' == type){
+                size = value.records.with_defects.length;
+            }else if('TotalDefectCount' == type){
+                Ext.Array.each(value.records.with_defects, function(story){
+                    size += story.get('Defects').Count;
+                }); 
+            }
+
+            return size;
     },
 
 
@@ -1784,8 +1717,121 @@ Ext.define("ATApp", {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
 
+/*
+{
+                name: 'kanbanProcessField',
+                itemId:'kanbanProcessField',
+                xtype: 'rallyfieldcombobox',
+                fieldLabel: 'Kanban Process',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: '10 10 10 10',
+                autoExpand: false,
+                alwaysExpanded: false,                
+                model: 'UserStory',
+                hiddenName:'Kanban',
+                bubbleEvents: ['kanbanProcessFieldChange'],
+                listeners: {
+                    ready: function(cb) {
+                        // console.log('CB-Kanban',cb);
+                        me._filterOutWthString(cb.getStore(),'Kanban');
+                    },
+                    change: function(cb) {
+                        this.fireEvent('kanbanProcessFieldChange',cb);
+                    }
+                },                
+                readyEvent: 'ready'
+            },
+            {
+                name: 'kanbanProcessFieldValue',
+                itemId:'kanbanProcessFieldValue',
+                xtype: 'rallyfieldvaluecombobox',
+                fieldLabel: 'Kanban Process Value',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: '10 10 10 10',
+                autoExpand: true,
+                alwaysExpanded: true,                
+                model: 'UserStory',
+                field: 'ScheduleState',
+                listeners: {
+                    ready: function(cb) {
+                        cb.setValue(me.getSetting('kanbanProcessFieldValue'));
+                    }
+                }, 
+                handlesEvents: {
+                    kanbanProcessFieldChange: function(chk){
+                        this.field = chk.value;
+                    }
+                },
+                readyEvent: 'ready'                
+            },
+
+*/
+
+
+
+
     getSettingsFields: function() {
+        var me = this;
         return [
+        // {
+        //     name: 'typeField',
+        //     xtype: 'rallyfieldcombobox',
+        //     model: 'Defect',
+        //     margin: '0 0 25 25'
+        // },
+        {
+                name: 'typeField',
+                itemId:'typeField',
+                xtype: 'rallyfieldcombobox',
+                fieldLabel: 'Found By Field',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: '10 10 10 10',
+                autoExpand: false,
+                alwaysExpanded: false,                
+                model: 'Defect',
+                bubbleEvents: ['typeFieldChange'],
+                listeners: {
+                    ready: function(cb) {
+                        this.fireEvent('typeFieldChange',cb);
+                    },
+                    change: function(cb) {
+                        this.fireEvent('typeFieldChange',cb);
+                    }
+                },                
+                readyEvent: 'ready'
+            },
+            {
+                name: 'typeFieldValue',
+                itemId:'typeFieldValue',
+                xtype: 'rallyfieldvaluecombobox',
+                fieldLabel: 'Found By Field Value',
+                labelWidth: 125,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: '10 10 10 10',
+                autoExpand: true,
+                alwaysExpanded: true,                
+                model: 'Defect',
+                field: 'c_foundBy',
+                multiSelect: true,
+                listeners: {
+                    ready: function(cb) {
+                        cb.setValue(me.getSetting('typeFieldValue'));
+                    }
+                }, 
+                handlesEvents: {
+                    typeFieldChange: function(chk){
+                        this.field = chk.value;
+                    }
+                },
+                readyEvent: 'ready'                
+            },        
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -1793,15 +1839,7 @@ Ext.define("ATApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        },
-        { 
-            name: 'showNonFibonacciCategory',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 25',
-            boxLabel: 'Show non-Fibonacci Category<br/><span style="color:#999999;"><i>Tick to use show a category for items that have sizes not in the Fibonacci series.</i></span>'
-        }        
+        }       
         
         ];
     },
@@ -1840,6 +1878,14 @@ Ext.define("ATApp", {
                         return Project.Name;
                 },
                 flex: 1
+            },
+            {
+                dataIndex: 'Defects',
+                text: 'Defect Count',
+                renderer:function(Defects){
+                        return Defects.Count;
+                },
+                flex: 1
             }
         ];
         
@@ -1867,12 +1913,34 @@ Ext.define("ATApp", {
     _getUnsafeIterationName: function(name) {
         return name.replace(/&#46;/,'.');
     },
+
+    fetchWsapiCount: function(model, query_filters){
+        var deferred = Ext.create('Deft.Deferred');
+
+        Ext.create('Rally.data.wsapi.Store',{
+            model: model,
+            fetch: ['ObjectID'],
+            enablePostGet: true,
+            filters: query_filters,
+            limit: 1,
+            pageSize: 1
+        }).load({
+            callback: function(records, operation, success){
+                if (success){
+                    deferred.resolve(operation.resultSet.totalRecords);
+                } else {
+                    deferred.reject(Ext.String.format("Error getting {0} count for {1}: {2}", model, query_filters.toString(), operation.error.errors.join(',')));
+                }
+            }
+        });
+        return deferred;
+    },
     
 });
 
             
-               Rally.launchApp('ATApp', {
-                   name: 'Acceptance Timing'
+               Rally.launchApp('DDApp', {
+                   name: 'Defect Density'
                });
         });
     </script>

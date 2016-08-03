@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OI Predictability App</title>
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Wed Aug 03 2016 12:41:04 GMT-0400 (EDT)";
+    </script>
+    
+    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            Rally.loadScripts(["../common/src/javascript/ts-quarter-item-selector.js","src/javascript/utils/__ts-info-link.js","src/javascript/utils/__ts-logger.js","src/javascript/app.js"],
+	            function() {
+	                Rally.launchApp('OIPApp', {
+	                    name: 'OI Predictability App'
+	                })
+	            }, true);
+        });
+    </script>
+<link rel="stylesheet" type="text/css" href="src/style/app.css">
+
+</head>
+<body></body>
+</html>

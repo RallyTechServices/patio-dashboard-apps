@@ -37,7 +37,15 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             height: 375,
             margin: 5,
             overflowY: 'auto',
-            html: description
+            html: description,
+            listeners:{
+                collapse: function(){
+                    this.up().previousSibling().focus();
+                },
+                expand: function(){
+                    this.up().previousSibling().focus();
+                }
+            }
             
         });
     },
