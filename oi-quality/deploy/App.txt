@@ -3,13 +3,13 @@
 <head>
     <title>Defects By Program</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 03 2016 21:08:26 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Aug 03 2016 21:10:52 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 03 2016 21:08:26 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Aug 03 2016 21:10:52 GMT-0700 (PDT)";
         var STORY    = "US556";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 40854414143;
+        var CHECKSUM = 40888458453;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1238,6 +1238,7 @@ Ext.define("TSDefectsByProgram", {
         this.rows = rows;
         this.grid = this.displayContainer.add({
             xtype: 'rallygrid',
+            hidden: true,
             store: Ext.create('Rally.data.custom.Store', {
                 data: rows,
                 pageSize: 1000

@@ -274,6 +274,7 @@ Ext.define("TSDefectsByProgram", {
         this.rows = rows;
         this.grid = this.displayContainer.add({
             xtype: 'rallygrid',
+            hidden: true,
             store: Ext.create('Rally.data.custom.Store', {
                 data: rows,
                 pageSize: 1000
