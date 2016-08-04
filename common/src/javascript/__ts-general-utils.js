@@ -171,39 +171,6 @@ Ext.define('TSUtilities', {
         return ( sub_admin_list.length > 0 );
     },
     
-    _currentUserCanWrite: function() {
-        var app = Rally.getApp();
-        
-        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
-            return true;
-        }
-        
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
-        var can_unlock = false;
-                
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unlock = true;
-                }
-            });
-        }
-        
-        return can_unlock;
-    },
-    
-    _currentUserCanUnapprove: function() {
-        return this.currentUserIsAdmin();
-    },
-    
     getStartFieldForTimeboxType: function(type) {
         if ( type.toLowerCase() == "release" ) {
             return 'ReleaseStartDate';
@@ -218,5 +185,58 @@ Ext.define('TSUtilities', {
         }
         
         return 'EndDate';
+    },
+
+    getAllowedValues: function(model, field_name) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: model,
+            success: function(model) {
+                model.getField(field_name).getAllowedValueStore().load({
+                    callback: function(records, operation, success) {
+                        var values = Ext.Array.map(records, function(record) {
+                            return record.get('StringValue');
+                        });
+                        deferred.resolve(values);
+                    }
+                });
+            },
+            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
+        });
+        return deferred;
+    },
+	
+    getPortfolioItemTypes: function() {
+        var deferred = Ext.create('Deft.Deferred');
+                
+        var store = Ext.create('Rally.data.wsapi.Store', {
+            fetch: ['Name','ElementName','TypePath'],
+            model: 'TypeDefinition',
+            filters: [
+                {
+                    property: 'Parent.Name',
+                    operator: '=',
+                    value: 'Portfolio Item'
+                },
+                {
+                    property: 'Creatable',
+                    operator: '=',
+                    value: 'true'
+                }
+            ],
+            autoLoad: true,
+            listeners: {
+                load: function(store, records, successful) {
+                    if (successful){
+                        deferred.resolve(records);
+                    } else {
+                        deferred.reject('Failed to load types');
+                    }
+                }
+            }
+        });
+                    
+        return deferred.promise;
     }
 });

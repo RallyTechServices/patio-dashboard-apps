@@ -553,7 +553,7 @@ Ext.define("ATApp", {
             }],
             plotOptions: {
 
-            },
+            }
         }
     },
 
