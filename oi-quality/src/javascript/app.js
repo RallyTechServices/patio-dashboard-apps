@@ -63,6 +63,21 @@ Ext.define("TSDefectsByProgram", {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
+        
+        this.headerContainer.add({xtype:'container',flex: 1});
+        this.headerContainer.add({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function(button) {
+                    this._export(button);
+                }
+            }
+        });
     },
 
     updateQuarters: function(quarterRecord){
@@ -95,6 +110,7 @@ Ext.define("TSDefectsByProgram", {
                     scope: this,
                     success: function(defects) {
                         var defects_by_program = this._organizeDefectsByProgram(defects);
+                        this._makeChart(defects_by_program);
                         this._makeGrid(defects_by_program);
                     },
                     failure: function(msg){
@@ -230,10 +246,8 @@ Ext.define("TSDefectsByProgram", {
         return defects_by_program;
     },
 
-    _makeGrid: function(defects_by_program) {
+    _makeChart: function(defects_by_program) {
         this.displayContainer.removeAll();
-        
-        console.log(defects_by_program);
         
         this.displayContainer.add({
             xtype: 'rallychart',
@@ -242,7 +256,43 @@ Ext.define("TSDefectsByProgram", {
             chartConfig: this._getChartConfig()
         });
     },
+
+    _makeGrid: function(defects_by_program) {
+        var rows = [];
+        
+         Ext.Object.each(defects_by_program, function(key,value){
+            var row =  {
+                program: key,
+                open: value.open.length,
+                closed: value.closed.length,
+                all: value.all.length
+            };
             
+            rows.push(row);
+        });
+        
+        this.rows = rows;
+        this.grid = this.displayContainer.add({
+            xtype: 'rallygrid',
+            store: Ext.create('Rally.data.custom.Store', {
+                data: rows,
+                pageSize: 1000
+            }),
+            columnCfgs: this._getColumns(),
+            showRowActionsColumn: false,
+            showPagingToolbar: false
+        });
+    },
+    
+    _getColumns: function() {
+        return [
+            { dataIndex:'program', text: 'Program' },
+            { dataIndex:'open', text: 'Defects Open' },
+            { dataIndex:'closed', text: 'Defects Closed' },
+            { dataIndex:'all', text: 'Total Defects' }
+        ];
+    },
+    
     _getChartData: function(defects_by_program) {
         
         var categories = Ext.Object.getKeys(defects_by_program);
@@ -306,6 +356,72 @@ Ext.define("TSDefectsByProgram", {
             }
         });
         return deferred.promise;
+    },
+    
+    _export: function(){
+        var me = this;
+        this.logger.log('_export');
+       
+        var grid = this.down('rallygrid');
+        var rows = this.rows || [];
+                
+        this.logger.log('number of rows:', rows.length, rows);
+        
+        if (!rows ) { return; }
+        
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+        
+        if ( !grid ) {
+            
+            grid = Ext.create('Rally.ui.grid.Grid',{
+                store: store,
+                columnCfgs: [{
+                    dataIndex: 'FormattedID',
+                    text: 'ID'
+                },
+                {
+                    dataIndex: 'Name',
+                    text: 'Name'
+                },
+                {
+                    dataIndex: 'Project',
+                    text: 'Project',
+                    renderer: function(value,meta,record){
+                        if ( Ext.isEmpty(value) ) { 
+                            return "";
+                        }
+                        return value._refObjectName
+                    }
+                },
+                {
+                    dataIndex: '__ruleText',
+                    text:'Rules',
+                    renderer: function(value,meta,record){                        
+                        return value.join('\r\n');
+                    }
+                }]
+            });
+        }
+        
+        var filename = 'defect_counts.csv';
+
+        this.logger.log('saving file:', filename);
+        
+        this.setLoading("Generating CSV");
+        Deft.Chain.sequence([
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromRows(this,grid,rows); } 
+        ]).then({
+            scope: this,
+            success: function(csv){
+                this.logger.log('got back csv ', csv.length);
+                if (csv && csv.length > 0){
+                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
+                } else {
+                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
+                }
+                
+            }
+        }).always(function() { me.setLoading(false); });
     },
     
     getOptions: function() {

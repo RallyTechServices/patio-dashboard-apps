@@ -17,6 +17,7 @@ module.exports = function(grunt) {
             '../common/src/javascript/__ts-general-utils.js',
             '../common/src/javascript/ts-quarter-item-selector.js',
             'src/javascript/utils/*.js',
+            '../common/src/javascript/_ts-file-utilities.js',
             'src/javascript/*.js'
         ]);
 
