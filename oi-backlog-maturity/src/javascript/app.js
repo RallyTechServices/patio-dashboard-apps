@@ -1,21 +1,12 @@
-//PortfolioItem/EPMSIDProject
-// Do cross workspace setting
-// 1. get all PortfolioItem/EPMSIDProject in worksapce
-// 2. get all projects 
-// 3. Lookback and get committed points on day 1 of quarter
-// 4. Get points on current 
-// 5. calculate variance
-// 6. Export.
-//
 
-Ext.define("OIPApp", {
+Ext.define("OIBMApp", {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
    
     integrationHeaders : {
-        name : "OIPApp"
+        name : "OIBMApp"
     },
       
     config: {
@@ -87,28 +78,42 @@ Ext.define("OIPApp", {
         var second_day = new Date(quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
 
-        Deft.Promise.all([
-            me._getEPMSProjects(),
-            me._getDataFromSnapShotStore(second_day)
-        ],me).then({
+       
+        me._getStoryPointsReadyState().then({
             scope: me,
             success: function(records){
                 me.logger.log('updateQuarters',records);
-                var merged_results = Ext.Object.merge(records[0],records[1]);
-                me.logger.log('updateQuarters-merged',Ext.Object.merge(records[0],records[1]));
+                var promises = [];
 
-                predict_data = []
-                Ext.Object.each(merged_results,function(key,val){
-                    var predict_rec = {
-                        Program: val.Name,
-                        CommittedPoints: val.CommittedPoints,
-                        EarnedPoints: val.EarnedPoints,
-                        Variance: val.EarnedPoints > 0 && val.CommittedPoints > 0 ? (val.EarnedPoints / val.CommittedPoints) * 100 : 0
-                    }
-                    predict_data.push(predict_rec);
-                })
+                Ext.Object.each(records,function(key,value){
+                    promises.push(me._getVelocity(key));
+                });
 
-                me._displayGrid(predict_data);
+                Deft.Promise.all(promises).then({
+                    scope: this,
+                    success: function(all_projects_velocity){
+                        me.logger.log('all_projects_velocity',all_projects_velocity);
+
+                        backlog_data = []
+                        Ext.Array.each(all_projects_velocity,function(vel){
+                            
+                            var backlog_rec = {
+                                Program: records[vel.ProjectID].Name,
+                                StoryPoints: records[vel.ProjectID].PlanEstimate > 0 ? records[vel.ProjectID].PlanEstimate:0,
+                                AvgVelocity: vel.Velocity,
+                                Sprints: vel.Velocity > 0 && records[vel.ProjectID].PlanEstimate > 0 ? (records[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
+                            }
+                            backlog_data.push(backlog_rec);
+
+                        });
+
+
+                        me._displayGrid(backlog_data);
+
+
+                    },
+                    failure: function(error_msg) { deferred.reject(error_msg); }
+                });
 
             }
         });
@@ -118,20 +123,20 @@ Ext.define("OIPApp", {
     },
 
 
-    _getEPMSProjects:function(){
+    _getStoryPointsReadyState :function(){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
         var model_name = me.piType;
-        var model_filters = [];
+        var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: "Initiative"},{property:"Ready", value:"true"}];
 
-        model_filters = Rally.data.wsapi.Filter.or(model_filters);
+        model_filters = Rally.data.wsapi.Filter.and(model_filters);
 
         Ext.create('Rally.data.wsapi.Store', {
-            model: model_name,
-            //filters: model_filters,
+            model: 'UserStory',
+            filters: model_filters,
             enablePostGet:true,
-            fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name'],
+            fetch:['ObjectID','Project','PlanEstimate','Name','PortfolioItemType','Feature','Parent','PortfolioItemTypeName'],
             context: { 
                 project: null
                 //,
@@ -145,9 +150,9 @@ Ext.define("OIPApp", {
                     var epms_id_projects = {};
                     Ext.Array.each(records,function(rec){
                         if(epms_id_projects[rec.get('Project').ObjectID]){
-                            epms_id_projects[rec.get('Project').ObjectID].EarnedPoints += rec.get('LeafStoryPlanEstimateTotal');
+                            epms_id_projects[rec.get('Project').ObjectID].PlanEstimate += rec.get('PlanEstimate');
                         }else{
-                            epms_id_projects[rec.get('Project').ObjectID] = {'EarnedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
+                            epms_id_projects[rec.get('Project').ObjectID] = {'PlanEstimate' : rec.get('PlanEstimate')};
                             epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
 
                         }
@@ -162,40 +167,54 @@ Ext.define("OIPApp", {
 
     },
 
-
-    _getDataFromSnapShotStore:function(date){
+     _getVelocity: function(project_obejctID){
         var deferred = Ext.create('Deft.Deferred');
+        var me = this;
 
-        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            //"context": this.getContext().getDataContext(),
-            "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
-            "find": {
-                    "_TypeHierarchy": this.piType,
-                    "__At": date
-            },
-            "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
-             "hydrate": ["Project"]
-        });
+        var today = new Date();
 
-        snapshotStore.load({
-            callback: function(records, operation) {
-               this.logger.log('Lookback Data>>>',records,operation);
-               var epms_id_projects = [];
-                Ext.Array.each(records,function(rec){
-                    if(epms_id_projects[rec.get('Project').ObjectID]){
-                        epms_id_projects[rec.get('Project').ObjectID].CommittedPoints += rec.get('LeafStoryPlanEstimateTotal');
-                    }else{
-                        epms_id_projects[rec.get('Project').ObjectID] = {'CommittedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
-                        epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
-                    }                
-                });
-                deferred.resolve(epms_id_projects);
-            },
-            scope:this
-        });
+        var filters = [{property:'Project.ObjectID',value: project_obejctID},
+                    {property:'EndDate', operator: '<=', value: today}];
+
+        var filter = Rally.data.wsapi.Filter.and(filters);
+        
+        Ext.create('Rally.data.wsapi.Store', {
+            model: 'Iteration',
+            fetch: ['ObjectID','Name','PlanEstimate','StartDate','EndDate'],
+            filters: filter,
+            sorters: [{
+                        property: 'EndDate',
+                        direction: 'DESC'
+                    }],
+            limit: 3,
+            pageSize:3
+        }).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    me.logger.log('_getIterations',records);
+
+                    var result = {ProjectID:project_obejctID};
+ 
+                    var past_velocity = 0;
+                    var past_velocity_length = 0;
     
-        return deferred;
+
+                    Ext.Array.each(records,function(iteration){
+                        past_velocity += iteration.get('PlanEstimate') ? iteration.get('PlanEstimate') : 0;
+                        past_velocity_length += 1;
+                    });
+
+                    result.Velocity = past_velocity_length > 0 && past_velocity > 0 ? Math.round(past_velocity / past_velocity_length):0;
+
+                    deferred.resolve(result);
+
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise; 
     },
 
     _loadWsapiRecords: function(config){
@@ -286,33 +305,25 @@ Ext.define("OIPApp", {
         this.displayContainer.add(grid);
 
 
+
+
+
     },
 
     _getColumns: function() {
         var columns = [];
         var me = this;
-        columns.push({dataIndex:'Program',text:'Program', flex: 1 });
-        columns.push({dataIndex:'CommittedPoints',text:'Committed Points', flex: 1 });
-        columns.push({dataIndex:'EarnedPoints',text:'Earned Points', flex: 1 });
-        columns.push({dataIndex:'Variance',text:'Commitment Variance', flex: 1,
+        columns.push({dataIndex:'Program',text:'Program', flex: 2 });
+        columns.push({dataIndex:'StoryPoints',text:'# Story Points Ready State', flex: 1 });
+        columns.push({dataIndex:'AvgVelocity',text:'Average Velocity', flex: 1 });
+        columns.push({dataIndex:'Sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,
                       renderer: function(Variance){
-                        return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
+                        return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");
                       } 
                   });  
         return columns;
     },
 
-    getSettingsFields: function() {
-        return [{
-            name: 'showScopeSelector',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
-        }];
-    },
-        
     _export: function(){
         var grid = this.down('rallygrid');
         var me = this;
@@ -339,6 +350,17 @@ Ext.define("OIPApp", {
         }).always(function() { me.setLoading(false); });
     },
 
+    getSettingsFields: function() {
+        return [{
+            name: 'showScopeSelector',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show Scope Selector',
+            //bubbleEvents: ['change'],
+            labelAlign: 'right',
+            labelCls: 'settingsLabel'
+        }];
+    },
+        
     getOptions: function() {
         return [
             {

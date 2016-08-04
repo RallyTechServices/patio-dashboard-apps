@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Quarter Selector</title>
+    <title>OI Backlog Maturity App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Aug 04 2016 08:26:45 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Aug 04 2016 08:23:42 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Aug 04 2016 08:26:45 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Thu Aug 04 2016 08:23:42 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('QSApp', {
-                   name: 'Quarter Selector'
+               Rally.launchApp('OIBMApp', {
+                   name: 'OI Backlog Maturity App'
                });
         });
     </script>
