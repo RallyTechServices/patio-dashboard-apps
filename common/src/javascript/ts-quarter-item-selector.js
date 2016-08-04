@@ -12,8 +12,7 @@ Ext.define('quarter-item-selector', {
     stateEvents: ['change'],
 
     buttonPushed: false,
-    constructor : function(config)
-    {
+    constructor : function(config){
         this.callParent(arguments);
     },
 
@@ -33,18 +32,18 @@ Ext.define('quarter-item-selector', {
         var quarters = Ext.create('Ext.data.Store', {
             fields: ['abbr', 'name','startDate','endDate'],
             data : [
-                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-1", "endDate":"2014-12-31"},
-                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-1-1", "endDate":"2015-3-31"},
-                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-4-1", "endDate":"2015-6-30"},
-                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-7-1", "endDate":"2015-9-30"},            
-                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-1", "endDate":"2015-12-31"},
-                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-1-1", "endDate":"2016-3-31"},
-                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-4-1", "endDate":"2016-6-30"},
-                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-7-1", "endDate":"2016-9-30"},
-                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-1", "endDate":"2016-12-31"},
-                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-1-1", "endDate":"2017-3-31"},
-                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-4-1", "endDate":"2017-6-30"},
-                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-7-1", "endDate":"2016-9-30"}                
+                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-01", "endDate":"2014-12-31"},
+                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-01-01", "endDate":"2015-03-31"},
+                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-04-01", "endDate":"2015-06-30"},
+                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-07-01", "endDate":"2015-09-30"},            
+                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-01", "endDate":"2015-12-31"},
+                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-01-01", "endDate":"2016-03-31"},
+                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-04-01", "endDate":"2016-06-30"},
+                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-07-01", "endDate":"2016-09-30"},
+                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-01", "endDate":"2016-12-31"},
+                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-01-01", "endDate":"2017-03-31"},
+                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-04-01", "endDate":"2017-06-30"},
+                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-07-01", "endDate":"2016-09-30"}                
             ]
         });
 
