@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>OI Predictability App</title>
+    <title>OI Backlog Maturity App</title>
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Aug 04 2016 06:33:20 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Thu Aug 04 2016 08:23:41 GMT-0400 (EDT)";
     </script>
     
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
@@ -12,8 +12,8 @@
         Rally.onReady(function() {
             Rally.loadScripts(["src/javascript/utils/__ts-info-link.js","src/javascript/utils/__ts-logger.js","src/javascript/app.js","../common/src/javascript/ts-quarter-item-selector.js","../common/src/javascript/_ts-file-utilities.js"],
 	            function() {
-	                Rally.launchApp('OIPApp', {
-	                    name: 'OI Predictability App'
+	                Rally.launchApp('OIBMApp', {
+	                    name: 'OI Backlog Maturity App'
 	                })
 	            }, true);
         });
