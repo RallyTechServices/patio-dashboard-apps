@@ -18,10 +18,42 @@ Ext.define('quarter-item-selector', {
 
     initComponent : function()
     {
+        var me = this;
         this.callParent(arguments);
         this.removeAll();
 
-        this._addSelector();
+        TSUtilities.getPortfolioItemTypes().then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+                    return;
+                }
+
+                me.featureModelPath = types[0].get('TypePath');
+                me.featureModelName = types[0].get('Name');
+                me.epmsModelPath = types[1].get('TypePath');
+               
+                this._getEPMSProjects().then({
+                    scope:me,
+                    success:function(store){
+                        me.programs = store;
+                        me._addSelector();                
+                    },
+                    failure:function(error){
+                        me.setLoading(false);
+                        Ext.Msg.alert('',msg);
+                    }
+                });
+
+
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
+
+
         // configured to allow others to ask what the current selection is,
         // in case they missed the initial message
         this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
@@ -29,6 +61,7 @@ Ext.define('quarter-item-selector', {
     },
     _addSelector: function(){
         // The data store containing the list of states
+        var me = this;
         var quarters = Ext.create('Ext.data.Store', {
             fields: ['abbr', 'name','startDate','endDate'],
             data : [
@@ -47,7 +80,13 @@ Ext.define('quarter-item-selector', {
             ]
         });
 
-        
+        var programs = []
+        Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
+
+        var programs_store = Ext.create('Ext.data.Store', {
+            fields: ['Name','ObjectID'],
+            data : programs
+        });        
 
         this.add({
             xtype: 'combobox',
@@ -57,6 +96,23 @@ Ext.define('quarter-item-selector', {
             queryMode: 'local',
             displayField: 'name',
             valueField: 'abbr',
+            margin: 10,
+            listeners:{
+                change: this._updateGoButton,
+                scope: this,
+            }
+
+        });
+
+        this.add({
+            xtype: 'combobox',
+            fieldLabel: 'Choose Programs',
+            itemId: 'program-combobox',
+            store: programs_store,
+            multiSelect: true,
+            queryMode: 'local',
+            displayField: 'Name',
+            valueField: 'ObjectID',
             margin: 10,
             listeners:{
                 change: this._updateGoButton,
@@ -82,18 +138,60 @@ Ext.define('quarter-item-selector', {
 
     _updateQuarter: function(){
         this.buttonPushed = true;
-        var cb = this.down('#quarter-combobox');
+        var cb_quarter = this.down('#quarter-combobox');
+        var cb_programs = this.down('#program-combobox');
+
         
-        if (cb){
-            var quarter = cb.findRecordByValue(cb.value);
-            this.quarter = quarter;
-            this.fireEvent('change', quarter);
-            this.publish('quarterSelected', quarter);
+        if (cb_quarter && cb_programs){
+            var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
+            this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value};
+            this.fireEvent('change', this.quarter_and_programs);
+            this.publish('quarterSelected', this.quarter_and_programs);
             if (this.stateful && this.stateId){
                 this.saveState();
             }
         }
 
+    },
+
+
+    _getEPMSProjects:function(){
+        var me = this;
+        var deferred = Ext.create('Deft.Deferred');
+
+        var config = {
+            model: this.epmsModelPath,
+            fetch:['ObjectID','Project','Name'],
+            context: { 
+                project: null
+            }
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(records) {
+                var epms_id_projects = {};
+                Ext.Array.each(records,function(rec){
+                    var project_oid = rec.get('Project').ObjectID;
+                    
+                    if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
+                        epms_id_projects[project_oid] = {
+                            program: rec.get('Project'),
+                            projects: []
+                        }
+                    }
+                    
+                    epms_id_projects[project_oid].projects.push(rec.getData());
+                    
+                });
+                deferred.resolve(epms_id_projects);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+            
+        });
+        
+        return deferred.promise;
     },
 
     _updateGoButton: function(cb) {
@@ -107,7 +205,7 @@ Ext.define('quarter-item-selector', {
     _requestQuarter : function() {
         // only publish if the go button has been pushed
         if ( this.buttonPushed ) {
-            this.publish('quarterSelected', this.quarter || null);
+            this.publish('quarterSelected', this.quarter_and_programs || null);
             return;
         }
         

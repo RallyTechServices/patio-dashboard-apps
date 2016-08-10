@@ -15,31 +15,29 @@ Ext.define("OIBMApp", {
         }
     },
 
-//    piType: 'PortfolioItem/EPMSIDProject',
-    //TODO: find 2nd level PI
-    piType: 'PortfolioItem/Initiative',
-
     launch: function() {
         var me = this;
 
 
-        me._addComponents();
-        // this.down('#message_box').update(this.getContext().getUser());
-        
-        // var model_name = 'Defect',
-        //     field_names = ['Name','State'];
-        
-        // this._loadAStoreWithAPromise(model_name, field_names).then({
-        //     scope: this,
-        //     success: function(store) {
-        //         this._displayGrid(store,field_names);
-        //     },
-        //     failure: function(error_message){
-        //         alert(error_message);
-        //     }
-        // }).always(function() {
-        //     me.setLoading(false);
-        // });
+        TSUtilities.getPortfolioItemTypes().then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+                    return;
+                }
+
+                me.featureModelPath = types[0].get('TypePath');
+                me.featureModelName = types[0].get('Name');
+                
+                me.epmsModelPath = types[1].get('TypePath');
+                
+                me._addComponents();
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
     },
       
     _addComponents: function(){
@@ -70,50 +68,66 @@ Ext.define("OIBMApp", {
         }
     },
 
-    updateQuarters: function(quarterRecord){
+    updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-
+        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
-        me.logger.log('updateQuarters', quarterRecord);
-        var second_day = new Date(quarterRecord.get('startDate'));
+        this.quarterRecord = quarterAndPrograms.quarter;
+        this.programObjectIds = quarterAndPrograms.programs;
+
+        var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
 
-       
-        me._getStoryPointsReadyState().then({
+       this.setLoading("Loading Data..");
+        me._getDataFromSnapShotStore(second_day).then({
             scope: me,
-            success: function(records){
-                me.logger.log('updateQuarters',records);
+            success: function(records1){
+                me.logger.log('updateQuarters',records1);
                 var promises = [];
 
-                Ext.Object.each(records,function(key,value){
-                    promises.push(me._getVelocity(key));
-                });
+                me._getStoryPointsReadyState(records1).then({
+                    success: function(records2){
 
-                Deft.Promise.all(promises).then({
-                    scope: this,
-                    success: function(all_projects_velocity){
-                        me.logger.log('all_projects_velocity',all_projects_velocity);
 
-                        backlog_data = []
-                        Ext.Array.each(all_projects_velocity,function(vel){
-                            
-                            var backlog_rec = {
-                                Program: records[vel.ProjectID].Name,
-                                StoryPoints: records[vel.ProjectID].PlanEstimate > 0 ? records[vel.ProjectID].PlanEstimate:0,
-                                AvgVelocity: vel.Velocity,
-                                Sprints: vel.Velocity > 0 && records[vel.ProjectID].PlanEstimate > 0 ? (records[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
-                            }
-                            backlog_data.push(backlog_rec);
-
+                        Ext.Object.each(records2,function(key,value){
+                            promises.push(me._getVelocity(key));
                         });
 
+                        Deft.Promise.all(promises).then({
+                            scope: this,
+                            success: function(all_projects_velocity){
+                                me.logger.log('all_projects_velocity',all_projects_velocity);
 
-                        me._displayGrid(backlog_data);
+                                backlog_data = []
+                                Ext.Array.each(all_projects_velocity,function(vel){
+                                    
+                                    var backlog_rec = {
+                                        Program: records2[vel.ProjectID].Name,
+                                        StoryPoints: records2[vel.ProjectID].PlanEstimate > 0 ? records2[vel.ProjectID].PlanEstimate:0,
+                                        AvgVelocity: vel.Velocity,
+                                        Sprints: vel.Velocity > 0 && records2[vel.ProjectID].PlanEstimate > 0 ? (records2[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
+                                    }
+                                    backlog_data.push(backlog_rec);
+
+                                });
 
 
+                                me._displayGrid(backlog_data);
+
+
+                            },
+                            failure: function(error_msg) { deferred.reject(error_msg); }
+                        });
+
+                    
                     },
-                    failure: function(error_msg) { deferred.reject(error_msg); }
+                    failure: function(error){
+
+                    }
+
                 });
+                
+                
 
             }
         });
@@ -123,14 +137,59 @@ Ext.define("OIBMApp", {
     },
 
 
-    _getStoryPointsReadyState :function(){
+    _getDataFromSnapShotStore:function(date){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
-        var model_name = me.piType;
+
+        var find = {
+                        "_TypeHierarchy": "HierarchicalRequirement",
+                        "Ready": true,
+                        "__At": date
+                    };
+        if(me.programObjectIds && me.programObjectIds.length > 0){
+            find["Project"] = {"$in": me.programObjectIds};
+        }
+
+        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
+            //"context": this.getContext().getDataContext(),
+            "fetch": [ "ObjectID","PlanEstimate","Project"],
+            "find": find,
+            "sort": { "_ValidFrom": -1 },
+            //useHttpPost:true,
+             "hydrate": ["Project"]
+        });
+
+        snapshotStore.load({
+            callback: function(records, operation) {
+                this.logger.log('Lookback recs',records);
+                deferred.resolve(records);
+            },
+            scope:this
+        });
+    
+        return deferred;
+    },
+
+    _getStoryPointsReadyState :function(records){
+        var me = this;
+
+        if(!records.length > 0){
+            Ext.Msg.alert('',"No Data found");
+                    return;
+        }
+        var deferred = Ext.create('Deft.Deferred');
+
+        var object_id_filters = [];
+
+        Ext.Array.each(records, function(story){
+            object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
+        })
+
+        var model_name = me.epmsModelPath;
         var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: "Initiative"},{property:"Ready", value:"true"}];
 
-        model_filters = Rally.data.wsapi.Filter.and(model_filters);
+        model_filters = Rally.data.wsapi.Filter.and(model_filters).and(Rally.data.wsapi.Filter.or(object_id_filters));
 
         Ext.create('Rally.data.wsapi.Store', {
             model: 'UserStory',
@@ -261,6 +320,7 @@ Ext.define("OIBMApp", {
     
    _displayGrid: function(records){
         this.displayContainer.removeAll();
+        this.setLoading(false);
         //Custom store
         var store = Ext.create('Rally.data.custom.Store', {
             data: records,
@@ -270,23 +330,19 @@ Ext.define("OIBMApp", {
 
         this.logger.log('_displayGrid>>',store);
 
-
-         this.headerContainer.add({
+        this.headerContainer.add({xtype:'container',flex: 1});
+        this.headerContainer.add({
             xtype:'rallybutton',
             itemId:'export_button',
-            text: 'Download CSV',
-            margin:10,
-            align:'right',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
             disabled: false,
-            iconAlign: 'right',
             listeners: {
                 scope: this,
-                click: function() {
-                    this._export();
+                click: function(button) {
+                    this._export(button);
                 }
-            },
-            margin: '10',
-            scope: this
+            }
         });
 
         var grid = {
@@ -332,7 +388,7 @@ Ext.define("OIBMApp", {
         
         this.logger.log('_export',grid);
 
-        var filename = Ext.String.format('quarter-commit-snapshot.csv');
+        var filename = Ext.String.format('backlog_maturity_counts.csv');
 
         this.setLoading("Generating CSV");
         Deft.Chain.sequence([
