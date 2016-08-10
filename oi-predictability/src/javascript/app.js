@@ -1,12 +1,3 @@
-//PortfolioItem/EPMSIDProject
-// Do cross workspace setting
-// 1. get all PortfolioItem/EPMSIDProject in worksapce
-// 2. get all projects 
-// 3. Lookback and get committed points on day 1 of quarter
-// 4. Get points on current 
-// 5. calculate variance
-// 6. Export.
-//
 
 Ext.define("OIPApp", {
     extend: 'Rally.app.App',
@@ -24,31 +15,28 @@ Ext.define("OIPApp", {
         }
     },
 
-//    piType: 'PortfolioItem/EPMSIDProject',
-    //TODO: find 2nd level PI
-    piType: 'PortfolioItem/Initiative',
-
     launch: function() {
         var me = this;
 
+        TSUtilities.getPortfolioItemTypes().then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+                    return;
+                }
 
-        me._addComponents();
-        // this.down('#message_box').update(this.getContext().getUser());
-        
-        // var model_name = 'Defect',
-        //     field_names = ['Name','State'];
-        
-        // this._loadAStoreWithAPromise(model_name, field_names).then({
-        //     scope: this,
-        //     success: function(store) {
-        //         this._displayGrid(store,field_names);
-        //     },
-        //     failure: function(error_message){
-        //         alert(error_message);
-        //     }
-        // }).always(function() {
-        //     me.setLoading(false);
-        // });
+                me.featureModelPath = types[0].get('TypePath');
+                me.featureModelName = types[0].get('Name');
+                
+                me.epmsModelPath = types[1].get('TypePath');
+                
+                me._addComponents();
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
     },
       
     _addComponents: function(){
@@ -79,12 +67,15 @@ Ext.define("OIPApp", {
         }
     },
 
-    updateQuarters: function(quarterRecord){
+    updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-
+        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
-        me.logger.log('updateQuarters', quarterRecord);
-        var second_day = new Date(quarterRecord.get('startDate'));
+        this.quarterRecord = quarterAndPrograms.quarter;
+        this.programObjectIds = quarterAndPrograms.programs;
+
+
+        var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
 
         Deft.Promise.all([
@@ -112,9 +103,6 @@ Ext.define("OIPApp", {
 
             }
         });
-        //return deferred.promise;
-
-
     },
 
 
@@ -122,14 +110,10 @@ Ext.define("OIPApp", {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
-        var model_name = me.piType;
-        var model_filters = [];
+        var model_name = me.epmsModelPath;
 
-        model_filters = Rally.data.wsapi.Filter.or(model_filters);
-
-        Ext.create('Rally.data.wsapi.Store', {
+        var config = {
             model: model_name,
-            //filters: model_filters,
             enablePostGet:true,
             fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name'],
             context: { 
@@ -137,8 +121,24 @@ Ext.define("OIPApp", {
                 //,
                 //workspace: '/workspace/' + workspace_oid
             }
+        };
 
-        }).load({
+        if(me.programObjectIds && me.programObjectIds.length > 0){
+
+            var model_filters = [];
+
+            Ext.Array.each(me.programObjectIds,function(objId){
+                model_filters.push({property:'Project.ObjectID',value:objId});
+            })
+
+            model_filters = Rally.data.wsapi.Filter.or(model_filters);
+                        
+            config["filters"] =  model_filters;
+
+        }
+
+
+        Ext.create('Rally.data.wsapi.Store', config).load({
             callback : function(records, operation, successful) {
                 if (successful){
                     me.logger.log('records',records);
@@ -164,17 +164,24 @@ Ext.define("OIPApp", {
 
 
     _getDataFromSnapShotStore:function(date){
+        var me = this;
         var deferred = Ext.create('Deft.Deferred');
+
+
+        var find = {
+                        "_TypeHierarchy": me.epmsModelPath,
+                        "__At": date
+                    };
+        if(me.programObjectIds && me.programObjectIds.length > 0){
+            find["Project"] = {"$in": me.programObjectIds};
+        }
 
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             //"context": this.getContext().getDataContext(),
             "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
-            "find": {
-                    "_TypeHierarchy": this.piType,
-                    "__At": date
-            },
+            "find": find,
             "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
+            useHttpPost:true,
              "hydrate": ["Project"]
         });
 
@@ -251,23 +258,20 @@ Ext.define("OIPApp", {
 
         this.logger.log('_displayGrid>>',store);
 
+        this.headerContainer.add({xtype:'container',flex: 1});
 
-         this.headerContainer.add({
+        this.headerContainer.add({
             xtype:'rallybutton',
             itemId:'export_button',
-            text: 'Download CSV',
-            margin:10,
-            align:'right',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
             disabled: false,
-            iconAlign: 'right',
             listeners: {
                 scope: this,
-                click: function() {
-                    this._export();
+                click: function(button) {
+                    this._export(button);
                 }
-            },
-            margin: '10',
-            scope: this
+            }
         });
 
         var grid = {
@@ -321,7 +325,7 @@ Ext.define("OIPApp", {
         
         this.logger.log('_export',grid);
 
-        var filename = Ext.String.format('quarter-commit-snapshot.csv');
+        var filename = Ext.String.format('predictability_counts.csv');
 
         this.setLoading("Generating CSV");
         Deft.Chain.sequence([

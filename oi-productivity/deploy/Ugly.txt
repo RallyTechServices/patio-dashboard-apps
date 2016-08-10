@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>OI Backlog Maturity App</title>
-    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 10 2016 15:45:08 GMT-0400 (EDT) -->
+    <title>OI Productivity</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed Aug 10 2016 15:56:43 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 10 2016 15:45:08 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Aug 10 2016 15:56:43 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('OIBMApp', {
-                   name: 'OI Backlog Maturity App'
+               Rally.launchApp('OIPRApp', {
+                   name: 'OI Productivity'
                });
         });
     </script>
