@@ -11,36 +11,27 @@ Ext.define("OIPApp", {
       
     config: {
         defaultSettings: {
-            showScopeSelector: true
+            showScopeSelector: true,
+            showAllWorkspaces: false
         }
     },
 
     launch: function() {
         var me = this;
-
-        TSUtilities.getPortfolioItemTypes().then({
-            success: function(types) {
-                if ( types.length < 2 ) {
-                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
-                    return;
-                }
-
-                me.featureModelPath = types[0].get('TypePath');
-                me.featureModelName = types[0].get('Name');
-                
-                me.epmsModelPath = types[1].get('TypePath');
-                
+        TSUtilities.getWorkspaces().then({
+            scope: this,
+            success: function(workspaces) {
+                me.workspaces = workspaces;
                 me._addComponents();
             },
-            failure: function(msg){
+            failure: function(msg) {
                 Ext.Msg.alert('',msg);
-            },
-            scope: this
+            }
         });
+
     },
       
     _addComponents: function(){
-            this.removeAll();
             this.removeAll();
 
             this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
@@ -61,6 +52,22 @@ Ext.define("OIPApp", {
                 }
             });
 
+
+            this.headerContainer.add({
+                xtype:'rallybutton',
+                itemId:'export_button',
+                cls: 'secondary',
+                text: '<span class="icon-export"> </span>',
+                disabled: false,
+                listeners: {
+                    scope: this,
+                    click: function(button) {
+                        this._export(button);
+                    }
+                }
+            });
+
+
         } else {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
@@ -75,51 +82,108 @@ Ext.define("OIPApp", {
         this.programObjectIds = quarterAndPrograms.programs;
 
 
-        var second_day = new Date(this.quarterRecord.get('startDate'));
-        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
-
-        Deft.Promise.all([
-            me._getEPMSProjects(),
-            me._getDataFromSnapShotStore(second_day)
-        ],me).then({
-            scope: me,
-            success: function(records){
-                me.logger.log('updateQuarters',records);
-                var merged_results = Ext.Object.merge(records[0],records[1]);
-                me.logger.log('updateQuarters-merged',Ext.Object.merge(records[0],records[1]));
-
-                predict_data = []
-                Ext.Object.each(merged_results,function(key,val){
-                    var predict_rec = {
-                        Program: val.Name,
-                        CommittedPoints: val.CommittedPoints,
-                        EarnedPoints: val.EarnedPoints,
-                        Variance: val.EarnedPoints > 0 && val.CommittedPoints > 0 ? (val.EarnedPoints / val.CommittedPoints) * 100 : 0
-                    }
-                    predict_data.push(predict_rec);
-                })
-
-                me._displayGrid(predict_data);
-
+        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+            return function() { 
+                return me._getData( workspace ) 
+            };
+        });
+        
+        Deft.Chain.sequence(promises).then({
+            scope: this,
+            success: function(all_results) {
+                this.logger.log('all_results>>>>',all_results);
+                this.setLoading(false);
+                me._displayGrid(Ext.Array.flatten(all_results));
+                
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem gathering data', msg);
             }
         });
+
+        
     },
 
 
-    _getEPMSProjects:function(){
+
+    _getData: function(workspace) {
+        var me = this;
+        var deferred = Ext.create('Deft.Deferred');
+        var workspace_name = workspace.get('Name');
+        var workspace_oid = workspace.get('ObjectID');
+
+        var second_day = new Date(this.quarterRecord.get('startDate'));
+        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
+
+        
+
+        TSUtilities.getPortfolioItemTypes(workspace).then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
+                    deferred.resolve([]);
+                } else {
+                    this.setLoading('Loading Workspace ' + workspace_name);
+                    var featureModelPath = types[0].get('TypePath');
+                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
+                    
+                    // TODO: another way to find out what the field on story is that gives us the feature
+                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
+                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    
+                    var epmsModelPath = types[1].get('TypePath');
+
+                    Deft.Promise.all([
+                        me._getEPMSProjects(workspace_oid,epmsModelPath),
+                        me._getDataFromSnapShotStore(second_day,workspace_oid,epmsModelPath)
+                    ],me).then({
+                        scope: me,
+                        success: function(records){
+                            me.logger.log('updateQuarters',records);
+                            var merged_results = Ext.Object.merge(records[0],records[1]);
+                            me.logger.log('updateQuarters-merged',Ext.Object.merge(records[0],records[1]));
+
+                            predict_data = []
+                            Ext.Object.each(merged_results,function(key,val){
+                                var predict_rec = {
+                                    Program: val.Name,
+                                    CommittedPoints: val.CommittedPoints,
+                                    EarnedPoints: val.EarnedPoints,
+                                    Variance: val.EarnedPoints > 0 && val.CommittedPoints > 0 ? (val.EarnedPoints / val.CommittedPoints) * 100 : 0
+                                }
+                                predict_data.push(predict_rec);
+                            })
+                            
+                            deferred.resolve(predict_data);
+                            
+                        }
+                    });
+                }
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
+
+
+
+        return deferred.promise;
+    },
+
+    _getEPMSProjects:function(workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
-        var model_name = me.epmsModelPath;
+        //var model_name = me.epmsModelPath;
 
         var config = {
-            model: model_name,
-            enablePostGet:true,
+            model: epmsModelPath,
+            //enablePostGet:true,
             fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name'],
             context: { 
-                project: null
-                //,
-                //workspace: '/workspace/' + workspace_oid
+                project: null,
+                workspace: '/workspace/' + workspace_oid
             }
         };
 
@@ -140,21 +204,19 @@ Ext.define("OIPApp", {
 
         Ext.create('Rally.data.wsapi.Store', config).load({
             callback : function(records, operation, successful) {
-                if (successful){
-                    me.logger.log('records',records);
-                    var epms_id_projects = {};
-                    Ext.Array.each(records,function(rec){
-                        if(epms_id_projects[rec.get('Project').ObjectID]){
-                            epms_id_projects[rec.get('Project').ObjectID].EarnedPoints += rec.get('LeafStoryPlanEstimateTotal');
-                        }else{
-                            epms_id_projects[rec.get('Project').ObjectID] = {'EarnedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
-                            epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
+                me.logger.log('records>>',records, operation, successful);
+                var epms_id_projects = {};
+                Ext.Array.each(records,function(rec){
+                    if(epms_id_projects[rec.get('Project').ObjectID]){
+                        epms_id_projects[rec.get('Project').ObjectID].EarnedPoints += rec.get('LeafStoryPlanEstimateTotal');
+                    }else{
+                        epms_id_projects[rec.get('Project').ObjectID] = {'EarnedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
+                        epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
 
-                        }
-                    });
-                    me.logger.log('epms_id_projects',epms_id_projects);
-                    deferred.resolve(epms_id_projects);
-                }
+                    }
+                });
+                me.logger.log('epms_id_projects',epms_id_projects);
+                deferred.resolve(epms_id_projects);
             }
         });
         
@@ -163,32 +225,32 @@ Ext.define("OIPApp", {
     },
 
 
-    _getDataFromSnapShotStore:function(date){
+    _getDataFromSnapShotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
 
         var find = {
-                        "_TypeHierarchy": me.epmsModelPath,
+                        "_TypeHierarchy": epmsModelPath,
                         "__At": date
                     };
         if(me.programObjectIds && me.programObjectIds.length > 0){
             find["Project"] = {"$in": me.programObjectIds};
         }
-
+        workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            //"context": this.getContext().getDataContext(),
+            "context": {"workspace": {"_ref": workspace_oid }},
             "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
-            useHttpPost:true,
+            // useHttpPost:true,
              "hydrate": ["Project"]
         });
 
         snapshotStore.load({
             callback: function(records, operation) {
                this.logger.log('Lookback Data>>>',records,operation);
-               var epms_id_projects = [];
+               var epms_id_projects = {};
                 Ext.Array.each(records,function(rec){
                     if(epms_id_projects[rec.get('Project').ObjectID]){
                         epms_id_projects[rec.get('Project').ObjectID].CommittedPoints += rec.get('LeafStoryPlanEstimateTotal');
@@ -258,21 +320,7 @@ Ext.define("OIPApp", {
 
         this.logger.log('_displayGrid>>',store);
 
-        this.headerContainer.add({xtype:'container',flex: 1});
 
-        this.headerContainer.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function(button) {
-                    this._export(button);
-                }
-            }
-        });
 
         var grid = {
             xtype: 'rallygrid',
@@ -314,6 +362,15 @@ Ext.define("OIPApp", {
             //bubbleEvents: ['change'],
             labelAlign: 'right',
             labelCls: 'settingsLabel'
+        },
+        {
+            name: 'showAllWorkspaces',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show All Workspaces',
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         }];
     },
         
