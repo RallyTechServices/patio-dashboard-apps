@@ -10,7 +10,8 @@ Ext.define("TSDefectsByProgram", {
       
     config: {
         defaultSettings: {
-            showScopeSelector: true
+            showScopeSelector: true,
+            showAllWorkspaces: false
         }
     },
     
@@ -82,10 +83,18 @@ Ext.define("TSDefectsByProgram", {
         
         me.logger.log('_updateQuarterInformation', quarterRecord, this.programs);
 
-        var promises = Ext.Array.map(this.workspaces, function(workspace){
-            var workspace_data = Ext.clone( workspace.getData() );
-            return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); }
-        });
+        var promises = [];
+        if ( this.getSetting('showAllWorkspaces') ) {
+        
+            promises = Ext.Array.map(this.workspaces, function(workspace){
+                var workspace_data = Ext.clone( workspace.getData() );
+                return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
+            });
+        } else {
+            var workspace_data = this.getContext().getWorkspace();
+            
+            promises = [ function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); } ];
+        }
         
         Deft.Chain.sequence(promises,this).then({
             success: function(results) {
@@ -544,6 +553,15 @@ Ext.define("TSDefectsByProgram", {
             //bubbleEvents: ['change'],
             labelAlign: 'right',
             labelCls: 'settingsLabel'
+        },
+        {
+            name: 'showAllWorkspaces',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show All Workspaces',
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         }];
     },
     

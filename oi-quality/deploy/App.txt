@@ -3,13 +3,13 @@
 <head>
     <title>Defects By Program</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 10 2016 20:30:29 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Aug 10 2016 20:37:08 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 10 2016 20:30:29 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Aug 10 2016 20:37:08 GMT-0700 (PDT)";
         var STORY    = "US556";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 53647430514;
+        var CHECKSUM = 54819032646;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1083,7 +1083,8 @@ Ext.define("TSDefectsByProgram", {
       
     config: {
         defaultSettings: {
-            showScopeSelector: true
+            showScopeSelector: true,
+            showAllWorkspaces: false
         }
     },
     
@@ -1155,10 +1156,18 @@ Ext.define("TSDefectsByProgram", {
         
         me.logger.log('_updateQuarterInformation', quarterRecord, this.programs);
 
-        var promises = Ext.Array.map(this.workspaces, function(workspace){
-            var workspace_data = Ext.clone( workspace.getData() );
-            return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); }
-        });
+        var promises = [];
+        if ( this.getSetting('showAllWorkspaces') ) {
+        
+            promises = Ext.Array.map(this.workspaces, function(workspace){
+                var workspace_data = Ext.clone( workspace.getData() );
+                return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
+            });
+        } else {
+            var workspace_data = this.getContext().getWorkspace();
+            
+            promises = [ function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); } ];
+        }
         
         Deft.Chain.sequence(promises,this).then({
             success: function(results) {
@@ -1617,6 +1626,15 @@ Ext.define("TSDefectsByProgram", {
             //bubbleEvents: ['change'],
             labelAlign: 'right',
             labelCls: 'settingsLabel'
+        },
+        {
+            name: 'showAllWorkspaces',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show All Workspaces',
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         }];
     },
     
