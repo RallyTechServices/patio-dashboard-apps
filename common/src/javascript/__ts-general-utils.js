@@ -207,10 +207,10 @@ Ext.define('TSUtilities', {
         return deferred;
     },
 	
-    getPortfolioItemTypes: function() {
+    getPortfolioItemTypes: function(workspace) {
         var deferred = Ext.create('Deft.Deferred');
                 
-        var store = Ext.create('Rally.data.wsapi.Store', {
+        var store_config = {
             fetch: ['Name','ElementName','TypePath'],
             model: 'TypeDefinition',
             filters: [
@@ -235,7 +235,18 @@ Ext.define('TSUtilities', {
                     }
                 }
             }
-        });
+        };
+        
+        if ( !Ext.isEmpty(workspace) ) {            
+            store_config.context = { 
+                project:null,
+                workspace: workspace._ref
+            };
+        }
+        
+        console.log(store_config);
+        
+        var store = Ext.create('Rally.data.wsapi.Store', store_config );
                     
         return deferred.promise;
     }
