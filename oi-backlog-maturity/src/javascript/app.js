@@ -11,37 +11,26 @@ Ext.define("OIBMApp", {
       
     config: {
         defaultSettings: {
-            showScopeSelector: true
+            showScopeSelector: true,
+            showAllWorkspaces: false
         }
     },
 
     launch: function() {
         var me = this;
-
-
-        TSUtilities.getPortfolioItemTypes().then({
-            success: function(types) {
-                if ( types.length < 2 ) {
-                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
-                    return;
-                }
-
-                me.featureModelPath = types[0].get('TypePath');
-                me.featureModelName = types[0].get('Name');
-                
-                me.epmsModelPath = types[1].get('TypePath');
-                
+        TSUtilities.getWorkspaces().then({
+            scope: this,
+            success: function(workspaces) {
+                me.workspaces = workspaces;
                 me._addComponents();
             },
-            failure: function(msg){
+            failure: function(msg) {
                 Ext.Msg.alert('',msg);
-            },
-            scope: this
+            }
         });
     },
       
     _addComponents: function(){
-            this.removeAll();
             this.removeAll();
 
             this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
@@ -68,6 +57,7 @@ Ext.define("OIBMApp", {
         }
     },
 
+
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
         this.logger.log('updateQuarters',quarterAndPrograms);
@@ -75,69 +65,135 @@ Ext.define("OIBMApp", {
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
-        var second_day = new Date(this.quarterRecord.get('startDate'));
-        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
 
-       this.setLoading("Loading Data..");
-        me._getDataFromSnapShotStore(second_day).then({
-            scope: me,
-            success: function(records1){
-                me.logger.log('updateQuarters',records1);
-                var promises = [];
-
-                me._getStoryPointsReadyState(records1).then({
-                    success: function(records2){
-
-
-                        Ext.Object.each(records2,function(key,value){
-                            promises.push(me._getVelocity(key));
-                        });
-
-                        Deft.Promise.all(promises).then({
-                            scope: this,
-                            success: function(all_projects_velocity){
-                                me.logger.log('all_projects_velocity',all_projects_velocity);
-
-                                backlog_data = []
-                                Ext.Array.each(all_projects_velocity,function(vel){
-                                    
-                                    var backlog_rec = {
-                                        Program: records2[vel.ProjectID].Name,
-                                        StoryPoints: records2[vel.ProjectID].PlanEstimate > 0 ? records2[vel.ProjectID].PlanEstimate:0,
-                                        AvgVelocity: vel.Velocity,
-                                        Sprints: vel.Velocity > 0 && records2[vel.ProjectID].PlanEstimate > 0 ? (records2[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
-                                    }
-                                    backlog_data.push(backlog_rec);
-
-                                });
-
-
-                                me._displayGrid(backlog_data);
-
-
-                            },
-                            failure: function(error_msg) { deferred.reject(error_msg); }
-                        });
-
-                    
-                    },
-                    failure: function(error){
-
-                    }
-
-                });
+        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+            return function() { 
+                return me._getData( workspace ) 
+            };
+        });
+        
+        Deft.Chain.sequence(promises).then({
+            scope: this,
+            success: function(all_results) {
+                this.logger.log('all_results>>>>',all_results);
+                me._displayGrid(Ext.Array.flatten(all_results));
                 
-                
-
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem gathering data', msg);
             }
         });
-        //return deferred.promise;
+
+        
+    },
+    //me._displayGrid(backlog_data);
+
+    _getData: function(workspace) {
+        var me = this;
+        var deferred = Ext.create('Deft.Deferred');
+        var workspace_name = workspace.get('Name');
+        var workspace_oid = workspace.get('ObjectID');
+
+        var second_day = new Date(this.quarterRecord.get('startDate'));
+        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
+
+        
+
+        TSUtilities.getPortfolioItemTypes(workspace).then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
+                    deferred.resolve([]);
+                } else {
+                    var workspace_oid = workspace.get('ObjectID');
+
+                    this.setLoading('Loading Workspace ' + workspace.get('Name'));
+                    var featureModelPath = types[0].get('TypePath');
+                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
+                    
+                    // TODO: another way to find out what the field on story is that gives us the feature
+                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
+                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    
+                    var epmsModelPath = types[1].get('TypePath');
+
+                    
+                    
+                    me._getDataFromSnapShotStore(second_day,workspace_oid).then({
+                        scope: me,
+                        success: function(records1){
+                            me.logger.log('updateQuarters',records1);
+                            var promises = [];
+                            if(!records1 || records1.length == 0){
+                                deferred.resolve([]);
+                            }
+
+                            me._getStoryPointsReadyState(records1,workspace_oid).then({
+                                success: function(records2){
+
+                                    if(Object.keys(records2).length == 0){
+                                        deferred.resolve([]);
+                                    }
+
+                                    Ext.Object.each(records2,function(key,value){
+                                        promises.push(me._getVelocity(key,workspace_oid));
+                                    });
+
+                                    Deft.Promise.all(promises).then({
+                                        scope: this,
+                                        success: function(all_projects_velocity){
+                                            me.logger.log('all_projects_velocity',all_projects_velocity);
+
+                                            var backlog_data = [];
+                                            Ext.Array.each(all_projects_velocity,function(vel){
+                                                
+                                                var backlog_rec = {
+                                                    Program: records2[vel.ProjectID].Name,
+                                                    StoryPoints: records2[vel.ProjectID].PlanEstimate > 0 ? records2[vel.ProjectID].PlanEstimate:0,
+                                                    AvgVelocity: vel.Velocity,
+                                                    Sprints: vel.Velocity > 0 && records2[vel.ProjectID].PlanEstimate > 0 ? (records2[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
+                                                }
+                                                backlog_data.push(backlog_rec);
+
+                                            });
 
 
+                                            deferred.resolve(backlog_data);
+
+
+                                        },
+                                        failure: function(error_msg) { deferred.reject(error_msg); }
+                                    });
+
+                                
+                                },
+                                failure: function(error){
+
+                                }
+
+                            });
+                            
+                            
+
+                        }
+                    });
+
+
+
+                }
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
+
+
+
+        return deferred.promise;
     },
 
-
-    _getDataFromSnapShotStore:function(date){
+    _getDataFromSnapShotStore:function(date,workspace_oid){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
@@ -151,8 +207,9 @@ Ext.define("OIBMApp", {
             find["Project"] = {"$in": me.programObjectIds};
         }
 
+        workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            //"context": this.getContext().getDataContext(),
+            "context": {"workspace": {"_ref": workspace_oid }},
             "fetch": [ "ObjectID","PlanEstimate","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
@@ -171,25 +228,25 @@ Ext.define("OIBMApp", {
         return deferred;
     },
 
-    _getStoryPointsReadyState :function(records){
+    _getStoryPointsReadyState :function(records,workspace_oid){
         var me = this;
 
-        if(!records.length > 0){
-            Ext.Msg.alert('',"No Data found");
-                    return;
-        }
         var deferred = Ext.create('Deft.Deferred');
 
+        if(!records || !records.length > 0){
+            deferred.resolve({});
+        }
         var object_id_filters = [];
 
         Ext.Array.each(records, function(story){
             object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
         })
 
-        var model_name = me.epmsModelPath;
         var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: "Initiative"},{property:"Ready", value:"true"}];
 
-        model_filters = Rally.data.wsapi.Filter.and(model_filters).and(Rally.data.wsapi.Filter.or(object_id_filters));
+        if(object_id_filters.length > 0){
+            model_filters = Rally.data.wsapi.Filter.and(model_filters).and(Rally.data.wsapi.Filter.or(object_id_filters));
+        }
 
         Ext.create('Rally.data.wsapi.Store', {
             model: 'UserStory',
@@ -198,8 +255,8 @@ Ext.define("OIBMApp", {
             fetch:['ObjectID','Project','PlanEstimate','Name','PortfolioItemType','Feature','Parent','PortfolioItemTypeName'],
             context: { 
                 project: null
-                //,
-                //workspace: '/workspace/' + workspace_oid
+                ,
+                workspace: '/workspace/' + workspace_oid
             }
 
         }).load({
@@ -226,7 +283,7 @@ Ext.define("OIBMApp", {
 
     },
 
-     _getVelocity: function(project_obejctID){
+     _getVelocity: function(project_obejctID,workspace_oid){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
 
@@ -246,7 +303,12 @@ Ext.define("OIBMApp", {
                         direction: 'DESC'
                     }],
             limit: 3,
-            pageSize:3
+            pageSize:3,
+            context: { 
+                project: null
+                ,
+                workspace: '/workspace/' + workspace_oid
+            }
         }).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -320,6 +382,8 @@ Ext.define("OIBMApp", {
     
    _displayGrid: function(records){
         this.displayContainer.removeAll();
+        this.headerContainer.removeAll();
+
         this.setLoading(false);
         //Custom store
         var store = Ext.create('Rally.data.custom.Store', {
@@ -414,6 +478,15 @@ Ext.define("OIBMApp", {
             //bubbleEvents: ['change'],
             labelAlign: 'right',
             labelCls: 'settingsLabel'
+        },
+        {
+            name: 'showAllWorkspaces',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show All Workspaces',
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         }];
     },
         
