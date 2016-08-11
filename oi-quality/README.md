@@ -1,6 +1,22 @@
 #Defects By Program
 
+An app that will get the count of defects that are open/closed and were opened during a quarter.
+
+For a defect to be counted, it must have been created between the beginning and end of the chosen quarter.
+
+Defects are arranged by program.  The "program" is the defect's story's second level portfolio item's project.  If 
+there isn't a second level PI, the defect is not counted.
+
+The user can further filter by showing one or more programs.  
+
+This app can be run in the current workspace or across all available workspaces (based on admin selection in App Settings).
+
 ## Development Notes
+
+* This uses the same broadcasting selector that the other OI apps do.  It can be the publisher or the subscriber based
+on the admin's selection in App Settings.
+
+
 
 ### First Load
 
