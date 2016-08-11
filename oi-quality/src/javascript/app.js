@@ -17,25 +17,19 @@ Ext.define("TSDefectsByProgram", {
     
     launch: function() {
         var me = this;
-        TSUtilities.getPortfolioItemTypes().then({
-            success: function(types) {
-                if ( types.length < 2 ) {
-                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
-                    return;
-                }
-
-                me.featureModelPath = types[0].get('TypePath');
-                me.featureModelName = types[0].get('Name');
-                
-                me.epmsModelPath = types[1].get('TypePath');
+        this._getWorkspaces().then({
+            scope: this,
+            success: function(workspaces) {
+                me.workspaces = workspaces;
                 
                 me._addComponents();
             },
-            failure: function(msg){
+            failure: function(msg) {
                 Ext.Msg.alert('',msg);
-            },
-            scope: this
+            }
         });
+        
+        
     },
       
     _addComponents: function(){
@@ -46,21 +40,21 @@ Ext.define("TSDefectsByProgram", {
 
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-        this.headerContainer.add({
-            xtype: 'quarteritemselector',
-            stateId: this.getContext().getScopedStateId('app-selector'),
-            flex: 1,
-            context: this.getContext(),
-            stateful: false,
-            width: '75%',                
-            listeners: {
-                change: this.updateQuarters,
-                scope: this
-            }
-        });
+            this.headerContainer.add({
+                xtype: 'quarteritemselector',
+                stateId: this.getContext().getScopedStateId('app-selector'),
+                flex: 1,
+                context: this.getContext(),
+                stateful: false,
+                width: '75%',                
+                listeners: {
+                    change: this._updateQuarterInformation,
+                    scope: this
+                }
+            });
 
         } else {
-            this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
+            this.subscribe(this, 'quarterSelected', this._updateQuarterInformation, this);
             this.publish('requestQuarter', this);
         }
         
@@ -80,49 +74,110 @@ Ext.define("TSDefectsByProgram", {
         });
     },
 
-    updateQuarters: function(quarterRecord){
+    _updateQuarterInformation: function(selectorValue){
         var me = this;
-        this.quarterRecord = quarterRecord;
+        var quarterRecord = selectorValue.quarter;
+        var programs = selectorValue.programs;
         
-        me.logger.log('updateQuarters', quarterRecord);
+        this.setLoading('Loading Data...');
+        
+        me.logger.log('_updateQuarterInformation', quarterRecord, programs);
 
-        //second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.
-
-        this.setLoading("Loading data...");
-        Deft.Promise.all([
-            this._getEPMSProjects(),
-            this._getStoriesForEPMSProjects()
-        ],this).then({
-            scope: this,
-            success: function(results){
-                var epms_id_projects = results[0];
-                var stories = results[1];
-                
-                this.logger.log('epms_id_projects',epms_id_projects);
-                this.logger.log('stories', stories);
-                
-                if ( stories.length === 0 ) {
+        var promises = Ext.Array.map(this.workspaces, function(workspace){
+            var workspace_data = Ext.clone( workspace.getData() );
+            return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); }
+        });
+        
+        Deft.Chain.sequence(promises,this).then({
+            success: function(results) {
+                var defects = Ext.Array.flatten(results);
+                defects = Ext.Array.filter(defects, function(defect) {
+                    return !Ext.isEmpty(defect);
+                });
+        
+                if ( defects.length === 0 ) {
                     Ext.Msg.alert('','No Defects in this Quarter');
                     return;
                 }
-                me.setLoading('Fetching Defects...');
-                this._getDefectsForStories(stories).then({
-                    scope: this,
-                    success: function(defects) {
-                        var defects_by_program = this._organizeDefectsByProgram(defects);
-                        this._makeChart(defects_by_program);
-                        this._makeGrid(defects_by_program);
-                    },
-                    failure: function(msg){
-                        Ext.Msg.alert('',msg);
-                    }
-                });
+                
+                var defects_by_program = this._organizeDefectsByProgram(defects);
+                console.log('defects_by_program', defects_by_program);
+                
+                this._makeChart(defects_by_program);
+                this._makeGrid(defects_by_program);
+
                 
             },
-            failure: function(msg) {
-                Ext.Msg.alert('',msg);
-            }
+            failure: function(msg){
+                Ext.Msg.alert("Problem While Loading Data", msg);
+            },
+            scope: this
         }).always(function() { me.setLoading(false);} );
+        
+    },
+    
+    _updateDataForWorkspace: function(workspace,quarterRecord) {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        this.setLoading("Gathering Data For " + workspace._refObjectName);
+        this.logger.log("Workspace:", workspace._refObjectName);
+        
+        TSUtilities.getPortfolioItemTypes(workspace).then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
+                    deferred.resolve('');
+                } else {
+ 
+                    var featureModelPath = types[0].get('TypePath');
+                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
+                    
+                    // TODO: another way to find out what the field on story is that gives us the feature
+                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
+                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    
+                    var epmsModelPath = types[1].get('TypePath');
+                    Deft.Promise.all([
+                        //me._getEPMSProjects(),
+                        me._getStoriesForEPMSProjects(featureModelName,quarterRecord,workspace)
+                    ],this).then({
+                        scope: this,
+                        success: function(stories){
+                            stories = Ext.Array.flatten(stories);
+                          
+                            if ( stories.length === 0 ) {
+                                deferred.resolve([]);
+                            } else {
+                                
+                                this._getDefectsForStories(stories,quarterRecord,workspace,featureModelName).then({
+                                    scope: this,
+                                    success: function(defects) {
+                                        Ext.Array.each(defects, function(defect){
+                                            
+                                            defect.set('__feature', defect.get('Requirement')[featureModelName]);
+                                        });
+                                        deferred.resolve(defects);
+                                    },
+                                    failure: function(msg){
+                                        deferred.reject(msg);
+                                    }
+                                });
+                            }
+                        }, 
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                    });
+                }
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
+        
+        return deferred.promise;
     },
 
     _getEPMSProjects:function(){
@@ -139,21 +194,21 @@ Ext.define("TSDefectsByProgram", {
         
         this._loadWsapiRecords(config).then({
             success: function(records) {
-                var epms_id_projects = {};
+                var epms_id_projects_by_name = {};
                 Ext.Array.each(records,function(rec){
-                    var project_oid = rec.get('Project').ObjectID;
+                    var project_name = rec.get('Project').ObjectID;
                     
-                    if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
-                        epms_id_projects[project_oid] = {
+                    if ( Ext.isEmpty(epms_id_projects_by_name[project_name]) ) {
+                        epms_id_projects_by_name[project_name] = {
                             program: rec.get('Project'),
                             projects: []
                         }
                     }
                     
-                    epms_id_projects[project_oid].projects.push(rec.getData());
+                    epms_id_projects_by_name[project_name].projects.push(rec.getData());
                     
                 });
-                deferred.resolve(epms_id_projects);
+                deferred.resolve(epms_id_projects_by_name);
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -164,16 +219,15 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
     
-    _getStoriesForEPMSProjects: function() {
+    _getStoriesForEPMSProjects: function(featureModelName,quarterRecord,workspace) {
         
-        this.logger.log('updateQuarters', this.quarterRecord);
-        var end_date = this.quarterRecord.get('endDate');
-        var start_date = this.quarterRecord.get('startDate');
+        var end_date = quarterRecord.get('endDate');
+        var start_date = quarterRecord.get('startDate');
 
         var filters = [
             {property:'Defects.CreationDate',operator:'>=',value:start_date},
             {property:'Defects.CreationDate',operator:'<=',value:end_date},
-            {property:this.featureModelName + ".Parent.ObjectID", operator:">",value: 0 }
+            {property:featureModelName + ".Parent.ObjectID", operator:">",value: 0 }
         ];
         
         var config = {
@@ -182,16 +236,19 @@ Ext.define("TSDefectsByProgram", {
             limit: Infinity,
             pageSize: 2000,
             fetch: ['ObjectID','FormattedID'],
-            context: { project: null }
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
         };
         
         return this._loadWsapiRecords(config);
     },
     
-    _getDefectsForStories: function(stories) {
+    _getDefectsForStories: function(stories,quarterRecord,workspace,featureModelName) {
 
-        var end_date = this.quarterRecord.get('endDate');
-        var start_date = this.quarterRecord.get('startDate');
+        var end_date = quarterRecord.get('endDate');
+        var start_date = quarterRecord.get('startDate');
 
         var date_filters = Rally.data.wsapi.Filter.and([
             {property:'CreationDate',operator:'>=',value:start_date},
@@ -211,8 +268,11 @@ Ext.define("TSDefectsByProgram", {
             filters: filters,
             limit: Infinity,
             pageSize: 2000,
-            fetch: ['ObjectID','FormattedID','Project','Requirement','State',this.featureModelName,'Parent'],
-            context: { project: null },
+            fetch: ['ObjectID','FormattedID','Project','Requirement','State',featureModelName,'Parent'],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            },
             enablePostGet: true
         };
         
@@ -224,9 +284,10 @@ Ext.define("TSDefectsByProgram", {
             defects_by_program = {};
         
         Ext.Array.each(defects, function(defect){
-            var requirement = defect.get('Requirement');
-            if ( requirement[me.featureModelName] && requirement[me.featureModelName].Parent ) {
-                var program = requirement[me.featureModelName].Parent.Project._refObjectName;
+            var feature = defect.get('__feature');
+            
+            if ( feature && feature.Parent ) {
+                var program = feature.Parent.Project._refObjectName;
                 if ( Ext.isEmpty(defects_by_program[program]) ) {
                     defects_by_program[program] = {
                         all: [],
@@ -354,6 +415,40 @@ Ext.define("TSDefectsByProgram", {
                     me.logger.log("Failed: ", operation);
                     deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
                 }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _getWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        this._loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            if ( Rally.getApp().getSetting('showAllWorkspaces') == false ) {
+                                return ( ws.get('ObjectID') == Rally.getApp().getContext().getWorkspace().ObjectID );
+                            }
+                            
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
         });
         return deferred.promise;
