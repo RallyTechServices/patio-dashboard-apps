@@ -21,7 +21,6 @@ Ext.define("TSDefectsByProgram", {
             scope: this,
             success: function(workspaces) {
                 me.workspaces = workspaces;
-                
                 me._addComponents();
             },
             failure: function(msg) {
@@ -77,11 +76,11 @@ Ext.define("TSDefectsByProgram", {
     _updateQuarterInformation: function(selectorValue){
         var me = this;
         var quarterRecord = selectorValue.quarter;
-        var programs = selectorValue.programs;
-        
+        this.programs = selectorValue.programs || [];
+                
         this.setLoading('Loading Data...');
         
-        me.logger.log('_updateQuarterInformation', quarterRecord, programs);
+        me.logger.log('_updateQuarterInformation', quarterRecord, this.programs);
 
         var promises = Ext.Array.map(this.workspaces, function(workspace){
             var workspace_data = Ext.clone( workspace.getData() );
@@ -224,11 +223,18 @@ Ext.define("TSDefectsByProgram", {
         var end_date = quarterRecord.get('endDate');
         var start_date = quarterRecord.get('startDate');
 
-        var filters = [
+        var filters = Rally.data.wsapi.Filter.and([
             {property:'Defects.CreationDate',operator:'>=',value:start_date},
             {property:'Defects.CreationDate',operator:'<=',value:end_date},
             {property:featureModelName + ".Parent.ObjectID", operator:">",value: 0 }
-        ];
+        ]);
+        
+        if (this.programs.length > 0) {
+            var program_filters = Ext.Array.map(this.programs, function(program_oid){
+                return {property:featureModelName + ".Parent.Project.ObjectID", value: program_oid };
+            });
+            filters = filters.and(Rally.data.wsapi.Filter.or(program_filters));
+        }
         
         var config = {
             model: 'hierarchicalrequirement',
