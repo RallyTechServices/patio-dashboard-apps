@@ -304,12 +304,25 @@ Ext.define("TSDefectTrendDashboard", {
         var buckets = {};
         
         Ext.Object.each(bucket_ranges, function(key, value){
-            buckets[key] = [];
-        });
+            //buckets[key] = [];
+            buckets[key] = {};
+            Ext.Array.each(this.all_priorities, function(priority){
+                if (priority == "") {
+                    priority = "None";
+                }
+                console.log("ProcessingPriorities",priority);
+                buckets[key][priority] = [];
+            }
+            );
+        },this);
         
+        console.log("Buckets",buckets);
+
         Ext.Array.each(defects, function(defect){
             var age = defect.get('__age');
-            
+            var priority = defect.get('Priority');
+
+console.log("Age and Priority",age,priority,defect);
             var bucket_choice = null;
             Ext.Object.each( bucket_ranges, function( key, value ) {
                 if ( age >= value ) {
@@ -317,7 +330,7 @@ Ext.define("TSDefectTrendDashboard", {
                 }
             });
             
-            buckets[bucket_choice].push(defect);
+            buckets[bucket_choice][priority].push(defect);
             
         });
         
@@ -355,6 +368,8 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this,
             data = [];
             
+console.log("AgingMeasures",defects_by_age,priority);
+
         Ext.Object.each(defects_by_age, function(bucket,value){
             data.push({
                 y: value[priority].length,
