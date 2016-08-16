@@ -1,8 +1,14 @@
 
 Ext.define("OIBMApp", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
+    extend: 'CA.techservices.app.GridApp',
+
+    descriptions: [
+        "<strong>OCIO Dashboard - Backlog Maturity</strong><br/>" +
+            "<br/>" +
+            "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program." 
+            
+    ],
+
     defaults: { margin: 10 },
    
     integrationHeaders : {
@@ -18,6 +24,8 @@ Ext.define("OIBMApp", {
 
     launch: function() {
         var me = this;
+        this.callParent();
+
         TSUtilities.getWorkspaces().then({
             scope: this,
             success: function(workspaces) {
@@ -31,18 +39,16 @@ Ext.define("OIBMApp", {
     },
       
     _addComponents: function(){
-            this.removeAll();
 
-            this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
-            this.displayContainer = this.add({xtype:'container',itemId:'body-ct', tpl: '<tpl>{message}</tpl>'});
+        var me = this;
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-            if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
-
-            this.headerContainer.add({
+            this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
                 flex: 1,
                 context: this.getContext(),
+                workspaces: me.workspaces,
                 stateful: false,
                 width: '75%',                
                 listeners: {
@@ -55,6 +61,21 @@ Ext.define("OIBMApp", {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
+
+            this.addToBanner({
+                xtype:'rallybutton',
+                itemId:'export_button',
+                cls: 'secondary',
+                text: '<span class="icon-export"> </span>',
+                disabled: false,
+                listeners: {
+                    scope: this,
+                    click: function(button) {
+                        this._export(button);
+                    }
+                }
+            });            
+        
     },
 
 
@@ -381,8 +402,6 @@ Ext.define("OIBMApp", {
     },
     
    _displayGrid: function(records){
-        this.displayContainer.removeAll();
-        this.headerContainer.removeAll();
 
         this.setLoading(false);
         //Custom store
@@ -392,40 +411,17 @@ Ext.define("OIBMApp", {
         });
 
 
-        this.logger.log('_displayGrid>>',store);
-
-        this.headerContainer.add({xtype:'container',flex: 1});
-        this.headerContainer.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function(button) {
-                    this._export(button);
-                }
-            }
-        });
-
         var grid = {
             xtype: 'rallygrid',
             store: store,
             showRowActionsColumn: false,
             editable: false,
-            //defaultSortToRank: true,
             sortableColumns: true,            
-            columnCfgs: this._getColumns(),
-            width: this.getWidth()
+            columnCfgs: this._getColumns()
         }
 
-        this.logger.log('grid before rendering',grid);
 
-        this.displayContainer.add(grid);
-
-
-
+        this.setGrid(grid,0);
 
 
     },
