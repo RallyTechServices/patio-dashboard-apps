@@ -13,7 +13,7 @@ module.exports = function(grunt) {
     
         config = grunt.file.readJSON('config.json');
 
-        config.js_files = grunt.file.expand(['src/javascript/utils/*.js','src/javascript/*.js','../common/src/javascript/ts-quarter-item-selector.js','../common/src/javascript/_ts-file-utilities.js','../common/src/javascript/__ts-general-utils.js']);
+        config.js_files = grunt.file.expand(['src/javascript/utils/*.js','../common/src/javascript/ts-grid-app.js','../common/src/javascript/ts-grid-with-description.js','../common/src/javascript/ts-quarter-item-selector.js','../common/src/javascript/_ts-file-utilities.js','../common/src/javascript/__ts-general-utils.js','src/javascript/*.js']);
 
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
         
