@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>OI Productivity</title>
+    <title>Defects By Program</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 17 2016 17:05:02 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Aug 17 2016 17:27:36 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 17 2016 17:05:02 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Aug 17 2016 17:27:36 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('OIPRApp', {
-                   name: 'OI Productivity'
+               Rally.launchApp('TSDefectsByProgram', {
+                   name: 'Defects By Program'
                });
         });
     </script>

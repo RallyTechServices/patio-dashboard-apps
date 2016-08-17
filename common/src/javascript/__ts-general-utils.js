@@ -240,7 +240,7 @@ Ext.define('TSUtilities', {
         if ( !Ext.isEmpty(workspace) ) {            
             store_config.context = { 
                 project:null,
-                workspace: workspace.get('_ref')
+                workspace: workspace._ref ? workspace._ref : workspace.get('_ref')
             };
         }
         

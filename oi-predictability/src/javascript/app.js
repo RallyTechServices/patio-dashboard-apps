@@ -1,8 +1,15 @@
 
 Ext.define("OIPApp", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
+    extend: 'CA.techservices.app.GridApp',
+
+    descriptions: [
+        "<strong>OCIO Dashboard - Predictability</strong><br/>" +
+            "<br/>" +
+            "Predictability is measured as a percentage by dividing the amount of committed story points by the amount of earned story points." 
+            
+    ],
+
+
     defaults: { margin: 10 },
    
     integrationHeaders : {
@@ -18,11 +25,15 @@ Ext.define("OIPApp", {
 
     launch: function() {
         var me = this;
+        this.callParent();
+        me.setLoading('Loading workspace(s) and its programs..');
+
         TSUtilities.getWorkspaces().then({
             scope: this,
             success: function(workspaces) {
                 me.workspaces = workspaces;
                 me._addComponents();
+                me.setLoading(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('',msg);
@@ -31,21 +42,23 @@ Ext.define("OIPApp", {
 
     },
       
-    _addComponents: function(){
-            this.removeAll();
 
-            this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
-            this.displayContainer = this.add({xtype:'container',itemId:'body-ct', tpl: '<tpl>{message}</tpl>'});
+
+
+    _addComponents: function(){
+            var me = this;
+            
 
             if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-            this.headerContainer.add({
+            this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
                 flex: 1,
+                workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',                
+                //width: '75%',                
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
@@ -53,7 +66,11 @@ Ext.define("OIPApp", {
             });
 
 
-            this.headerContainer.add({
+        } else {
+            this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
+            this.publish('requestQuarter', this);
+        }
+            this.addToBanner({
                 xtype:'rallybutton',
                 itemId:'export_button',
                 cls: 'secondary',
@@ -66,13 +83,9 @@ Ext.define("OIPApp", {
                     }
                 }
             });
-
-
-        } else {
-            this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
-            this.publish('requestQuarter', this);
-        }
+        
     },
+
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
@@ -103,7 +116,6 @@ Ext.define("OIPApp", {
 
         
     },
-
 
 
     _getData: function(workspace) {
@@ -179,7 +191,7 @@ Ext.define("OIPApp", {
 
         var config = {
             model: epmsModelPath,
-            //enablePostGet:true,
+            enablePostGet:true,
             fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name'],
             context: { 
                 project: null,
@@ -243,8 +255,8 @@ Ext.define("OIPApp", {
             "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
-            // useHttpPost:true,
-             "hydrate": ["Project"]
+            "useHttpPost":true,
+            "hydrate": ["Project"]
         });
 
         snapshotStore.load({
@@ -310,7 +322,7 @@ Ext.define("OIPApp", {
     },
     
    _displayGrid: function(records){
-        this.displayContainer.removeAll();
+        //this.displayContainer.removeAll();
         //Custom store
         var store = Ext.create('Rally.data.custom.Store', {
             data: records,
@@ -327,15 +339,15 @@ Ext.define("OIPApp", {
             store: store,
             showRowActionsColumn: false,
             editable: false,
-            //defaultSortToRank: true,
             sortableColumns: true,            
-            columnCfgs: this._getColumns(),
-            width: this.getWidth()
+            columnCfgs: this._getColumns()
         }
 
         this.logger.log('grid before rendering',grid);
 
-        this.displayContainer.add(grid);
+        this.setGrid(grid,0);
+
+        //this.displayContainer.add(grid);
 
 
     },
