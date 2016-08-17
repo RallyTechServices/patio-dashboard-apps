@@ -1,8 +1,13 @@
 Ext.define("OIPRApp", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
+    extend: 'CA.techservices.app.ChartApp',
     defaults: { margin: 10 },
+
+descriptions: [
+        "<strong>OCIO Dashboard - Productivity</strong><br/>" +
+            "<br/>" +
+            "It is the number of work broken down by user story, defects by program by quarter" 
+            
+    ],
 
     integrationHeaders : {
         name : "OIPRApp"
@@ -17,6 +22,7 @@ Ext.define("OIPRApp", {
         
     launch: function() {
         var me = this;
+        this.callParent();
         TSUtilities.getWorkspaces().then({
             scope: this,
             success: function(workspaces) {
@@ -30,17 +36,14 @@ Ext.define("OIPRApp", {
     },
       
     _addComponents: function(){
-        this.removeAll();
-
-        this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
-        this.displayContainer = this.add({xtype:'container',itemId:'body-ct', tpl: '<tpl>{message}</tpl>'});
-
+        var me = this;
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-            this.headerContainer.add({
+            this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
                 flex: 1,
+                workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
                 width: '75%',                
@@ -49,14 +52,14 @@ Ext.define("OIPRApp", {
                     scope: this
                 }
             });
+        
 
         } else {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
-        
-        this.headerContainer.add({xtype:'container',flex: 1});
-        this.headerContainer.add({
+
+        this.addToBanner({
             xtype:'rallybutton',
             itemId:'export_button',
             cls: 'secondary',
@@ -69,6 +72,8 @@ Ext.define("OIPRApp", {
                 }
             }
         });
+
+        
     },
 
     updateQuarters: function(quarterAndPrograms){
@@ -90,10 +95,47 @@ Ext.define("OIPRApp", {
             success: function(all_results) {
                 this.logger.log('all_results>>>>',all_results);
                 //me._displayGrid(Ext.Array.flatten(all_results));
-                var results = Ext.Array.flatten(all_results)
+                //var results = Ext.Array.flatten(all_results)
                 me.setLoading(false);
-                me._makeChart(results[0]);
-                me._makeGrid(results[0]);
+
+
+                //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
+                var results = Ext.Array.flatten(all_results);
+                var final_results = {};
+                Ext.Object.each(quarterAndPrograms.allPrograms,function(key,val){
+                    var allow = true;
+                    if(this.programObjectIds && this.programObjectIds.length > 0 ){
+                        allow = Ext.Array.contains(this.programObjectIds,val.program.ObjectID) ? true : false;
+                    }
+
+                    if(allow){
+                        var obj = null;
+                        Ext.Object.each(results[0],function(key1,val1){
+                            if(val.program.Name == key1){
+                                obj = val1;
+                                return false;
+                            }
+                        });
+
+                        if(obj){
+                            final_results[val.program.Name]=obj;
+                        }else{
+                            final_results[val.program.Name] = {
+                                defects:0,
+                                split_stories: 0,
+                                stories:0
+                            };
+                        }                        
+
+                    }
+                },me);
+
+
+
+
+
+                me._makeChart(final_results);
+                me._makeGrid(final_results);
                 
             },
             failure: function(msg) {
@@ -354,14 +396,18 @@ Ext.define("OIPRApp", {
     },
 
     _makeChart: function(stories_by_program) {
-        this.displayContainer.removeAll();
+
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
-        this.displayContainer.add({
-            xtype: 'rallychart',
-            loadMask: false,
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+
+        this.setChart({
             chartData: this._getChartData(stories_by_program),
-            chartConfig: this._getChartConfig()
-        });
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
+        },0);
     },
 
     _makeGrid: function(stories_by_program) {
@@ -379,7 +425,8 @@ Ext.define("OIPRApp", {
         });
         
         this.rows = rows;
-        this.grid = this.displayContainer.add({
+       
+        this.setGrid({
             xtype: 'rallygrid',
             hidden: true,
             store: Ext.create('Rally.data.custom.Store', {
@@ -389,7 +436,7 @@ Ext.define("OIPRApp", {
             columnCfgs: this._getColumns(),
             showRowActionsColumn: false,
             showPagingToolbar: false
-        });
+        },0);
     },
     
     _getColumns: function() {

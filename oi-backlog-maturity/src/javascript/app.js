@@ -97,7 +97,44 @@ Ext.define("OIBMApp", {
             scope: this,
             success: function(all_results) {
                 this.logger.log('all_results>>>>',all_results);
-                me._displayGrid(Ext.Array.flatten(all_results));
+                
+
+                //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
+                var results = Ext.Array.flatten(all_results);
+                var final_results = []
+                Ext.Object.each(quarterAndPrograms.allPrograms,function(key,val){
+                    var allow = true;
+                    if(this.programObjectIds && this.programObjectIds.length > 0 ){
+                        allow = Ext.Array.contains(this.programObjectIds,val.program.ObjectID) ? true : false;
+                    }
+
+                    if(allow){
+                        var obj = null;
+                        Ext.Array.each(results,function(res){
+                            if(val.program.Name == res.Program){
+                                obj = res;
+                                return false;
+                            }
+                        });
+
+                        if(obj){
+                            final_results.push(obj);
+                        }else{
+                            final_results.push({
+                                AvgVelocity:0,
+                                Program: val.program.Name,
+                                Sprints:0,
+                                StoryPoints:0
+                            })
+                        }                        
+
+                    }
+
+                    
+                },me);
+
+
+                me._displayGrid(final_results);
                 
             },
             failure: function(msg) {
@@ -138,18 +175,20 @@ Ext.define("OIBMApp", {
                     
                     var epmsModelPath = types[1].get('TypePath');
 
+                    var epmsModelName = types[1].get('Name');
+
                     
                     
                     me._getDataFromSnapShotStore(second_day,workspace_oid).then({
                         scope: me,
                         success: function(records1){
-                            me.logger.log('updateQuarters',records1);
+                            me.logger.log('_getDataFromSnapShotStore',records1);
                             var promises = [];
                             if(!records1 || records1.length == 0){
                                 deferred.resolve([]);
                             }
 
-                            me._getStoryPointsReadyState(records1,workspace_oid).then({
+                            me._getStoryPointsReadyState(records1,workspace_oid,epmsModelName).then({
                                 success: function(records2){
 
                                     if(Object.keys(records2).length == 0){
@@ -165,10 +204,12 @@ Ext.define("OIBMApp", {
                                         success: function(all_projects_velocity){
                                             me.logger.log('all_projects_velocity',all_projects_velocity);
 
+
                                             var backlog_data = [];
                                             Ext.Array.each(all_projects_velocity,function(vel){
                                                 
                                                 var backlog_rec = {
+                                                    ObjectID: records2[vel.ProjectID].ObjectID,
                                                     Program: records2[vel.ProjectID].Name,
                                                     StoryPoints: records2[vel.ProjectID].PlanEstimate > 0 ? records2[vel.ProjectID].PlanEstimate:0,
                                                     AvgVelocity: vel.Velocity,
@@ -249,7 +290,7 @@ Ext.define("OIBMApp", {
         return deferred;
     },
 
-    _getStoryPointsReadyState :function(records,workspace_oid){
+    _getStoryPointsReadyState :function(records,workspace_oid,epmsModelName){
         var me = this;
 
         var deferred = Ext.create('Deft.Deferred');
@@ -263,7 +304,7 @@ Ext.define("OIBMApp", {
             object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
         })
 
-        var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: "Initiative"},{property:"Ready", value:"true"}];
+        var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: epmsModelName},{property:"Ready", value:"true"}];
 
         if(object_id_filters.length > 0){
             model_filters = Rally.data.wsapi.Filter.and(model_filters).and(Rally.data.wsapi.Filter.or(object_id_filters));

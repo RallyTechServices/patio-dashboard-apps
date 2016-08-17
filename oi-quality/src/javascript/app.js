@@ -1,8 +1,13 @@
 Ext.define("TSDefectsByProgram", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
+    extend: 'CA.techservices.app.ChartApp',
+
     defaults: { margin: 10 },
+
+    descriptions: [
+        "<strong>OCIO Dashboard - Quality</strong><br/>" +
+            "<br/>" +
+            "Defects opened vs Defects closed vs Total Open"     
+    ],
 
     integrationHeaders : {
         name : "TSDefectsByProgram"
@@ -18,6 +23,8 @@ Ext.define("TSDefectsByProgram", {
     
     launch: function() {
         var me = this;
+        this.callParent();
+
         this._getWorkspaces().then({
             scope: this,
             success: function(workspaces) {
@@ -33,17 +40,14 @@ Ext.define("TSDefectsByProgram", {
     },
       
     _addComponents: function(){
-        this.removeAll();
-
-        this.headerContainer = this.add({xtype:'container',itemId:'header-ct', layout: {type: 'hbox'}});
-        this.displayContainer = this.add({xtype:'container',itemId:'body-ct', tpl: '<tpl>{message}</tpl>'});
-
+        var me = this;
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-            this.headerContainer.add({
+            this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
                 flex: 1,
+                workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
                 width: '75%',                
@@ -58,8 +62,7 @@ Ext.define("TSDefectsByProgram", {
             this.publish('requestQuarter', this);
         }
         
-        this.headerContainer.add({xtype:'container',flex: 1});
-        this.headerContainer.add({
+        this.addToBanner({
             xtype:'rallybutton',
             itemId:'export_button',
             cls: 'secondary',
@@ -103,16 +106,50 @@ Ext.define("TSDefectsByProgram", {
                     return !Ext.isEmpty(defect);
                 });
         
-                if ( defects.length === 0 ) {
-                    Ext.Msg.alert('','No Defects in this Quarter');
-                    return;
-                }
+                // if ( defects.length === 0 ) {
+                    
+                //     return;
+                // }
                 
                 var defects_by_program = this._organizeDefectsByProgram(defects);
                 console.log('defects_by_program', defects_by_program);
+
+
+                //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
+                var final_results = {};
+                Ext.Object.each(selectorValue.allPrograms,function(key,val){
+                    var allow = true;
+                    if(this.programs && this.programs.length > 0 ){
+                        allow = Ext.Array.contains(this.programs,val.program.ObjectID) ? true : false;
+                    }
+
+                    if(allow){
+                        var obj = null;
+                        Ext.Object.each(defects_by_program,function(key1,val1){
+                            if(val.program.Name == key1){
+                                obj = val1;
+                                return false;
+                            }
+                        });
+
+                        if(obj){
+                            final_results[val.program.Name]=obj;
+                        }else{
+                            final_results[val.program.Name] = {
+                                all:[],
+                                closed: [],
+                                open:[]
+                            };
+                        }                        
+
+                    }
+                },me);
+
+                this._makeChart(final_results);
+                this._makeGrid(final_results);
                 
-                this._makeChart(defects_by_program);
-                this._makeGrid(defects_by_program);
+                // this._makeChart(defects_by_program);
+                // this._makeGrid(defects_by_program);
 
                 
             },
@@ -323,14 +360,19 @@ Ext.define("TSDefectsByProgram", {
     },
 
     _makeChart: function(defects_by_program) {
-        this.displayContainer.removeAll();
+
+        var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
-        this.displayContainer.add({
-            xtype: 'rallychart',
-            loadMask: false,
+        if ( this.getSetting('showPatterns') ) {
+            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        }
+
+        this.setChart({
             chartData: this._getChartData(defects_by_program),
-            chartConfig: this._getChartConfig()
-        });
+            chartConfig: this._getChartConfig(),
+            chartColors: colors
+        },0);
+        
     },
 
     _makeGrid: function(defects_by_program) {
@@ -348,7 +390,7 @@ Ext.define("TSDefectsByProgram", {
         });
         
         this.rows = rows;
-        this.grid = this.displayContainer.add({
+        this.setGrid({
             xtype: 'rallygrid',
             hidden: true,
             store: Ext.create('Rally.data.custom.Store', {
@@ -358,7 +400,7 @@ Ext.define("TSDefectsByProgram", {
             columnCfgs: this._getColumns(),
             showRowActionsColumn: false,
             showPagingToolbar: false
-        });
+        },0);
     },
     
     _getColumns: function() {

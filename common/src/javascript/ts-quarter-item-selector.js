@@ -1,6 +1,5 @@
-Ext.define('quarter-item-selector', {
+Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
-    componentCls : 'app',
     alias : 'widget.quarteritemselector',
     layout : 'hbox',
     width : '100%',
@@ -10,6 +9,8 @@ Ext.define('quarter-item-selector', {
     ],
     stateful: true,
     stateEvents: ['change'],
+
+    workspaces: [],
 
     buttonPushed: false,
     constructor : function(config){
@@ -21,27 +22,58 @@ Ext.define('quarter-item-selector', {
         var me = this;
         this.callParent(arguments);
         this.removeAll();
+        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+            return function() { 
+                return me._getPrograms( workspace ) 
+            };
+        });
+        
+        Deft.Chain.sequence(promises).then({
+            scope: this,
+            success: function(all_results) {
+                //console.log('all_results>>>>',all_results);
+                var results = {};
+                Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
+                me.programs = results;
+                me._addSelector();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem gathering data', msg);
+            }
+        });
 
-        TSUtilities.getPortfolioItemTypes().then({
+        // configured to allow others to ask what the current selection is,
+        // in case they missed the initial message
+        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
+
+    },
+
+    _getPrograms:function(workspace){
+
+        var me = this;
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var workspace_name = workspace.get('Name');
+        var workspace_oid = workspace.get('ObjectID');
+
+        TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
                 if ( types.length < 2 ) {
-                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+                    deferred.resolve({});
+                    //Ext.Msg.alert('',"Cannot find a record type for EPMS project");
                     return;
                 }
 
-                me.featureModelPath = types[0].get('TypePath');
-                me.featureModelName = types[0].get('Name');
-                me.epmsModelPath = types[1].get('TypePath');
-               
-                this._getEPMSProjects().then({
+                var epmsModelPath = types[1].get('TypePath');
+
+                this._getEPMSProjects(workspace, epmsModelPath).then({
                     scope:me,
                     success:function(store){
-                        me.programs = store;
-                        me._addSelector();                
+                        deferred.resolve(store);
                     },
                     failure:function(error){
-                        me.setLoading(false);
-                        Ext.Msg.alert('',msg);
+                        //me.setLoading(false);
+                        //Ext.Msg.alert('',msg);
                     }
                 });
 
@@ -54,11 +86,10 @@ Ext.define('quarter-item-selector', {
         });
 
 
-        // configured to allow others to ask what the current selection is,
-        // in case they missed the initial message
-        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
+        return deferred.promise;
 
     },
+
     _addSelector: function(){
         // The data store containing the list of states
         var me = this;
@@ -96,7 +127,7 @@ Ext.define('quarter-item-selector', {
             queryMode: 'local',
             displayField: 'name',
             valueField: 'abbr',
-            margin: 10,
+            margin: 2,
             listeners:{
                 change: this._updateGoButton,
                 scope: this,
@@ -113,12 +144,7 @@ Ext.define('quarter-item-selector', {
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ObjectID',
-            margin: 10,
-            listeners:{
-                change: this._updateGoButton,
-                scope: this,
-            }
-
+            margin: 2
         });
 
         this.add({
@@ -127,7 +153,7 @@ Ext.define('quarter-item-selector', {
                 itemId: 'cb-go-button',
                 cls: 'rly-small primary',
                 disabled: true,
-                margin: 10,
+                margin: 2,
                 listeners: {
                     scope: this,
                     click: this._updateQuarter
@@ -137,6 +163,7 @@ Ext.define('quarter-item-selector', {
     },
 
     _updateQuarter: function(){
+        var me = this;
         this.buttonPushed = true;
         var cb_quarter = this.down('#quarter-combobox');
         var cb_programs = this.down('#program-combobox');
@@ -144,7 +171,7 @@ Ext.define('quarter-item-selector', {
         
         if (cb_quarter && cb_programs){
             var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
-            this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value};
+            this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value,'allPrograms':me.programs};
             this.fireEvent('change', this.quarter_and_programs);
             this.publish('quarterSelected', this.quarter_and_programs);
             if (this.stateful && this.stateId){
@@ -155,15 +182,17 @@ Ext.define('quarter-item-selector', {
     },
 
 
-    _getEPMSProjects:function(){
+    _getEPMSProjects:function(workspace,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
+        var workspace_oid = workspace.get('ObjectID');
 
         var config = {
-            model: this.epmsModelPath,
+            model: epmsModelPath,
             fetch:['ObjectID','Project','Name'],
             context: { 
-                project: null
+                project: null,
+                workspace: '/workspace/' + workspace_oid
             }
         };
         
