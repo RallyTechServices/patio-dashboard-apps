@@ -5,6 +5,7 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
         closedStateValues: ['Fixed','Closed','Junked','Duplicate'],
         productionDefects: [],
         showOnlyProduction: false,
+        allowedPriorities: [],
         chartType: 'column', /* column or pie */
         buckets: {} /* a hash of values >= */
     },
@@ -51,9 +52,8 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
     
     runCalculation: function (snapshots) {
         var me = this;
-        
-        console.log('closed states:', me.closedStateValues, snapshots.length);
-        
+                
+        console.log(me.allowedPriorities);
         this.startDate = this.startDate || this._getStartDate(snapshots);
         this.endDate = this.endDate || this._getEndDate(snapshots);
             
@@ -83,9 +83,13 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
         var categories = Ext.Object.getKeys(this.buckets);
         
         series = [{type: 'column', name:'Defects',data: this._putTimesInBuckets(cycle_times)}];
-        
+
         series = this._addEventsToSeries(series);
         
+        console.log(Ext.clone(series));
+        series = this._splitBucketsIntoPriorities(series);
+        
+        console.log('series:', series);
         return {
             categories: categories,
             series: series
@@ -131,6 +135,54 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
         });
         
         return data;
+    },
+    
+    /*
+     * given a series where key = bucket_choice and data is an array of
+     * [{_records:[],events:function(), y:#},{},...]
+     * 
+     */
+    _splitBucketsIntoPriorities: function(series){
+        var series_by_priority = {}; // key will be priority
+        var allowed_priorities = this.allowedPriorities;
+        
+        Ext.Array.each(allowed_priorities, function(p){
+            if ( Ext.isEmpty(p) ) { p = "None"; }
+            
+            series_by_priority[p] = {
+                name: p,
+                type:'column',
+                data: []
+            };
+        });
+        
+        Ext.Array.each(series[0].data, function(s){
+            var all_records = s.__records ||[];
+            var events = s.events;
+            var records_by_priority = {};
+            
+            Ext.Array.each(all_records, function(record){
+                var priority = record.Priority;
+                if ( Ext.isEmpty(records_by_priority[priority]) ) {
+                    records_by_priority[priority] = [];
+                }
+                records_by_priority[priority].push(record);
+            });
+            
+            Ext.Array.each(allowed_priorities, function(p){
+                if ( Ext.isEmpty(p) ) { p = "None"; }
+                
+                var record_set = records_by_priority[p] || [];
+                series_by_priority[p].data.push({
+                    y: record_set.length,
+                    events: events,
+                    __all_records: all_records,
+                    __records: record_set
+                });
+            });
+        });
+                
+        return Ext.Object.getValues(series_by_priority);
     },
     
     _addEventsToSeries: function(series) {

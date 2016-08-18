@@ -194,7 +194,7 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectAccumulation',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities,
+                allowedPriorities: this.all_priorities,
                 granularity: this.granularity,
                 timeboxCount: this.timebox_limit
             },
@@ -209,7 +209,7 @@ Ext.define("TSDefectTrendDashboard", {
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
         
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
+                
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
@@ -223,6 +223,7 @@ Ext.define("TSDefectTrendDashboard", {
                 closedStateValues: closedStates,
                 granularity: 'day',
                 buckets: this._getBucketRanges(),
+                allowedPriorities: this.all_priorities,
                 onPointClick: this.showClosureDrillDown
             },
             
@@ -413,7 +414,7 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorType: 'CA.techservices.calculator.DefectDelta',
             calculatorConfig: {
                 closedStateValues: closedStates,
-                allowedPriorities: this.priorities,
+                allowedPriorities: this.all_priorities,
                 granularity: this.granularity,
                 timeboxCount: this.timebox_limit
             },
@@ -693,7 +694,7 @@ Ext.define("TSDefectTrendDashboard", {
     showClosureDrillDown: function(point) {
         console.log('point', point);
         var store = Ext.create('Rally.data.custom.Store',{
-            data: point.__records || []
+            data: point.__all_records || []
         });
         var columns = [
             {dataIndex:'FormattedID',text:'id'},
@@ -731,7 +732,6 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         
         var iso_date = this._getDateFromPoint(point);
-        console.log('point',point,iso_date);
 
         var filters = [
             {property:'_TypeHierarchy',value:'Defect'},
