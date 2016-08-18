@@ -144,6 +144,7 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
     
     _addEvents: function(data){
         var series = data.series;
+        var me = this;
         
         Ext.Array.each(series, function(s) {
             s.data = Ext.Array.map(s.data, function(datum){

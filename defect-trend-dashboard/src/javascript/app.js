@@ -310,19 +310,15 @@ Ext.define("TSDefectTrendDashboard", {
                 if (priority == "") {
                     priority = "None";
                 }
-                console.log("ProcessingPriorities",priority);
                 buckets[key][priority] = [];
             }
             );
         },this);
         
-        console.log("Buckets",buckets);
-
         Ext.Array.each(defects, function(defect){
             var age = defect.get('__age');
             var priority = defect.get('Priority');
 
-console.log("Age and Priority",age,priority,defect);
             var bucket_choice = null;
             Ext.Object.each( bucket_ranges, function( key, value ) {
                 if ( age >= value ) {
@@ -334,7 +330,6 @@ console.log("Age and Priority",age,priority,defect);
             
         });
         
-        console.log('buckets:', buckets);
         return buckets;
         
     },
@@ -368,8 +363,6 @@ console.log("Age and Priority",age,priority,defect);
         var me = this,
             data = [];
             
-console.log("AgingMeasures",defects_by_age,priority);
-
         Ext.Object.each(defects_by_age, function(bucket,value){
             data.push({
                 y: value[priority].length,
@@ -659,40 +652,104 @@ console.log("AgingMeasures",defects_by_age,priority);
         return columns;
     },
     
+    /*
+     * expecting input like 2015Q3
+     */
+    _getEndOfQuarterFromCategory: function(category){
+        var year = category.replace(/Q.*$/,'');
+        var quarter = parseInt(category.replace(/.*Q/,''),10);
+        
+        var month = quarter * 3;
+        var point_date = new Date(year,month,1);
+        var shifted_date = Rally.util.DateTime.add(jsdate,'day',-1);
+        if ( shifted_date > new Date() ) {
+            shifted_date = new Date();
+        }
+        return Rally.util.DateTime.toIsoString(shifted_date).replace(/T.*$/,'');
+ 
+    },
+    
     _getDateFromPoint: function(point) {
-        return point.category;
+        var point_date = point.category;
+        
+        if ( this.granularity == "month" ) {
+            point_date = point_date + "-01";
+            var jsdate = Rally.util.DateTime.fromIsoString(point_date);
+            var shifted_date = Rally.util.DateTime.add(jsdate,'month',1);
+            shifted_date = Rally.util.DateTime.add(shifted_date,'day',-1);
+            if ( shifted_date > new Date() ) {
+                shifted_date = new Date();
+            }
+            point_date = Rally.util.DateTime.toIsoString(shifted_date).replace(/T.*$/,'');
+        }
+        
+        if ( this.granularity == "quarter" ) {
+            point_date = this._getEndOfQuarterFromCategory(point_date);
+        }
+        return point_date;
     },
     
     showTrendDrillDown: function(point) {
         var me = this;
-        console.log('point',point);
+        
         var iso_date = this._getDateFromPoint(point);
+        console.log('point',point,iso_date);
+
+        var filters = [
+            {property:'_TypeHierarchy',value:'Defect'},
+            {property:'__At',value:iso_date},
+            {property:'_ProjectHierarchy',value:this.getContext().getProject().ObjectID}
+        ];
         
         
-//        var store = Ext.create('Rally.data.custom.Store', {
-//            data: stories,
-//            pageSize: 2000
-//        });
-//        
-//        Ext.create('Rally.ui.dialog.Dialog', {
-//            id        : 'detailPopup',
-//            title     : title,
-//            width     : Ext.getBody().getWidth() - 50,
-//            height    : Ext.getBody().getHeight() - 50,
-//            closable  : true,
-//            layout    : 'border',
-//            items     : [
-//            {
-//                xtype                : 'rallygrid',
-//                region               : 'center',
-//                layout               : 'fit',
-//                sortableColumns      : true,
-//                showRowActionsColumn : false,
-//                showPagingToolbar    : false,
-//                columnCfgs           : this.getDrillDownColumns(title),
-//                store : store
-//            }]
-//        }).show();
+        var config = {
+            fetch: ['FormattedID','Name','State','Priority'],
+            filters: filters,
+            hydrate: ['Priority','State'],
+            autoLoad: true
+        };
+        
+        TSUtilities.loadLookbackRecords(config).then({
+            scope: this,
+            failure: function(msg) {
+                Ext.Msg.alert("Problem loading Drill Down",msg);
+            },
+            success: function(records) {
+                // loading into custom store because the snapshot store and
+                // column combination isn't allowing us to put anything into
+                // the FOrmattedID column, even though we have the data.
+                var store = Ext.create('Rally.data.custom.Store',{
+                    data: records
+                });
+                var columns = [
+                    {dataIndex:'FormattedID',text:'id'},
+                    {dataIndex:'Name',text:'Name',flex:1},
+                    {dataIndex:'State',text:'State'},
+                    {dataIndex:'Priority',text:'Priority', flex: 1}
+                ];
+    //            
+                Ext.create('Rally.ui.dialog.Dialog', {
+                    id        : 'detailPopup',
+                    title     : 'Defects on ' + iso_date,
+                    width     : Ext.getBody().getWidth() - 50,
+                    height    : Ext.getBody().getHeight() - 50,
+                    closable  : true,
+                    layout    : 'border',
+                    items     : [{
+                        xtype                : 'rallygrid',
+                        region               : 'center',
+                        layout               : 'fit',
+                        sortableColumns      : true,
+                        showRowActionsColumn : false,
+                        showPagingToolbar    : true,
+                        columnCfgs           : columns,
+                        store : store
+                    }]
+                }).show();
+            }
+        });
+        
+        
     }
     
     
