@@ -222,7 +222,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 granularity: 'day',
-                buckets: this._getBucketRanges()
+                buckets: this._getBucketRanges(),
+                onPointClick: this.showClosureDrillDown
             },
             
             chartConfig: this._getClosureChartConfig(),
@@ -429,7 +430,7 @@ Ext.define("TSDefectTrendDashboard", {
                _TypeHierarchy: 'Defect' 
            },
            removeUnauthorizedSnapshots: true,
-           fetch: ['ObjectID','State','Priority','CreationDate'],
+           fetch: ['ObjectID','State','Priority','CreationDate','FormattedID','Name'],
            hydrate: ['State','Priority'],
            sort: {
                '_ValidFrom': 1
@@ -687,6 +688,43 @@ Ext.define("TSDefectTrendDashboard", {
             point_date = this._getEndOfQuarterFromCategory(point_date);
         }
         return point_date;
+    },
+    
+    showClosureDrillDown: function(point) {
+        console.log('point', point);
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: point.__records || []
+        });
+        var columns = [
+            {dataIndex:'FormattedID',text:'id'},
+            {dataIndex:'Name',text:'Name',flex:1},
+            {dataIndex:'State',text:'State'},
+            {dataIndex:'Priority',text:'Priority'},
+            {dataIndex:'__cycle', text:'Time to Close (Days)', flex: 1, renderer: function(value,meta,record){
+                if ( Ext.isEmpty(value) ){ return ""; }
+                return Ext.util.Format.number(value,'0.0');
+            }}
+        ];
+//            
+        Ext.create('Rally.ui.dialog.Dialog', {
+            id        : 'detailPopup',
+            title     : point.category,
+            width     : Ext.getBody().getWidth() - 50,
+            height    : Ext.getBody().getHeight() - 50,
+            closable  : true,
+            layout    : 'border',
+            items     : [{
+                xtype                : 'rallygrid',
+                region               : 'center',
+                layout               : 'fit',
+                sortableColumns      : true,
+                showRowActionsColumn : false,
+                showPagingToolbar    : true,
+                columnCfgs           : columns,
+                store : store
+            }]
+        }).show();
+        
     },
     
     showTrendDrillDown: function(point) {

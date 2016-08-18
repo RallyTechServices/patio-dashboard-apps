@@ -68,10 +68,15 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
             var state_date_in_js =    Rally.util.DateTime.fromIsoString(snapshot._ValidFrom);
             
             var time_difference = Rally.util.DateTime.getDifference(state_date_in_js,creation_date_in_js,'hour');
-            cycle_times.push(time_difference);
-            
+
             snapshot.__cycle = time_difference;
             if ( me.granularity == 'day' ) { snapshot.__cycle = time_difference / 24; }
+            cycle_times.push({
+                age: snapshot.__cycle ,
+                snapshot: snapshot
+            });
+            
+        
         });
 
         var series = [];
@@ -79,13 +84,21 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
         
         series = [{type: 'column', name:'Defects',data: this._putTimesInBuckets(cycle_times)}];
         
+        series = this._addEventsToSeries(series);
+        
         return {
             categories: categories,
             series: series
         }
     },
     
-    _putTimesInBuckets: function(ages) {
+    /*
+     * expect data like: {
+//                age: time_difference,
+//                snapshot: snapshot
+//            }
+     */
+    _putTimesInBuckets: function(item_data) {
         var bucket_ranges = this.buckets;
         var buckets = {};
         
@@ -93,7 +106,9 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
             buckets[key] = [];
         });
         
-        Ext.Array.each(ages, function(age){
+        Ext.Array.each(item_data, function(item){
+            
+            var age = item.age;
             
             var bucket_choice = null;
             Ext.Object.each( bucket_ranges, function( key, value ) {
@@ -102,17 +117,45 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
                 }
             });
             
-            buckets[bucket_choice].push(age);
+            buckets[bucket_choice].push(item);
             
         });
         
         var data = [];
         Ext.Object.each(buckets, function(key,items){
-            data.push(items.length);
+            var records = Ext.Array.map(items, function(item) { return item.snapshot; });
+            data.push({
+                y: items.length,
+                __records: records
+            });
         });
         
         return data;
     },
+    
+    _addEventsToSeries: function(series) {
+        var me = this;
+        
+        Ext.Array.each(series, function(s) {
+            s.data = Ext.Array.map(s.data, function(datum){
+                return {
+                    y: datum.y,
+                    __records: datum.__records,
+                    events: {
+                        click: function() {
+                            me.onPointClick(this);
+                        }
+                    }
+                }
+            });
+            
+            
+        });
+        
+        
+        return series;
+    },
+    
     
     onPointClick: function(evt) {
         // override with configuration setting

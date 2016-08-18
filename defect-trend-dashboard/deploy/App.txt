@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 17 2016 19:50:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Aug 17 2016 20:22:56 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 17 2016 19:50:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Aug 17 2016 20:22:56 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 354107663115;
+        var CHECKSUM = 365297505208;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2435,10 +2435,15 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
             var state_date_in_js =    Rally.util.DateTime.fromIsoString(snapshot._ValidFrom);
             
             var time_difference = Rally.util.DateTime.getDifference(state_date_in_js,creation_date_in_js,'hour');
-            cycle_times.push(time_difference);
-            
+
             snapshot.__cycle = time_difference;
             if ( me.granularity == 'day' ) { snapshot.__cycle = time_difference / 24; }
+            cycle_times.push({
+                age: snapshot.__cycle ,
+                snapshot: snapshot
+            });
+            
+        
         });
 
         var series = [];
@@ -2446,13 +2451,21 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
         
         series = [{type: 'column', name:'Defects',data: this._putTimesInBuckets(cycle_times)}];
         
+        series = this._addEventsToSeries(series);
+        
         return {
             categories: categories,
             series: series
         }
     },
     
-    _putTimesInBuckets: function(ages) {
+    /*
+     * expect data like: {
+//                age: time_difference,
+//                snapshot: snapshot
+//            }
+     */
+    _putTimesInBuckets: function(item_data) {
         var bucket_ranges = this.buckets;
         var buckets = {};
         
@@ -2460,7 +2473,9 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
             buckets[key] = [];
         });
         
-        Ext.Array.each(ages, function(age){
+        Ext.Array.each(item_data, function(item){
+            
+            var age = item.age;
             
             var bucket_choice = null;
             Ext.Object.each( bucket_ranges, function( key, value ) {
@@ -2469,17 +2484,45 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
                 }
             });
             
-            buckets[bucket_choice].push(age);
+            buckets[bucket_choice].push(item);
             
         });
         
         var data = [];
         Ext.Object.each(buckets, function(key,items){
-            data.push(items.length);
+            var records = Ext.Array.map(items, function(item) { return item.snapshot; });
+            data.push({
+                y: items.length,
+                __records: records
+            });
         });
         
         return data;
     },
+    
+    _addEventsToSeries: function(series) {
+        var me = this;
+        
+        Ext.Array.each(series, function(s) {
+            s.data = Ext.Array.map(s.data, function(datum){
+                return {
+                    y: datum.y,
+                    __records: datum.__records,
+                    events: {
+                        click: function() {
+                            me.onPointClick(this);
+                        }
+                    }
+                }
+            });
+            
+            
+        });
+        
+        
+        return series;
+    },
+    
     
     onPointClick: function(evt) {
         // override with configuration setting
@@ -3819,7 +3862,8 @@ Ext.define("TSDefectTrendDashboard", {
             calculatorConfig: {
                 closedStateValues: closedStates,
                 granularity: 'day',
-                buckets: this._getBucketRanges()
+                buckets: this._getBucketRanges(),
+                onPointClick: this.showClosureDrillDown
             },
             
             chartConfig: this._getClosureChartConfig(),
@@ -4026,7 +4070,7 @@ Ext.define("TSDefectTrendDashboard", {
                _TypeHierarchy: 'Defect' 
            },
            removeUnauthorizedSnapshots: true,
-           fetch: ['ObjectID','State','Priority','CreationDate'],
+           fetch: ['ObjectID','State','Priority','CreationDate','FormattedID','Name'],
            hydrate: ['State','Priority'],
            sort: {
                '_ValidFrom': 1
@@ -4284,6 +4328,43 @@ Ext.define("TSDefectTrendDashboard", {
             point_date = this._getEndOfQuarterFromCategory(point_date);
         }
         return point_date;
+    },
+    
+    showClosureDrillDown: function(point) {
+        console.log('point', point);
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: point.__records || []
+        });
+        var columns = [
+            {dataIndex:'FormattedID',text:'id'},
+            {dataIndex:'Name',text:'Name',flex:1},
+            {dataIndex:'State',text:'State'},
+            {dataIndex:'Priority',text:'Priority'},
+            {dataIndex:'__cycle', text:'Time to Close (Days)', flex: 1, renderer: function(value,meta,record){
+                if ( Ext.isEmpty(value) ){ return ""; }
+                return Ext.util.Format.number(value,'0.0');
+            }}
+        ];
+//            
+        Ext.create('Rally.ui.dialog.Dialog', {
+            id        : 'detailPopup',
+            title     : point.category,
+            width     : Ext.getBody().getWidth() - 50,
+            height    : Ext.getBody().getHeight() - 50,
+            closable  : true,
+            layout    : 'border',
+            items     : [{
+                xtype                : 'rallygrid',
+                region               : 'center',
+                layout               : 'fit',
+                sortableColumns      : true,
+                showRowActionsColumn : false,
+                showPagingToolbar    : true,
+                columnCfgs           : columns,
+                store : store
+            }]
+        }).show();
+        
     },
     
     showTrendDrillDown: function(point) {
