@@ -551,9 +551,9 @@ Ext.define("TSDefectTrendDashboard", {
                 tickmarkPlacement: 'on',
                 title: {
                     text: ''
-                },
-                labels            : {
-                    rotation : -45
+//                },
+//                labels            : {
+//                    rotation : -45
                 }
             },
             yAxis: [
