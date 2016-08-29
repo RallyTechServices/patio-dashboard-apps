@@ -239,8 +239,8 @@ Ext.define("TSDeliveryEffortFocus", {
                     actual_hours_total = actual_hours_total + value;
                 });                
                                
-                var actual_hours_pct = all_actual_hours_total > 0?actual_hours_total / all_actual_hours_total:0;
-
+                var actual_hours_pct = all_actual_hours_total > 0?Math.round((actual_hours_total / all_actual_hours_total)*10)/10:0;
+// actual_hours_pct = Math.round(actual_hours_pct*10)/10;
                 row[sprint_name + "_number"] = {'actual_hours_total':actual_hours_total, 'actual_hours_pct':actual_hours_pct}; 
                 
             });
@@ -281,14 +281,20 @@ Ext.define("TSDeliveryEffortFocus", {
     
     _sortTimeboxes: function(timeboxes) {
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-        
+ 
+this.logger.log("before", timeboxes);
+       
         Ext.Array.sort(timeboxes, function(a,b){
             if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
             if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
         });
         
+this.logger.log("after", timeboxes);        
+        
         return timeboxes;
+
+
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
@@ -302,7 +308,8 @@ Ext.define("TSDeliveryEffortFocus", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
+//        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
