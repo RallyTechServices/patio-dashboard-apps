@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Predictability</title>
+    <title>Productivity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Aug 29 2016 14:25:45 GMT-0400 (EDT) -->
+    <!--  Build Date: Mon Aug 29 2016 14:24:23 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Aug 29 2016 14:25:45 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Mon Aug 29 2016 14:24:23 GMT-0400 (EDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -16,8 +16,8 @@
         Rally.onReady(function() {
             
             
-               Rally.launchApp('PredictabilityApp', {
-                   name: 'Predictability'
+               Rally.launchApp('ProductivityApp', {
+                   name: 'Productivity'
                });
         });
     </script>
