@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Predictability</title>
+    <title>Productivity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Aug 29 2016 14:25:44 GMT-0400 (EDT) -->
+    <!--  Build Date: Mon Aug 29 2016 14:24:23 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Aug 29 2016 14:25:44 GMT-0400 (EDT)";
-        var CHECKSUM = 147774822556;
+        var APP_BUILD_DATE = "Mon Aug 29 2016 14:24:23 GMT-0400 (EDT)";
+        var CHECKSUM = 141249499024;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2048,24 +2048,19 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     },
 
 });
-Ext.define("PredictabilityApp", {
+Ext.define("ProductivityApp", {
     extend: 'CA.techservices.app.ChartApp',
 
     descriptions: [
-        "<strong>Predictability Dashboard</strong><br/>" +
+        "<strong>Productivity Dashboard</strong><br/>" +
             "<br/>" +
-            "A team plans and commits to work effort during their Sprint Planning Meeting at the beginning of each sprint. The dashboard will allow the team to determine the effectiveness of planning / committing to work by examining the difference between their Planned and Actual Velocity (execution) in a sprint.<br/>" +
-            "The top bar chart displays your total accepted points (actual velocity) in that sprint<br/>" +
-            "The gold line graph displays the total points planned (planned velocity) in that sprint",
-"<strong>Percentage of difference between planned and actual velocity</strong><br/>" +
-            "<br/>" +
-            "he orange line graph displays the % difference between planned and actual velocity for the sprint.<br/>" +
-            "The green box represents the target variability of ±7.5%<br/>" +
-            "The target variability can be set using the app settings."              
+            "Velocity is the amount of work completed during each project or team’s sprint. The dashboard will allow the user to determine the number of points accepted in a sprint and if the effort allocated was from user stories (new and unfinished work) or defects.<br/>" +
+            "The top stacked bar chart displays total points stacked by story, split story or defect points accepted in that sprint<br/>" +
+            "The gray line is the average velocity for all sprints displayed in the dashboard"              
     ],
     
     integrationHeaders : {
-        name : "PredictabilityApp"
+        name : "ProductivityApp"
     },
     
     config: {
@@ -2074,7 +2069,7 @@ Ext.define("PredictabilityApp", {
             targetVariability: 50
         }
     },
-                        
+    
     launch: function() {
         this.callParent();
         this._addSelectors();
@@ -2157,8 +2152,7 @@ Ext.define("PredictabilityApp", {
             success: function(results) {
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
-                this._makeBottomChart(artifacts_by_timebox);
-                // this._makeRawBottomGrid(artifacts_by_timebox);
+                this._makeRawTopGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -2233,22 +2227,30 @@ Ext.define("PredictabilityApp", {
         
         filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '=', value: 'Accepted'});
 
-        var config = {
+        var config1 = {
             model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate', start_field,end_field]
+                'PlanEstimate','Project','Release','AcceptedDate', 'TaskEstimateTotal',start_field,end_field]
         };
 
+
+        var config2 = {
+            model:'Defect',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
+                'PlanEstimate','Project','Release','AcceptedDate','TaskEstimateTotal', start_field,end_field]
+        };
         
         Deft.Chain.sequence([
             function() { 
-                return TSUtilities.loadWsapiRecords(config);
+                return TSUtilities.loadWsapiRecords(config1);
             },
             function() { 
-                return me._getStoriesFromSnapShotStore(type,timeboxes);
-            },
+                return TSUtilities.loadWsapiRecords(config2);
+            }            
         ],this).then({
             success: function(results) {
                 deferred.resolve(results);
@@ -2260,72 +2262,6 @@ Ext.define("PredictabilityApp", {
         return deferred.promise;
     },
 
-    _getStoriesFromSnapShotStore:function(type,timeboxes){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-        var promises = [];
-        Ext.Array.each(timeboxes,function(timebox){
-            promises.push(function() { 
-                return me._getDataFromSnapShotStore(type,timebox);
-            });
-        })
-
-        Deft.Chain.sequence(promises,me).then({
-            success: function(results) {
-                console.log('_getStoriesFromSnapShotStore>>',results);
-                deferred.resolve(Ext.Array.flatten(results));
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-
-
-        return deferred;
-
-    },
-
-    _getDataFromSnapShotStore:function(type,timebox){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-
-        var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement"
-                    };
-
-        var start_field = "StartDate";
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            find["Release"] = timebox.get('ObjectID');
-        }else{
-            find["Iteration"] = timebox.get('ObjectID');
-        }
-        
-        var second_day = new Date(timebox.get(start_field));
-        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.      
-
-        find["__At"] = second_day;
-
-        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "fetch": [ "ObjectID","Name","PlanEstimate","Project","Iteration","Release"],
-            "find": find,
-            "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
-             "hydrate": ["Project","Iteration","Release"]
-        });
-
-        snapshotStore.load({
-            callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
-                deferred.resolve(records);
-            },
-            scope:this
-        });
-    
-        return deferred;
-    },
-
-    
     /* 
      * returns a hash of hashes -- key is iteration name value is
      * another hash where the records key holds a hash
@@ -2333,14 +2269,12 @@ Ext.define("PredictabilityApp", {
      *    which then provides an array of items that match the allowed value 
      *    and timebox
      * as in
-     * { "iteration 1": { "records": { "av": [o,o,o] } , { "pv": [o,o,o] } } }
-     * where as av is accepted velocity and pv is planned velocity
+     * { "iteration 1": { "records": { "stories": [o,o,o] } , { "split_stories": [o,o,o] }, { "defects": [o,o,o] } } }
+     * 
      */
 
     _collectArtifactsByTimebox: function(items) {
-        //console.log('items >>', items);
-        
-
+       
         var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
@@ -2350,33 +2284,46 @@ Ext.define("PredictabilityApp", {
         
         var base_hash = {
             records: {
-                av: [],
-                pv: []
+                stories: [],
+                split_stories: [],
+                defects:[]
             }
         };
 
-        Ext.Array.each(items[0], function(item){
-            var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
-            hash[timebox].records.av.push(item);
-          
-        });
+        var total_velocity = 0;
+        var total_length = 0;
 
-        Ext.Array.each(items[1], function(item){
+        Ext.Array.each(items[0], function(item){
+            total_velocity += item.get('PlanEstimate');
+
             var timebox = item.get(timebox_type).Name;
             
             if ( Ext.isEmpty(hash[timebox])){
-                
+                total_length += 1;
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            hash[timebox].records.pv.push(item);
+            if(me._getTypeFromName(item.get('Name')) == "standard"){
+                hash[timebox].records.stories.push(item);
+            }else{
+                hash[timebox].records.split_stories.push(item);
+            }
+            
           
         });
-        
+       
+        Ext.Array.each(items[1], function(item){
+            total_velocity += item.get('PlanEstimate');
+
+            var timebox = item.get(timebox_type).Name;
+            
+            if ( Ext.isEmpty(hash[timebox])){
+                total_length += 1;                
+                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
+            }
+            hash[timebox].records.defects.push(item);
+          
+        });
+        me.averageVelocity = total_velocity / total_length;
         return hash;
     },
 
@@ -2402,24 +2349,21 @@ Ext.define("PredictabilityApp", {
 
 
     _getTopSeries: function(artifacts_by_timebox) {
+        var me = this;
+        var allowed_types = ['stories','split_stories','defects']
         var series = [];
         
+        Ext.Array.each(allowed_types,function(allowed_type){
+
+            series.push({
+                name: allowed_type,
+                data: me._calculateTopMeasure(artifacts_by_timebox,allowed_type),
+                type: 'column'              
+            });
+
+        });
         // series for actual velocity
-        series.push({
-            name: 'Actual Velocity',
-            color: CA.apps.charts.Colors.blue_dark,
-            data: this._calculateTopMeasure(artifacts_by_timebox,'av'),
-            type: 'column'              
-        });
 
-
-        // series for planned velocity
-        series.push({
-            name: 'Planned Velocity',
-            color: CA.apps.charts.Colors.gold,
-            data: this._calculateTopMeasure(artifacts_by_timebox,'pv'),
-            type: 'line'              
-        });
         
         return series;
     },
@@ -2427,14 +2371,13 @@ Ext.define("PredictabilityApp", {
 
     _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
-        data = [];
-
+            data = [];
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
             var y_value = 0;
 
             Ext.Array.each(records,function(story){
-                y_value += story.get('PlanEstimate')  
+                y_value += story.get('PlanEstimate') ; 
             });
 
             data.push({ 
@@ -2456,11 +2399,22 @@ Ext.define("PredictabilityApp", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Predictability - Plan Variance' },
+            title: { text: 'Accepted Story/Defect Count and Size' },
             xAxis: {},
             yAxis: { 
                 min: 0,
                 title: { text: 'Total Points' },
+                plotLines: [{ 
+                    value: me.averageVelocity,
+                    color: CA.apps.charts.Colors.blue_dark,
+                    width: '1',
+                    label: {
+                        text: 'Average Velocity ' + Ext.util.Format.number(me.averageVelocity,"000.00"),
+                        style: {
+                            color: '#606060'
+                        }
+                    }
+                }],                
                 stackLabels: {
                     enabled: true,
                     style: {
@@ -2485,148 +2439,30 @@ Ext.define("PredictabilityApp", {
                     borderWidth: 0
                 }
             }
-            // ,
-            // tooltip: {
-            //     formatter: function() {
-            //         return '<b>'+ this.series.name +'</b>: '+ this.point.y;
-            //     }
-            // }
         }
     },
 
-
-
-    _makeBottomChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getBottomSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
-        }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getBottomChartConfig(),
-            chartColors: colors
-        },1);
-        this.setLoading(false);
-    },
     
-
-    
-    _getBottomSeries: function(artifacts_by_timebox) {
-        var series = [];
-
-        series.push({
-            name: '% of difference',
-            data: this._calculateBottomMeasure(artifacts_by_timebox),
-            color: '#FFD700' // Gold.
-        });
-
-        return series;
-    },
-
-
-    _calculateBottomMeasure: function(artifacts_by_timebox) {
-        var me = this,
-        data = [];
-
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var av_records = value.records.av || [];
-            var pv_records = value.records.pv || [];
-            var av_value = 0;
-            var pv_value = 0;
-            var y_value = 0;
-
-            Ext.Array.each(av_records,function(story){
-                av_value += story.get('PlanEstimate')  
-            });
-
-            Ext.Array.each(pv_records,function(story){
-                pv_value += story.get('PlanEstimate')  
-            });
-
-            y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
-
-            data.push({ 
-                y: Math.round(y_value)
-            });
-
-        });
-
-        return data
-    },    
-    
-    _getBottomChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type: 'line' },
-            title: { text: 'Percentage of difference between planned and actual velocity' },
-            xAxis: {
-                title: { }
-            },
-            yAxis: [{ 
-                title: { text: 'Percentage' },
-                plotBands: [{ 
-                    from: me.getSetting('targetVariability'),
-                    to: -1 * me.getSetting('targetVariability'),
-                    color: CA.apps.charts.Colors.green,
-                    label: {
-                        text: 'Target Variability',
-                        style: {
-                            color: '#606060'
-                        }
-                    }
-                }]
-            }],
-            plotOptions: {
-                line: {
-                    color: CA.apps.charts.Colors.orange,
-                    dataLabels: {
-                        enabled: true,
-                        format: '{y} %',
-                    },                    
-                    pointStart: 0,
-                    marker: {
-                        enabled: true,
-                        symbol: 'circle',
-                        radius: 2,
-                        states: {
-                            hover: {
-                                enabled: true
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-
-    _makeRawBottomGrid: function(artifacts_by_timebox) {
+ 
+    _makeRawTopGrid: function(artifacts_by_timebox) {
         var me = this;
         
         this.logger.log('_makeRawGrid', artifacts_by_timebox);
        
-        var columns = [{dataIndex:'Name',text:'Counts',flex:2}];
+        var columns = [{dataIndex:'Name',text:'',flex:2}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", 
                             text: field, 
                             align: 'center',
                             flex:1,
                             renderer: function(value,metaData){
-                                if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
-                                     metaData.style = 'text-align:center;background-color:#ff9999';    
-                                }
                                 return value;
                             }
                         });
         });
         
         this.logger.log('about to get Raw Rows');
-        var rows = this._getRawBottomRows(artifacts_by_timebox);
+        var rows = this._getRawTopRows(artifacts_by_timebox);
         
         this.logger.log('about to create store', rows);
         var store = Ext.create('Rally.data.custom.Store',{ data: rows });
@@ -2641,11 +2477,11 @@ Ext.define("PredictabilityApp", {
             showRowActionsColumn: false,     
             store: store,
             columnCfgs: columns
-        },1);
+        },0);
 
     },
     
-    _getRawBottomRows: function(artifacts_by_timebox) {
+    _getRawTopRows: function(artifacts_by_timebox) {
         var me = this;
         // sprint objects have key = name of sprint
         
@@ -2654,16 +2490,15 @@ Ext.define("PredictabilityApp", {
         this.logger.log('row_fields', row_fields);
         
         var rows = [
-            {Type:'TotalStoryCount', Name: 'Testable Stories'},
-            {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Case' },
-            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Pass Test Case' }
+            {Type:'AcceptedDefectPoints', Name: 'Accepted Defect Points'},
+            {Type:'AcceptedSplitStoryPoints',  Name: 'Accepted Split Story Points' },
+            {Type:'AcceptedStoryPoints', Name: 'Accepted Story Points' },
+            {Type:'TotalAcceptedPoints', Name: 'Total Accepted Points' },
+            {Type:'StoryDefectCount', Name: 'Story/Defect Count' },
+            {Type:'AverageStorySize', Name: 'Average Story Size (Pts)' },
+            {Type:'HoursPerPoint', Name: 'Hours per point' }
         ];
 
-        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-        //     rows.push({Type:rowname.name,Name:rowname.name});
-        // })
-        // set up fields
-        
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
                 field = me._getSafeIterationName(field);
@@ -2680,7 +2515,7 @@ Ext.define("PredictabilityApp", {
                 sprint_name = me._getSafeIterationName(sprint_name);
 
               
-                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
+                row[sprint_name + "_number"] = me._getTopSize(value,type); 
                 
             });
         });
@@ -2689,25 +2524,85 @@ Ext.define("PredictabilityApp", {
     },
 
 
-    _getBottomSize:function(value,type){
+    _getTopSize:function(value,type){
 
             var size = 0;
 
-            if('TotalStoryCount' == type){
-                size = value.records.all.length;
-            }else if('TotalTCStoryCount' == type){
-                size = value.records.with_test_cases.length;
-            }else if('TotalTCPassStoryCount' == type){
-                Ext.Array.each(value.records.with_test_cases, function(story){
-                    if("ALL_RUN_ALL_PASSING" == story.get('TestCaseStatus')){
-                        size += 1;
-                    }    
+            if('AcceptedDefectPoints' == type){
+                Ext.Array.each(value.records.defects, function(defect){
+                    size += defect.get('PlanEstimate');
                 }); 
+            }else if('AcceptedSplitStoryPoints' == type){
+                Ext.Array.each(value.records.split_stories, function(story){
+                    size += story.get('PlanEstimate');
+                }); 
+            }else if('AcceptedStoryPoints' == type){
+                Ext.Array.each(value.records.stories, function(story){
+                    size += story.get('PlanEstimate');
+                }); 
+            }else if('TotalAcceptedPoints' == type){
+                Ext.Array.each(value.records.defects, function(defect){
+                    size += defect.get('PlanEstimate');
+                });
+                Ext.Array.each(value.records.split_stories, function(story){
+                    size += story.get('PlanEstimate');
+                });                                  
+                Ext.Array.each(value.records.stories, function(story){
+                    size += story.get('PlanEstimate');
+                }); 
+            }else if('StoryDefectCount' == type){
+                size = value.records.defects.length + value.records.split_stories.length + value.records.stories.length;
+            }else if('TotalAcceptedPoints' == type){
+                total_points = 0;
+                Ext.Array.each(value.records.defects, function(defect){
+                    total_points += defect.get('PlanEstimate');
+                });
+                Ext.Array.each(value.records.split_stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                });                                  
+                Ext.Array.each(value.records.stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                }); 
+
+                total_count = value.records.defects.length + value.records.split_stories.length + value.records.stories.length;
+
+                size = total_count > 0 ? total_points / total_count : 0
+            }else if('HoursPerPoint' == type){
+                total_points = 0;
+                total_hours = 0;
+                Ext.Array.each(value.records.defects, function(defect){
+                    total_points += defect.get('PlanEstimate');
+                    total_hours += defect.get('TaskEstimateTotal');
+                });
+                Ext.Array.each(value.records.split_stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                    total_hours += story.get('TaskEstimateTotal');
+                });                                  
+                Ext.Array.each(value.records.stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                    total_hours += story.get('TaskEstimateTotal');
+                }); 
+
+                size = total_hours > 0 ? Ext.util.Format.round(total_points / total_hours,2) : 0
             }
 
             return size;
     },
 
+    _getTypeFromName: function(name) {
+        if ( /\[Continued\]/.test(name) &&  /\[Unfinished\]/.test(name) ) {
+            return 'multiple';
+        }
+        if ( /\[Continued\]/.test(name) ) {
+            return 'continued';
+        }
+        
+        if ( /\[Unfinished\]/.test(name) ) {
+            return 'unfinished';
+        }
+        
+        return 'standard';
+    },
 
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
@@ -2771,16 +2666,6 @@ Ext.define("PredictabilityApp", {
                         return Project.Name;
                 },
                 flex: 1
-            },
-            {
-                dataIndex: 'TestCaseCount',
-                text: 'Test Case Count',
-                flex: 1
-            },
-            {
-                dataIndex: 'TestCaseStatus',
-                text: 'Test Case Status',
-                flex: 1
             }
         ];
         
@@ -2834,8 +2719,8 @@ Ext.define("PredictabilityApp", {
 });
 
             
-               Rally.launchApp('PredictabilityApp', {
-                   name: 'Predictability'
+               Rally.launchApp('ProductivityApp', {
+                   name: 'Productivity'
                });
         });
     </script>
