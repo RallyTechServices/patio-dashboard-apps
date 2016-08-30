@@ -31,7 +31,7 @@ Ext.define("TSDeliveryEfficiency", {
             return;
         }
         
-        this._getAllowedValues('UserStory',this.getSetting('typeField')).then({
+        this._getAllowedValues('Task',this.getSetting('typeField')).then({
             scope: this,
             success: function(values) {
                 this.allowed_types = values;
@@ -140,9 +140,15 @@ Ext.define("TSDeliveryEfficiency", {
         ],this).then({
             scope: this,
             success: function(results) {
-                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 
-                this._makeChart(artifacts_by_timebox);
+						this._sortTasks(results);
+
+            var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
+                
+ //           this._makeGrid(artifacts_by_timebox);
+
+            this._makeChart(artifacts_by_timebox);
+            
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -193,7 +199,25 @@ Ext.define("TSDeliveryEfficiency", {
         return iterations.reverse();
     },
     
-    _fetchArtifactsInTimeboxes: function(timeboxes) {
+     _sortTasks: function(task_records) {
+    	
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+        
+				for (i=0; i < task_records.length; i++) { 
+					task_records[i].task_sort_field = task_records[i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(task_records, function(a,b){      	
+            if ( a.task_sort_field < b.task_sort_field ) { return -1; }
+            if ( a.task_sort_field > b.task_sort_field ) { return  1; }
+            return 0;
+        }); 
+        
+        return task_records;
+
+    },
+    
+   _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
         
         var type = this.timebox_type;
@@ -208,11 +232,11 @@ Ext.define("TSDeliveryEfficiency", {
         
         //var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: type + '.' + end_field, operator: '<=', value:last_date},
             //{property:'AcceptedDate', operator: '!=', value: null }
             {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
@@ -223,9 +247,11 @@ Ext.define("TSDeliveryEfficiency", {
             model: 'Task',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','Release','ObjectID',
+            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','ToDo',
                 'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal','Tasks',
-                'Actuals','Estimate','TaskActualTotal']
+                'Actuals','Estimate','TaskActualTotal','StartDate','EndDate','WorkProduct',
+                'ReleaseStartDate','ReleaseDate', 'State'],
+
         };
         
         return TSUtilities.loadWsapiRecords(config);
@@ -414,7 +440,7 @@ Ext.define("TSDeliveryEfficiency", {
         {
             name: 'typeField',
             xtype: 'rallyfieldcombobox',
-            model: 'UserStory',
+            model: 'Task',
             _isNotHidden: function(field) {
                 if ( field.hidden ) { return false; }
                 var defn = field.attributeDefinition;
@@ -440,7 +466,7 @@ Ext.define("TSDeliveryEfficiency", {
             {
                 dataIndex : 'FormattedID',
                 text: "id",
-                flex:1
+                flex: 1
             },
             {
                 dataIndex : 'Name',
@@ -448,21 +474,30 @@ Ext.define("TSDeliveryEfficiency", {
                 flex: 3
             },
             {
-                dataIndex: 'ScheduleState',
-                text: 'Schedule State',
-                flex:1
+                dataIndex: 'WorkProduct',
+                text: 'Work Product',
+                flex:1,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value.FormattedID + ": " + value.Name;
+                }
             },
             {
-                dataIndex: 'PlanEstimate',
-                text: 'Plan Estimate',
+                dataIndex: 'WorkProduct',
+                text: 'Story Points',
+                flex: 1,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value.PlanEstimate;
+                }
+            },
+            {
+                dataIndex: 'Estimate',
+                text: 'Task Hours (Estimate)',
                 flex: 1
             },
             {
-                dataIndex: 'TaskEstimateTotal',
-                text: 'Task Hours (Est)'
-            },
-            {
-                dataIndex: 'TaskActualTotal',
+                dataIndex: 'Actuals',
                 text: 'Task Hours (Actual)'
             },
             {
