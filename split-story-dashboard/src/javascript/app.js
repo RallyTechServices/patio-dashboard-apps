@@ -50,12 +50,13 @@ Ext.define("TSSplitStoryPerSprint", {
             }
         });
 
-        this.timebox_limit = 10;
+        this.timebox_limit = 10; // how many iterations into the past (starting with current) should we retrieve?
         this.addToBanner({
-            xtype: 'numberfield',
+            //xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Time Box Limit',  // offset from current into the past
             value: 10,
             maxValue: 20,
             minValue: 1,            
@@ -178,6 +179,8 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getTypeFromName: function(name) {
+        this.logger.log('_getTypeFromName;',name);
+
         if ( /\[Continued\]/.test(name) &&  /\[Unfinished\]/.test(name) ) {
             return 'multiple';
         }
@@ -242,6 +245,8 @@ Ext.define("TSSplitStoryPerSprint", {
                 projectScopeDown: false
             }
         };
+        
+        this.logger.log("_fetchLastTenTimeBoxesWConfig:",config);
         
         return TSUtilities.loadWsapiRecords(config);
     },
