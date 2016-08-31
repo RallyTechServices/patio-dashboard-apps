@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 07 2016 16:24:39 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Aug 31 2016 13:21:43 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 07 2016 16:24:39 GMT-0400 (EDT)";
-        var BUILDER = "[%= builder %]";
-        var CHECKSUM = [%= checksum %];
+        var APP_BUILD_DATE = "Wed Aug 31 2016 13:21:43 GMT-0400 (EDT)";
+        var BUILDER = "srhoads";
+        var CHECKSUM = 122953159714;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -191,38 +191,121 @@ Ext.define('TSUtilities', {
         return ( sub_admin_list.length > 0 );
     },
     
-    _currentUserCanWrite: function() {
-        var app = Rally.getApp();
-        
-        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
-            return true;
+    getStartFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseStartDate';
         }
         
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
-        var can_unlock = false;
-                
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unlock = true;
-                }
-            });
-        }
-        
-        return can_unlock;
+        return 'StartDate';
     },
     
-    _currentUserCanUnapprove: function() {
-        return this.currentUserIsAdmin();
-    }
+    getEndFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseDate';
+        }
+        
+        return 'EndDate';
+    },
+
+    getAllowedValues: function(model, field_name) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: model,
+            success: function(model) {
+                model.getField(field_name).getAllowedValueStore().load({
+                    callback: function(records, operation, success) {
+                        var values = Ext.Array.map(records, function(record) {
+                            return record.get('StringValue');
+                        });
+                        deferred.resolve(values);
+                    }
+                });
+            },
+            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
+        });
+        return deferred;
+    },
+	
+    getPortfolioItemTypes: function(workspace) {
+        var deferred = Ext.create('Deft.Deferred');
+                
+        var store_config = {
+            fetch: ['Name','ElementName','TypePath'],
+            model: 'TypeDefinition',
+            filters: [
+                {
+                    property: 'Parent.Name',
+                    operator: '=',
+                    value: 'Portfolio Item'
+                },
+                {
+                    property: 'Creatable',
+                    operator: '=',
+                    value: 'true'
+                }
+            ],
+            autoLoad: true,
+            listeners: {
+                load: function(store, records, successful) {
+                    if (successful){
+                        deferred.resolve(records);
+                    } else {
+                        deferred.reject('Failed to load types');
+                    }
+                }
+            }
+        };
+        
+        if ( !Ext.isEmpty(workspace) ) {            
+            store_config.context = { 
+                project:null,
+                workspace: workspace.get('_ref')
+            };
+        }
+        
+        console.log(store_config);
+        
+        var store = Ext.create('Rally.data.wsapi.Store', store_config );
+                    
+        return deferred.promise;
+    },
+
+
+    getWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            if ( Rally.getApp().getSetting('showAllWorkspaces') == false ) {
+                                return ( ws.get('ObjectID') == Rally.getApp().getContext().getWorkspace().ObjectID );
+                            }
+                            
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+
 });
 /**
  * A link that pops up a version dialog box
@@ -589,6 +672,398 @@ Ext.define('Rally.technicalservices.util.Utilities', {
     }
     
 });
+Ext.define('recordHolder',{
+    data: {},
+    constructor: function(config) {
+        Ext.apply(this, config);
+    },
+    
+    get: function(field) {
+        return this.data[field];
+    }
+});
+
+Ext.define('Rally.technicalservices.FileUtilities', {
+    singleton: true,
+    logger: new Rally.technicalservices.Logger(),
+    
+    saveCSVToFile:function(csv,file_name,type_object){
+        if (type_object === undefined){
+            type_object = {type:'text/csv;charset=utf-8'};
+        }
+        this.saveAs(csv,file_name, type_object);
+    },
+    
+    saveAs: function(textToWrite, fileName)
+    {
+        this.logger.log('saveAs:', fileName);
+        
+        if (Ext.isIE9m){
+            Rally.ui.notify.Notifier.showWarning({message: "Export is not supported for IE9 and below."});
+            return;
+        }
+
+        var textFileAsBlob = null;
+        try {
+            textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+        }
+        catch(e){
+            this.logger.log('Caught an error ', e);
+            
+            window.BlobBuilder = window.BlobBuilder ||
+                        window.WebKitBlobBuilder ||
+                    window.MozBlobBuilder ||
+                    window.MSBlobBuilder;
+            if (window.BlobBuilder ) { //&&  e.name === 'TypeError'){
+                bb = new BlobBuilder();
+                bb.append([textToWrite]);
+                textFileAsBlob = bb.getBlob("text/plain");
+            }
+
+        }
+
+        if (!textFileAsBlob){
+            Rally.ui.notify.Notifier.showWarning({message: "Export is not supported for this browser."});
+            return;
+        }
+
+        var fileNameToSaveAs = fileName;
+
+        if (Ext.isIE10p){
+            window.navigator.msSaveOrOpenBlob(textFileAsBlob,fileNameToSaveAs); // Now the user will have the option of clicking the Save button and the Open button.
+            return;
+        }
+
+        var url = this.createObjectURL(textFileAsBlob);
+
+        if (url){
+            var downloadLink = document.createElement("a");
+            if ("download" in downloadLink){
+                downloadLink.download = fileNameToSaveAs;
+            } else {
+                //Open the file in a new tab
+                downloadLink.target = "_blank";
+            }
+
+            downloadLink.innerHTML = "Download File";
+            downloadLink.href = url;
+            if (!Ext.isChrome){
+                // Firefox requires the link to be added to the DOM
+                // before it can be clicked.
+                downloadLink.onclick = this.destroyClickedElement;
+                downloadLink.style.display = "none";
+                document.body.appendChild(downloadLink);
+            }
+            downloadLink.click();
+        } else {
+            Rally.ui.notify.Notifier.showError({message: "Export is not supported "});
+        }
+
+    },
+    createObjectURL: function ( file ) {
+        if ( window.webkitURL ) {
+            return window.webkitURL.createObjectURL( file );
+        } else if ( window.URL && window.URL.createObjectURL ) {
+            return window.URL.createObjectURL( file );
+        } else {
+            return null;
+        }
+    },
+    saveTextAsFile: function(textToWrite, fileName) {
+        var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+        var fileNameToSaveAs = fileName;
+
+        var downloadLink = document.createElement("a");
+        downloadLink.download = fileNameToSaveAs;
+        downloadLink.innerHTML = "Download File";
+        if (window.webkitURL != null)
+        {
+            // Chrome allows the link to be clicked
+            // without actually adding it to the DOM.
+            downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+        }
+        else
+        {
+            // Firefox requires the link to be added to the DOM
+            // before it can be clicked.
+            downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+            downloadLink.onclick = destroyClickedElement;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+        }
+        downloadLink.click();
+    },
+    destroyClickedElement: function(event)
+    {
+        document.body.removeChild(event.target);
+    },
+    convertDataArrayToCSVText: function(data_array, requestedFieldHash){
+       
+        var text = '';
+        Ext.each(Object.keys(requestedFieldHash), function(key){
+            text += requestedFieldHash[key] + ',';
+        });
+        text = text.replace(/,$/,'\n');
+        
+        Ext.each(data_array, function(d){
+            Ext.each(Object.keys(requestedFieldHash), function(key){
+                if (d[key]){
+                    if (typeof d[key] === 'object'){
+                        if (d[key].FormattedID) {
+                            text += Ext.String.format("\"{0}\",",d[key].FormattedID ); 
+                        } else if (d[key].Name) {
+                            text += Ext.String.format("\"{0}\",",d[key].Name );                    
+                        } else if (!isNaN(Date.parse(d[key]))){
+                            text += Ext.String.format("\"{0}\",",Rally.util.DateTime.formatWithDefaultDateTime(d[key]));
+                        }else {
+                            text += Ext.String.format("\"{0}\",",d[key].toString());
+                        }
+                    } else {
+                        text += Ext.String.format("\"{0}\",",d[key] );                    
+                    }
+                } else {
+                    text += ',';
+                }
+            },this);
+            text = text.replace(/,$/,'\n');
+        },this);
+        return text;
+    },
+    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var store = Ext.create('Rally.data.wsapi.Store',{
+            fetch: grid.getStore().config.fetch,
+            filters: grid.getStore().config.filters,
+            model: grid.getStore().config.model,
+            pageSize: 200
+        });
+        
+        var columns = grid.columns;
+        
+        var record_count = grid.getStore().getTotalCount(),
+            page_size = grid.getStore().pageSize,
+            pages = Math.ceil(record_count/page_size),
+            promises = [];
+
+        for (var page = 1; page <= pages; page ++ ) {
+            promises.push(this.loadStorePage(grid, store, columns, page, pages));
+        }
+        Deft.Promise.all(promises).then({
+            success: function(csvs){
+                var csv = [];
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
+                _.each(csvs, function(c){
+                    _.each(c, function(line){
+                        csv.push(line);
+                    });
+                });
+                csv = csv.join('\r\n');
+                deferred.resolve(csv);
+                Rally.getApp().setLoading(false);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getCSVFromRows: function(scope, grid, rows) {
+        var me = this;
+        var columns = grid.columns;
+        var store = grid.getStore();
+        
+        console.log('getCSVFromRows');
+        
+        var model = grid.model;
+
+        var csv = [];
+        
+        csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+        
+        Ext.Array.each(rows,function(row){
+            if ( Ext.isFunction(row.getData) ) {
+                csv.push( me._getCSVFromRecord(row, grid, store) );
+                return;
+            }
+            csv.push( me._getCSVFromRecord(Ext.create('recordHolder', { data:row}), grid, store) );
+        });
+        
+        csv = csv.join('\r\n');
+        return csv;
+    },
+    
+    // custom grid assumes there store is fully loaded
+    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var store = Ext.clone( grid.getStore() );
+        var columns = grid.columns;
+        Rally.getApp().setLoading("Generating CSV...");
+        
+        var record_count = store.getTotalCount(),
+            page_size = store.pageSize,
+            pages = Math.ceil(record_count/page_size),
+            promises = [];
+
+        for (var page = 1; page <= pages; page ++ ) {
+            promises.push(this.loadStorePage(grid, store, columns, page, pages));
+        }
+        
+        Deft.Promise.all(promises).then({
+            scope: this,
+            success: function(csvs){
+                var csv = [];
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
+                _.each(csvs, function(c){
+                    _.each(c, function(line){
+                        csv.push(line);
+                    });
+                });
+                csv = csv.join('\r\n');
+                deferred.resolve(csv);
+                Rally.getApp().setLoading(false);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _getHeadersFromGrid: function(grid) {
+        var headers = [];        
+        var columns = grid.columns;
+
+        Ext.Array.each(columns,function(column){
+            if ( column.hidden ) { return; }
+            
+            if ( column.dataIndex || column.renderer ) {
+                if ( column.csvText ) {
+                    headers.push(column.csvText.replace('&nbsp;',' '));
+                } else if ( column.text )  {
+                    headers.push(column.text.replace('&nbsp;',' '));
+                }
+            }
+        });
+        
+        return headers;
+    },
+    
+    _getColumnNamesFromGrid: function(grid) {
+        var names = [];
+        var columns = grid.columns;
+
+        Ext.Array.each(columns,function(column){
+            if ( column.dataIndex || column.renderer ) {
+                names.push(column.dataIndex);
+            }
+        });
+        
+        return names;
+    },
+    /*
+     * will render using your grid renderer.  If you want it to ignore the grid renderer, 
+     * have the column set _csvIgnoreRender: true
+     */
+    getCSVFromGrid:function(app, grid, skip_headers){
+        this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
+        
+        if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
+            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
+        }
+        
+        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
+    },
+    loadStorePage: function(grid, store, columns, page, total_pages){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('loadStorePage',page, total_pages);
+
+        store.loadPage(page, {
+            callback: function (records) {
+                var csv = [];
+                Rally.getApp().setLoading(Ext.String.format('Page {0} of {1} loaded',page, total_pages));
+                for (var i = 0; i < records.length; i++) {
+                    var record = records[i];
+                    csv.push( this._getCSVFromRecord(record, grid, store) );
+                }
+                deferred.resolve(csv);
+            },
+            scope: this
+        });
+        return deferred;
+    },
+    
+    _getCSVFromRecord: function(record, grid, store) {
+        //console.log('record:', record);
+        
+        var mock_meta_data = {
+            align: "right",
+            classes: [],
+            cellIndex: 9,
+            column: null,
+            columnIndex: 9,
+            innerCls: undefined,
+            recordIndex: 5,
+            rowIndex: 5,
+            style: "",
+            tdAttr: "",
+            tdCls: "x-grid-cell x-grid-td x-grid-cell-headerId-gridcolumn-1029 x-grid-cell-last x-unselectable",
+            unselectableAttr: "unselectable='on'"
+        };
+        
+        var node_values = [];
+        var columns = grid.columns;
+        
+        Ext.Array.each(columns, function (column) {
+            if (column.xtype == 'rallyrowactioncolumn'  || column.xtype == 'tsrowactioncolumn') {
+                return;
+            }
+            
+            if ( column.hidden ) {
+                return;
+            }
+            
+            if (column.dataIndex) {
+                var column_name = column.dataIndex;
+                
+                var display_value = record.get(column_name);
+
+                if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
+                    if (column.exportRenderer) {
+                        display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                    } else {
+                        display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                    }
+                }
+                node_values.push(display_value);
+            } else {
+                var display_value = null;
+                if (!column._csvIgnoreRender && column.renderer) {
+                    if (column.exportRenderer) {
+                        display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                    } else {
+                        display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                    }
+                    node_values.push(display_value);
+                }
+            }
+        }, this);
+        
+        var csv_string = "";
+        Ext.Array.each(node_values, function(node_value,idx){
+            if ( idx > 0 ) {
+                csv_string = csv_string + ",";
+            }
+            if (/^=/.test(node_value) ) {
+                csv_string = csv_string + node_value;
+            } else {
+                csv_string = csv_string + '"' + node_value + '"';
+            }
+
+        });
+        
+        return csv_string;
+    }
+
+});
 (function() {
 
     'use strict';
@@ -796,6 +1271,8 @@ Ext.define("CA.apps.charts.Colors", {
     purple : "#7832A5",  // $purple,
     pink : "#DA1884",   // $pink,
     grey7 : "#666",
+    red : '#FF2A00',
+    green : '#00FF2A',
 
     cumulativeFlowColors : function() {
         return [
@@ -806,7 +1283,7 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark ]; },
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark, this.grey7 ]; },
     
     getConsistentBarPatterns: function() { 
         return [
@@ -821,6 +1298,17 @@ Ext.define("CA.apps.charts.Colors", {
             'url(#highcharts-default-pattern-7)'
         ];
     }
+});
+
+Ext.override(Rally.ui.chart.Chart,{
+
+    // override to allow for data to be pushed in more complicated objects
+    _isData: function(point) {
+        if ( point > 0 ) { return true; }
+        if ( point && point.y && point.y > 0 ) { return true; }
+        return false;
+    }
+    
 });
 
 Ext.define('CA.techservices.container.ChartWithDescription',{
@@ -853,7 +1341,15 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             height: 375,
             margin: 5,
             overflowY: 'auto',
-            html: description
+            html: description,
+            listeners:{
+                collapse: function(){
+                    this.up().previousSibling().focus();
+                },
+                expand: function(){
+                    this.up().previousSibling().focus();
+                }
+            }
             
         });
     },
@@ -904,11 +1400,8 @@ Ext.define("CA.techservices.app.ChartApp", {
         if ( !Ext.isEmpty(this.descriptions) && this.descriptions.length > 0 ) {
             descriptions = this.descriptions;
         }
-        
-        console.log("descriptions", descriptions);
-        
+                
         Ext.Array.each(descriptions, function(description,index){
-            console.log('index',index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -1079,6 +1572,222 @@ Ext.define('CA.techservices.container.GridBox',{
         box.add(config);
     }
 });
+Ext.define('quarter-item-selector', {
+    extend : 'Ext.Container',
+    componentCls : 'app',
+    alias : 'widget.quarteritemselector',
+    layout : 'hbox',
+    width : '100%',
+    mixins : [
+        'Rally.Messageable',
+        'Ext.state.Stateful'
+    ],
+    stateful: true,
+    stateEvents: ['change'],
+
+    buttonPushed: false,
+    constructor : function(config){
+        this.callParent(arguments);
+    },
+
+    initComponent : function()
+    {
+        var me = this;
+        this.callParent(arguments);
+        this.removeAll();
+
+        TSUtilities.getPortfolioItemTypes().then({
+            success: function(types) {
+                if ( types.length < 2 ) {
+                    Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+                    return;
+                }
+
+                me.featureModelPath = types[0].get('TypePath');
+                me.featureModelName = types[0].get('Name');
+                me.epmsModelPath = types[1].get('TypePath');
+               
+                this._getEPMSProjects().then({
+                    scope:me,
+                    success:function(store){
+                        me.programs = store;
+                        me._addSelector();                
+                    },
+                    failure:function(error){
+                        me.setLoading(false);
+                        Ext.Msg.alert('',msg);
+                    }
+                });
+
+
+            },
+            failure: function(msg){
+                Ext.Msg.alert('',msg);
+            },
+            scope: this
+        });
+
+
+        // configured to allow others to ask what the current selection is,
+        // in case they missed the initial message
+        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
+
+    },
+    _addSelector: function(){
+        // The data store containing the list of states
+        var me = this;
+        var quarters = Ext.create('Ext.data.Store', {
+            fields: ['abbr', 'name','startDate','endDate'],
+            data : [
+                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-01", "endDate":"2014-12-31"},
+                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-01-01", "endDate":"2015-03-31"},
+                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-04-01", "endDate":"2015-06-30"},
+                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-07-01", "endDate":"2015-09-30"},            
+                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-01", "endDate":"2015-12-31"},
+                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-01-01", "endDate":"2016-03-31"},
+                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-04-01", "endDate":"2016-06-30"},
+                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-07-01", "endDate":"2016-09-30"},
+                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-01", "endDate":"2016-12-31"},
+                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-01-01", "endDate":"2017-03-31"},
+                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-04-01", "endDate":"2017-06-30"},
+                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-07-01", "endDate":"2016-09-30"}                
+            ]
+        });
+
+        var programs = []
+        Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
+
+        var programs_store = Ext.create('Ext.data.Store', {
+            fields: ['Name','ObjectID'],
+            data : programs
+        });        
+
+        this.add({
+            xtype: 'combobox',
+            fieldLabel: 'Choose Quarter',
+            itemId: 'quarter-combobox',
+            store: quarters,
+            queryMode: 'local',
+            displayField: 'name',
+            valueField: 'abbr',
+            margin: 10,
+            listeners:{
+                change: this._updateGoButton,
+                scope: this,
+            }
+
+        });
+
+        this.add({
+            xtype: 'combobox',
+            fieldLabel: 'Choose Programs',
+            itemId: 'program-combobox',
+            store: programs_store,
+            multiSelect: true,
+            queryMode: 'local',
+            displayField: 'Name',
+            valueField: 'ObjectID',
+            margin: 10,
+            listeners:{
+                change: this._updateGoButton,
+                scope: this,
+            }
+
+        });
+
+        this.add({
+                xtype: 'rallybutton',
+                text: 'Go',
+                itemId: 'cb-go-button',
+                cls: 'rly-small primary',
+                disabled: true,
+                margin: 10,
+                listeners: {
+                    scope: this,
+                    click: this._updateQuarter
+                }
+        });
+
+    },
+
+    _updateQuarter: function(){
+        this.buttonPushed = true;
+        var cb_quarter = this.down('#quarter-combobox');
+        var cb_programs = this.down('#program-combobox');
+
+        
+        if (cb_quarter && cb_programs){
+            var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
+            this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value};
+            this.fireEvent('change', this.quarter_and_programs);
+            this.publish('quarterSelected', this.quarter_and_programs);
+            if (this.stateful && this.stateId){
+                this.saveState();
+            }
+        }
+
+    },
+
+
+    _getEPMSProjects:function(){
+        var me = this;
+        var deferred = Ext.create('Deft.Deferred');
+
+        var config = {
+            model: this.epmsModelPath,
+            fetch:['ObjectID','Project','Name'],
+            context: { 
+                project: null
+            }
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(records) {
+                var epms_id_projects = {};
+                Ext.Array.each(records,function(rec){
+                    var project_oid = rec.get('Project').ObjectID;
+                    
+                    if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
+                        epms_id_projects[project_oid] = {
+                            program: rec.get('Project'),
+                            projects: []
+                        }
+                    }
+                    
+                    epms_id_projects[project_oid].projects.push(rec.getData());
+                    
+                });
+                deferred.resolve(epms_id_projects);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+            
+        });
+        
+        return deferred.promise;
+    },
+
+    _updateGoButton: function(cb) {
+        if ( !Ext.isEmpty(cb.getValue()) ) {
+            this.down('#cb-go-button').setDisabled(false);
+        } else {
+            this.down('#cb-go-button').setDisabled(true);
+        }
+    },
+
+    _requestQuarter : function() {
+        // only publish if the go button has been pushed
+        if ( this.buttonPushed ) {
+            this.publish('quarterSelected', this.quarter_and_programs || null);
+            return;
+        }
+        
+        console.log("Requested Quarter, but the user hasn't pushed the Go button");
+        
+    },
+
+});
 Ext.define('CA.techservices.ToggleButton', {
     extend: Ext.Container ,
     alias:'widget.tstogglebutton',
@@ -1100,10 +1809,11 @@ Ext.define('CA.techservices.ToggleButton', {
             toolTipConfig: {
                 html: 'Switch to Size View',
                 anchor: 'top',
-                hideDelay: 0,
-                constrainPosition: false,
-                anchorOffset: 45,
-                mouseOffset: [-45, 0]
+                anchorToTarget: true, // anchor to the element, not the mouse
+                hideDelay: 50, 
+                constrainPosition: true, 
+                anchorOffset: 0
+                // mouseOffset: [-45, 0]
             }
         },
         {
@@ -1216,12 +1926,13 @@ Ext.define("TSSplitStoryPerSprint", {
             }
         });
 
-        this.timebox_limit = 10;
+        this.timebox_limit = 10; // how many iterations into the past (starting with current) should we retrieve?
         this.addToBanner({
-            xtype: 'numberfield',
+            //xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Time Box Limit',  // offset from current into the past
             value: 10,
             maxValue: 20,
             minValue: 1,            
@@ -1344,6 +2055,8 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     _getTypeFromName: function(name) {
+        this.logger.log('_getTypeFromName;',name);
+
         if ( /\[Continued\]/.test(name) &&  /\[Unfinished\]/.test(name) ) {
             return 'multiple';
         }
@@ -1408,6 +2121,8 @@ Ext.define("TSSplitStoryPerSprint", {
                 projectScopeDown: false
             }
         };
+        
+        this.logger.log("_fetchLastTenTimeBoxesWConfig:",config);
         
         return TSUtilities.loadWsapiRecords(config);
     },

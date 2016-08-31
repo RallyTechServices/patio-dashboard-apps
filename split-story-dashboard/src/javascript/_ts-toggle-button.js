@@ -19,10 +19,11 @@ Ext.define('CA.techservices.ToggleButton', {
             toolTipConfig: {
                 html: 'Switch to Size View',
                 anchor: 'top',
-                hideDelay: 0,
-                constrainPosition: false,
-                anchorOffset: 45,
-                mouseOffset: [-45, 0]
+                anchorToTarget: true, // anchor to the element, not the mouse
+                hideDelay: 50, 
+                constrainPosition: true, 
+                anchorOffset: 0
+                // mouseOffset: [-45, 0]
             }
         },
         {
