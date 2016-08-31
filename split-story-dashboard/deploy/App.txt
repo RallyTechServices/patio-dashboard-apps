@@ -3,12 +3,12 @@
 <head>
     <title>Split Story Per Sprint</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 31 2016 13:21:43 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Aug 31 2016 13:46:02 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 31 2016 13:21:43 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Aug 31 2016 13:46:02 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 122953159714;
+        var CHECKSUM = 123055541047;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2320,7 +2320,7 @@ Ext.define("TSSplitStoryPerSprint", {
             Ext.Object.each(row, function(key,value) {
                 if ( Ext.isArray(value) ) {
                     data.push({ 
-                        y: row[key + "_number"],
+                        y: row[key + "_number"] > 0 ? row[key + "_number"] :0,
                         _records: value,
                         events: {
                             click: function() {

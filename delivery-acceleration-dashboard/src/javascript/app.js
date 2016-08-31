@@ -9,7 +9,7 @@ Ext.define("TSDeliveryAcceleration", {
             "timebox." +
             "<p/>" +
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
-            "<p/>" +
+            "<p/>" +  
             "<ul>" +
             "<li>The line on the chart shows each timebox's velocity</li>" +
             "<li>The bars on the chart show the percentage difference from the baseline timebox.</li>" +
@@ -67,6 +67,8 @@ Ext.define("TSDeliveryAcceleration", {
                 fieldLabel: 'Base Iteration:',
                 labelWidth: 80,
                 margin: '0 0 10 25',
+                defaultToCurrentTimebox: true, // 2016-08-31
+                autoSelectCurrentItem: true,   // 2016-08-31
                 stateful: true,
                 stateId: 'techservices-deliveryacceleration-iteration-box',
                 stateEvents:['change'],
@@ -81,6 +83,8 @@ Ext.define("TSDeliveryAcceleration", {
                 fieldLabel: 'Base Release:',
                 labelWidth: 75,
                 margin: '0 0 10 25',
+                defaultToCurrentTimebox: true, // 2016-08-31
+                autoSelectCurrentItem: true,   // 2016-08-31
                 stateful: true,
                 stateId: 'techservices-deliveryacceleration-release-box',
                 stateEvents:['change'],
@@ -107,16 +111,31 @@ Ext.define("TSDeliveryAcceleration", {
                 this._makeChart(artifacts_by_timebox);
             },
             failure: function(msg) {
-                Ext.Msg.alert('--', msg);
+                // Ext.Msg.alert('--', msg);
+                me.logger.log("_updateData-failure:",msg);
             }
         });
         
     },
     
     _fetchTimeboxesAfterBaseline: function() {
-        var me = this,
-            deferred = Ext.create('Deft.Deferred'),
-            baseTimeboxRef = this.timebox_selector.getRecord().get('_ref'),
+
+        // the timebox_selector is a iterationCombobox or it is a releaseCombobox
+        this.logger.log('_fetchTimeboxesAfterBaseline: ',this,this.timebox_selector);
+
+        var me = this;
+        
+        var deferred = Ext.create('Deft.Deferred');
+        var baseTimeboxRef = null;
+
+        if (this.timebox_selector.getRecord()){
+            baseTimeboxRef = this.timebox_selector.getRecord().get('_ref');
+        } else {
+            var msg = 'Please select a timebox entry!';
+            Ext.Msg.alert('--', msg);
+            deferred.reject(msg);
+        }
+            
             type = this.timebox_type_selector.getValue();
         
         var start_field = "StartDate";

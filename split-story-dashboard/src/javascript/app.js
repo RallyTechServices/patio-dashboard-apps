@@ -444,7 +444,7 @@ Ext.define("TSSplitStoryPerSprint", {
             Ext.Object.each(row, function(key,value) {
                 if ( Ext.isArray(value) ) {
                     data.push({ 
-                        y: row[key + "_number"],
+                        y: row[key + "_number"] > 0 ? row[key + "_number"] :0,
                         _records: value,
                         events: {
                             click: function() {

@@ -21,8 +21,8 @@ Ext.define('CA.techservices.ToggleButton', {
                 anchor: 'top',
                 hideDelay: 0,
                 constrainPosition: false,
-                anchorOffset: 45,
-                mouseOffset: [-45, 0]
+                anchorOffset: 0,
+                mouseOffset: [0, 0]
             }
         },
         {
