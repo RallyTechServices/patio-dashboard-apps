@@ -1,7 +1,6 @@
 #Validation App
 
-![Screen Shot](./images/US-DE-TA_Validation.png)
-![Screen Shot](./images/PI_Validation.png)
+![Screen Shot](./images/screenshot.png)
 
 Will display a chart with results of various registered validation rules.
 
