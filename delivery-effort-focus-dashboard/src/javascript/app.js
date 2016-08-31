@@ -139,10 +139,15 @@ Ext.define("TSDeliveryEffortFocus", {
             this._fetchTimeboxes,
             this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
+
         ],this).then({
             scope: this,
             success: function(results) {
-                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
+               
+				this._sortTasks(results);
+
+        var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
+
                 this.clearAdditionalDisplay();
 
                 this._makeGrid(artifacts_by_timebox);
@@ -155,7 +160,6 @@ Ext.define("TSDeliveryEffortFocus", {
         });
         
     },
-
 
     _makeGrid: function(artifacts_by_timebox) {
         var me = this;
@@ -239,8 +243,7 @@ Ext.define("TSDeliveryEffortFocus", {
                     actual_hours_total = actual_hours_total + value;
                 });                
                                
-                var actual_hours_pct = all_actual_hours_total > 0?actual_hours_total / all_actual_hours_total:0;
-
+                var actual_hours_pct = all_actual_hours_total > 0?Math.round((actual_hours_total / all_actual_hours_total)*100)/100:0;
                 row[sprint_name + "_number"] = {'actual_hours_total':actual_hours_total, 'actual_hours_pct':actual_hours_pct}; 
                 
             });
@@ -281,19 +284,38 @@ Ext.define("TSDeliveryEffortFocus", {
     
     _sortTimeboxes: function(timeboxes) {
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-        
+      
         Ext.Array.sort(timeboxes, function(a,b){
             if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
             if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        });
+        }); 
         
         return timeboxes;
+
+    },
+
+    _sortTasks: function(task_records) {
+    	
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+        
+				for (i=0; i < task_records.length; i++) { 
+					task_records[i].task_sort_field = task_records[i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(task_records, function(a,b){      	
+            if ( a.task_sort_field < b.task_sort_field ) { return -1; }
+            if ( a.task_sort_field > b.task_sort_field ) { return  1; }
+            return 0;
+        }); 
+        
+        return task_records;
+
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
-        
+ 
         var type = this.timebox_type;
         var type_field = this.getSetting('typeField');
         
@@ -302,11 +324,13 @@ Ext.define("TSDeliveryEffortFocus", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
+//        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: type + '.' + end_field, operator: '<=', value:last_date},
+//            {property: type + '.' + start_field, operator: '<=', value:last_date},
             {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
         
@@ -316,7 +340,8 @@ Ext.define("TSDeliveryEffortFocus", {
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
                 'PlanEstimate','Project','Release',type_field,'Actuals','Estimate',
-                'ToDo','WorkProduct']
+                'ToDo','WorkProduct','StartDate','EndDate','ReleaseStartDate','ReleaseDate'],
+//           sorters: last_date,    
         };
         
         Deft.Chain.sequence([
@@ -324,13 +349,14 @@ Ext.define("TSDeliveryEffortFocus", {
                 return TSUtilities.loadWsapiRecords(config);
             }
         ],this).then({
-            success: function(results) {
-                deferred.resolve(Ext.Array.flatten(results));
+            success: function(results) {            	    
+                deferred.resolve(Ext.Array.flatten(results));                             
             },
             failure: function(msg) {
                 deferred.reject(msg);
             }
         });
+          
         return deferred.promise;
     },
     
