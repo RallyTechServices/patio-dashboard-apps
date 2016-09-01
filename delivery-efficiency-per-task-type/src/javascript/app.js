@@ -10,7 +10,9 @@ Ext.define("TSDeliveryEfficiency", {
             "<p/>" +
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
             "<p/>" +
-            "The efficiency is calculated by finding Tasks of each type and dividing the total of estimates in hours by actuals.  This is averaged for each sprint.",
+            "The efficiency is calculated by finding Tasks of each type and dividing the total of actual task hours by story point estimate.  This is averaged for each timebox." +
+            "<p/>" +
+            "<strong>Note:</strong> <br/> This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
     
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
@@ -48,7 +50,7 @@ Ext.define("TSDeliveryEfficiency", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Time Box Limit',
@@ -145,7 +147,9 @@ Ext.define("TSDeliveryEfficiency", {
 
             var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 
- //           this._makeGrid(artifacts_by_timebox);
+            this.clearAdditionalDisplay();
+
+            this._makeGrid(artifacts_by_timebox);
 
             this._makeChart(artifacts_by_timebox);
             
@@ -156,7 +160,7 @@ Ext.define("TSDeliveryEfficiency", {
         });
         
     },
-    
+
     _fetchTimeboxes: function() {
         var me = this,
             deferred = Ext.create('Deft.Deferred'),
@@ -199,18 +203,18 @@ Ext.define("TSDeliveryEfficiency", {
         return iterations.reverse();
     },
     
-     _sortTasks: function(task_records) {
+    _sortTasks: function(task_records) {
     	
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+			var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
         
-				for (i=0; i < task_records.length; i++) { 
-					task_records[i].task_sort_field = task_records[i]['data'][this.timebox_type][end_date_field];
-					};
+			for (i=0; i < task_records.length; i++) { 
+				task_records[i].task_sort_field = task_records[i]['data'][this.timebox_type][end_date_field];
+				};
      
-        Ext.Array.sort(task_records, function(a,b){      	
-            if ( a.task_sort_field < b.task_sort_field ) { return -1; }
-            if ( a.task_sort_field > b.task_sort_field ) { return  1; }
-            return 0;
+      Ext.Array.sort(task_records, function(a,b){      	
+      	if ( a.task_sort_field < b.task_sort_field ) { return -1; }
+        if ( a.task_sort_field > b.task_sort_field ) { return  1; }
+        return 0;
         }); 
         
         return task_records;
@@ -218,7 +222,10 @@ Ext.define("TSDeliveryEfficiency", {
     },
     
    _fetchArtifactsInTimeboxes: function(timeboxes) {
-        if ( timeboxes.length === 0 ) { return; }
+        if ( timeboxes.length === 0 ) { 
+        	  Ext.Msg.alert('', 'No Timeboxes of selected type for selected Project');
+            return;
+				}
         
         var type = this.timebox_type;
         var type_field = this.getSetting('typeField');
@@ -247,10 +254,11 @@ Ext.define("TSDeliveryEfficiency", {
             model: 'Task',
             limit: Infinity,
             filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','ToDo',
-                'PlanEstimate','Project','Release',type_field,'TaskEstimateTotal','Tasks',
-                'Actuals','Estimate','TaskActualTotal','StartDate','EndDate','WorkProduct',
-                'ReleaseStartDate','ReleaseDate', 'State'],
+            fetch: ['ObjectID','FormattedID','Name','State','Actuals','Estimate','ToDo',
+                'WorkProduct','PlanEstimate','Tasks','TaskActualTotal','TaskEstimateTotal',
+                'ScheduleState','Project',type_field,
+                'Iteration','Release','StartDate','EndDate',
+                'ReleaseStartDate','ReleaseDate'],
 
         };
         
@@ -292,7 +300,8 @@ Ext.define("TSDeliveryEfficiency", {
      * as in
      * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
      */
-    _collectArtifactsByTimebox: function(items) {
+    _collectArtifactsByTimebox: function(items) {	
+    	
         var hash = {},
             timebox_type = this.timebox_type,
             type_field = this.getSetting('typeField'),
@@ -325,11 +334,108 @@ Ext.define("TSDeliveryEfficiency", {
             }
             hash[timebox].records[type].push(item);
         });
-        
+    
         return hash;
     },
     
-    _makeChart: function(artifacts_by_timebox) {
+     _makeGrid: function(artifacts_by_timebox) {
+        var me = this;
+        
+        var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
+        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
+            columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
+                            text: field + '---<p/> Est Hours / Act Hours', 
+                            align: 'center',
+                            flex:1,
+                            renderer: function(value,meta,record) {
+                                //if(value.actual_hours_total > 0){
+                                    return value.estimate_hours_total + " / " + value.actual_hours_total;
+                                //}
+                            }
+                        });
+        });
+       
+        var rows = this._getGridRows(artifacts_by_timebox);
+        
+        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
+
+        this.addToAdditionalDisplay({
+            xtype:'rallygrid',
+            padding: 5,
+            margin: '10 0 0 0',
+            showPagingToolbar: false,
+            enableEditing: false,
+            showRowActionsColumn: false,                
+            store: store,
+            columnCfgs: columns
+        }); 
+
+    },
+    
+    _getGridRows: function(artifacts_by_timebox) {
+        var me = this;
+        // sprint objects have key = name of sprint
+        var row_fields = this._getCategories(artifacts_by_timebox);
+        
+        var series = this._getSeries(artifacts_by_timebox);
+
+        var rows = [
+        ];
+
+        Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
+            rows.push({Type:rowname.name == "-None-" ? '':rowname.name,Name:rowname.name});
+        })
+
+        // set up fields
+        
+        Ext.Array.each(rows, function(row) {
+            Ext.Array.each(row_fields, function(field){
+                field = me._getSafeIterationName(field);
+                row[field] = [];
+                row[field + "_number"] = 0;
+            });
+        });
+                
+        Ext.Array.each(rows, function(row){
+            var type = row.Type;
+
+            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
+                sprint_name = me._getSafeIterationName(sprint_name);
+
+                row[sprint_name] = value.records[type];
+
+                var all_records = value.records['all'];
+
+                var actual_hours_total = 0;
+                var estimate_hours_total = 0;
+
+/*
+                Ext.Array.each(all_records, function(story){
+                    var value = story.get('Actuals') || 0;
+                    all_actual_hours_total = all_actual_hours_total + value;
+                });  
+*/
+                Ext.Array.each(row[sprint_name], function(record){
+                    var a_value = record.get('Actuals') || 0;
+                    var e_value = record.get('Estimate') || 0;
+                    actual_hours_total = actual_hours_total + a_value;
+                    estimate_hours_total = estimate_hours_total + e_value;
+                });                
+                               
+//                var actual_hours_pct = all_actual_hours_total > 0?Math.round((actual_hours_total / all_actual_hours_total)*100)/100:0;
+                row[sprint_name + "_number"] = {'actual_hours_total':actual_hours_total, 'estimate_hours_total':estimate_hours_total}; 
+                
+            });
+        });
+
+        return rows;
+    },
+
+    _getSafeIterationName: function(name) {
+        return name.replace(/\./,'&#46;'); 
+    },
+     
+   _makeChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -353,7 +459,7 @@ Ext.define("TSDeliveryEfficiency", {
         
         Ext.Array.each(allowed_types, function(allowed_type){
             var name = allowed_type;
-            if ( Ext.isEmpty(name) ) { name = "-N/A-"; }
+            if ( Ext.isEmpty(name) ) { name = "-None-"; }
             
             series.push({
                 name: name,
@@ -373,29 +479,52 @@ Ext.define("TSDeliveryEfficiency", {
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
 
+						var unique = {};
+						var points = 0;
+
+						records.forEach(function (record) {
+
+						  if (!unique[record.get('WorkProduct').FormattedID]) {
+
+						    points += record.get('WorkProduct').PlanEstimate;
+						    unique[record.get('WorkProduct').FormattedID] = true;
+						  }
+
+						});
+
+/*
             var points = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get('WorkProduct').PlanEstimate || 0;
+                })
+            );
+*/            
+            var actuals = Ext.Array.sum(
+                Ext.Array.map(records, function(record){
+                    return record.get('Actuals') || 0;
+                })
+            );
+
+            var estimate = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
                     return record.get('Estimate') || 0;
                 })
             );
             
-            var estimate = Ext.Array.sum(
-                Ext.Array.map(records, function(record){
-                    return record.get('Actuals') || 0;
-                })
-            );
-            
-            var efficiency = null;
-            if ( estimate > 0 ) {
-                efficiency = points/estimate;
+            var a_efficiency = e_efficiency = null;
+            if ( points > 0 ) {
+                e_efficiency = estimate/points;
+            }
+            if ( points > 0 ) {
+                a_efficiency = actuals/points;
             }
 
             data.push({ 
-                y:efficiency,
+                y:a_efficiency,
                 _records: records,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
+                        me.showDrillDown(this._records,  timebox + " - " + points + " points (" + allowed_type + ")");
                     }
                 }
             });
@@ -406,9 +535,7 @@ Ext.define("TSDeliveryEfficiency", {
         return data
     },
 
-
-
-    
+   
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
@@ -420,7 +547,8 @@ Ext.define("TSDeliveryEfficiency", {
             title: { text: 'Delivery Efficiency' },
             xAxis: {},
             yAxis: [{ 
-                title: { text: 'Velocity' }
+//                title: { text: 'Task Estimates per Story Point (by Task Type)' }
+                title: { text: 'Task Actuals per Story Point (by Task Type)' }
             }],
             plotOptions: {
                 column: {
@@ -471,12 +599,12 @@ Ext.define("TSDeliveryEfficiency", {
             {
                 dataIndex : 'Name',
                 text: "Name",
-                flex: 3
+                flex: 2
             },
             {
                 dataIndex: 'WorkProduct',
                 text: 'Work Product',
-                flex:1,
+                flex: 2,
                 renderer: function(value,meta,record) {
                     if ( Ext.isEmpty(value) ) { return ""; }
                     return value.FormattedID + ": " + value.Name;
@@ -498,7 +626,8 @@ Ext.define("TSDeliveryEfficiency", {
             },
             {
                 dataIndex: 'Actuals',
-                text: 'Task Hours (Actual)'
+                text: 'Task Hours (Actual)',
+								flex: 1
             },
             {
                 dataIndex: 'Project',

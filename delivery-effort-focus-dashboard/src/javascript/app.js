@@ -4,14 +4,19 @@ Ext.define("TSDeliveryEffortFocus", {
     description: "<strong>Delivery Effort Focus</strong><br/>" +
             "<br/>" +
             "How is effort distributed within the team? " +
-            "This dashboard shows how many hours are being spent on accepted stories during sprints,  " +
+            "This dashboard shows how many hours are being spent on accepted stories during sprints (or Releases),  " +
             "grouped by types assigned to the tasks.  (Your admin can choose a different field to define " +
             "'type' with the App Settings... menu option.)" +
             "<p/>" +
             "Click on a bar to see a table with the tasks from that type and timebox." +
             "<p/>" +
             "The columns show a stacked count of actual hours by type on the tasks for tasks associated " +
-            "with stories accepted in the sprint.",
+            "with stories accepted in the sprint (or Release)." +
+            "<p/>" +
+            "<strong>Notes:</strong>" +
+            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported." +
+            "<br/>(2) The percentages in the table may not total 100% in every case due to rounding of the individual " +
+            "row calculations, but the total should be between 99% and 101%",
     
             
     integrationHeaders : {
@@ -52,7 +57,7 @@ Ext.define("TSDeliveryEffortFocus", {
     _addSelectors: function() {
 
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Time Box Limit',
@@ -164,7 +169,7 @@ Ext.define("TSDeliveryEffortFocus", {
     _makeGrid: function(artifacts_by_timebox) {
         var me = this;
         
-        var columns = [{dataIndex:'Name',text:'Story Type',flex:1}];
+        var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
                             text: field + '<br> Actuals Hours / %', 
@@ -233,13 +238,13 @@ Ext.define("TSDeliveryEffortFocus", {
                 var actual_hours_total = 0;
                 var all_actual_hours_total = 0;
 
-                Ext.Array.each(all_records, function(story){
-                    var value = story.get('Actuals') || 0;
+                Ext.Array.each(all_records, function(record){
+                    var value = record.get('Actuals') || 0;
                     all_actual_hours_total = all_actual_hours_total + value;
                 });  
 
-                Ext.Array.each(row[sprint_name], function(story){
-                    var value = story.get('Actuals') || 0;
+                Ext.Array.each(row[sprint_name], function(record){
+                    var value = record.get('Actuals') || 0;
                     actual_hours_total = actual_hours_total + value;
                 });                
                                
@@ -541,7 +546,7 @@ Ext.define("TSDeliveryEffortFocus", {
             {
                 dataIndex: 'WorkProduct',
                 text: 'Work Product',
-                flex:1,
+                flex: 2,
                 renderer: function(value,meta,record) {
                     if ( Ext.isEmpty(value) ) { return ""; }
                     return value.FormattedID + ": " + value.Name;
