@@ -10,7 +10,9 @@ Ext.define("TSDeliveryEfficiency", {
             "<p/>" +
             "Click on a bar or point on the line to see a table with the accepted items from that timebox." +
             "<p/>" +
-            "The efficiency is calculated by finding Tasks of each type and dividing the total of estimates in hours by actuals.  This is averaged for each sprint.",
+            "The efficiency is calculated by finding Tasks of each type and dividing the total of actual task hours by story point estimate.  This is averaged for each timebox." +
+            "<p/>" +
+            "<strong>Note:</strong> <br/> This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
     
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
@@ -48,7 +50,7 @@ Ext.define("TSDeliveryEfficiency", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Time Box Limit',
@@ -298,9 +300,7 @@ Ext.define("TSDeliveryEfficiency", {
      * as in
      * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
      */
-    _collectArtifactsByTimebox: function(items) {
-    	
-//this.logger.log("in CAT", items);    	
+    _collectArtifactsByTimebox: function(items) {	
     	
         var hash = {},
             timebox_type = this.timebox_type,
@@ -334,9 +334,7 @@ Ext.define("TSDeliveryEfficiency", {
             }
             hash[timebox].records[type].push(item);
         });
- 
-//this.logger.log("out CAT", hash);
-        
+    
         return hash;
     },
     
@@ -346,12 +344,12 @@ Ext.define("TSDeliveryEfficiency", {
         var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field + '---<p/> Act Hours / Est Hours', 
+                            text: field + '---<p/> Est Hours / Act Hours', 
                             align: 'center',
                             flex:1,
                             renderer: function(value,meta,record) {
                                 //if(value.actual_hours_total > 0){
-                                    return value.actual_hours_total + " / " + value.estimate_hours_total;
+                                    return value.estimate_hours_total + " / " + value.actual_hours_total;
                                 //}
                             }
                         });
@@ -385,7 +383,7 @@ Ext.define("TSDeliveryEfficiency", {
         ];
 
         Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-            rows.push({Type:rowname.name == "-N/A-" ? '':rowname.name,Name:rowname.name});
+            rows.push({Type:rowname.name == "-None-" ? '':rowname.name,Name:rowname.name});
         })
 
         // set up fields
@@ -417,9 +415,9 @@ Ext.define("TSDeliveryEfficiency", {
                     all_actual_hours_total = all_actual_hours_total + value;
                 });  
 */
-                Ext.Array.each(row[sprint_name], function(story){
-                    var a_value = story.get('Actuals') || 0;
-                    var e_value = story.get('Estimate') || 0;
+                Ext.Array.each(row[sprint_name], function(record){
+                    var a_value = record.get('Actuals') || 0;
+                    var e_value = record.get('Estimate') || 0;
                     actual_hours_total = actual_hours_total + a_value;
                     estimate_hours_total = estimate_hours_total + e_value;
                 });                
@@ -461,7 +459,7 @@ Ext.define("TSDeliveryEfficiency", {
         
         Ext.Array.each(allowed_types, function(allowed_type){
             var name = allowed_type;
-            if ( Ext.isEmpty(name) ) { name = "-N/A-"; }
+            if ( Ext.isEmpty(name) ) { name = "-None-"; }
             
             series.push({
                 name: name,
