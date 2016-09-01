@@ -3,13 +3,13 @@
 <head>
     <title>CB Delivery Efficiency</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 31 2016 16:58:36 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Aug 31 2016 17:04:22 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 31 2016 16:58:36 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Aug 31 2016 17:04:22 GMT-0700 (PDT)";
         var BUILDER = "cbedekovich";
-        var CHECKSUM = 139443484183;
+        var CHECKSUM = 139443278282;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2574,7 +2574,7 @@ Ext.define("TSDeliveryEfficiency", {
             }
 
             data.push({ 
-                y:e_efficiency,
+                y:a_efficiency,
                 _records: records,
                 events: {
                     click: function() {
@@ -2601,8 +2601,8 @@ Ext.define("TSDeliveryEfficiency", {
             title: { text: 'Delivery Efficiency' },
             xAxis: {},
             yAxis: [{ 
-                title: { text: 'Task Estimates per Story Point (by Task Type)' }
-//                title: { text: 'Task Actuals per Story Point (by Task Type)' }
+//                title: { text: 'Task Estimates per Story Point (by Task Type)' }
+                title: { text: 'Task Actuals per Story Point (by Task Type)' }
             }],
             plotOptions: {
                 column: {

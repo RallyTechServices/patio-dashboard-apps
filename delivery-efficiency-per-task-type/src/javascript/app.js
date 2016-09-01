@@ -522,7 +522,7 @@ Ext.define("TSDeliveryEfficiency", {
             }
 
             data.push({ 
-                y:e_efficiency,
+                y:a_efficiency,
                 _records: records,
                 events: {
                     click: function() {
@@ -549,8 +549,8 @@ Ext.define("TSDeliveryEfficiency", {
             title: { text: 'Delivery Efficiency' },
             xAxis: {},
             yAxis: [{ 
-                title: { text: 'Task Estimates per Story Point (by Task Type)' }
-//                title: { text: 'Task Actuals per Story Point (by Task Type)' }
+//                title: { text: 'Task Estimates per Story Point (by Task Type)' }
+                title: { text: 'Task Actuals per Story Point (by Task Type)' }
             }],
             plotOptions: {
                 column: {
