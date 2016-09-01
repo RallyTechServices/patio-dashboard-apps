@@ -1,14 +1,21 @@
 Ext.define("TSSplitStoryPerSprint", {
     extend: 'CA.techservices.app.ChartApp',
     
-    description: '<strong>Split Stories By Sprint</strong>' +
-                '<p/>' + 
-                'The stacked bar chart displays the number of points (or count) of stories accepted in a sprint, grouped by Story Type.' +
-                '<p/>' + 
-                'The top table shows the points (or count) of stories accepted in a sprint, grouped by Story Type.' + 
-                '<p/>' + 
-                'The bottom table shows the percentage of points (or count) of stories grouped by Story Type.' +
-                '<p/>' + 
+    description: '<bold><strong>Split Stories By Sprint</strong></bold>' +
+                '<p/><p>' + 
+                'The stacked bar chart displays the number of points (or count) of stories <strong>Accepted</strong> ' +
+                'in a sprint, grouped by Story Type in the CURRENT PROJECT FOLDER. It does not show stories from ' +
+                'child or parent folders. Also please note that stories in a schedule state of [Completed] or less do NOT ' +
+                'display as part of any of the categories.' + 
+                '</p><p>' + 
+                'In <strong>[S]</strong> (point size) mode, stories ' +
+                'without a [Plan Estimate] value or a zero (0) value will not show up on the stacked bar chart. They&apos;ll stil show ' +
+                'up in the <strong>[C]</strong> (count) mode.' +
+                '<p/><p>' + 
+                'The top table shows the points (or count) of stories <strong>Accepted</strong> in a sprint, grouped by Story Type.' + 
+                '<p/><p>' + 
+                'The bottom table shows the percentage of points (or count) of <strong>Accepted</strong> stories grouped by Story Type.' +
+                '<p/><p>' + 
                 'There are four types of stories:' + 
                 '<ul>' + 
                 '<li>Unfinished: Stories that were split and left behind.</li>' +
@@ -17,6 +24,7 @@ Ext.define("TSSplitStoryPerSprint", {
                 '<li>Story: Stories that have not been split</li>' + 
                 '</ul>',
     
+
     integrationHeaders : {
         name : "TSSplitStoryPerSprint"
     },
