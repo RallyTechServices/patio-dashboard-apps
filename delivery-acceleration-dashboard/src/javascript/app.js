@@ -131,12 +131,15 @@ Ext.define("TSDeliveryAcceleration", {
         if (this.timebox_selector.getRecord()){
             baseTimeboxRef = this.timebox_selector.getRecord().get('_ref');
         } else {
+            // sometimes there is no entry selected
+            // this is usually just a first-time problem, thereafter the stateful, stateId, 
+            //and stateEvents tends to take care of it. If not, asking the user to select.
             var msg = 'Please select a timebox entry!';
             Ext.Msg.alert('--', msg);
             deferred.reject(msg);
         }
             
-            type = this.timebox_type_selector.getValue();
+        type = this.timebox_type_selector.getValue();
         
         var start_field = "StartDate";
         var end_field = "EndDate";
