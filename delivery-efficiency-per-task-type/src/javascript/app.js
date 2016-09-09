@@ -475,30 +475,20 @@ Ext.define("TSDeliveryEfficiency", {
     _calculateMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
         data = [];
-
+this.logger.log("_calculateMeasure IN", artifacts_by_timebox, allowed_type);
         Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
-
 						var unique = {};
 						var points = 0;
 
 						records.forEach(function (record) {
 
 						  if (!unique[record.get('WorkProduct').FormattedID]) {
-
 						    points += record.get('WorkProduct').PlanEstimate;
 						    unique[record.get('WorkProduct').FormattedID] = true;
 						  }
-
 						});
 
-/*
-            var points = Ext.Array.sum(
-                Ext.Array.map(records, function(record){
-                    return record.get('WorkProduct').PlanEstimate || 0;
-                })
-            );
-*/            
             var actuals = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
                     return record.get('Actuals') || 0;
