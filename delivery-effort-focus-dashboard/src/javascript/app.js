@@ -288,6 +288,12 @@ Ext.define("TSDeliveryEffortFocus", {
     },
     
     _sortTimeboxes: function(timeboxes) {
+
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
       
         Ext.Array.sort(timeboxes, function(a,b){
