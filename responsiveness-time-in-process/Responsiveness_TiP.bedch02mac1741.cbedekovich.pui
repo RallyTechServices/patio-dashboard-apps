@@ -1,14 +1,28 @@
 <?xml version="1.0" encoding="ASCII"?>
 <!DOCTYPE PRJ SYSTEM "Responsiveness_TiP.bedch02mac1741.cbedekovich.dtd">
 <PRJ>
+  <Folder Name="">
+    <Expand>0</Expand>
+  </Folder>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/">
     <Folder Name="dashboard">
       <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/"/>
     </Folder>
   </Folder>
+  <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/">
+    <Folder Name="dashboard">
+      <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/"/>
+    </Folder>
+  </Folder>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/templates/">
     <Folder Name="dashboard">
-      <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/templates/"/>
+      <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/templates/">
+        <Folder Name="time">
+          <Folder Name="in">
+            <Folder Name="process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/templates/"/>
+          </Folder>
+        </Folder>
+      </Folder>
     </Folder>
   </Folder>
   <Project_Information>
@@ -16,7 +30,13 @@
   </Project_Information>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/">
     <Folder Name="dashboard">
-      <Folder Name="apps/responsiveness-time-in-process/"/>
+      <Folder Name="apps/responsiveness-time-in-process/">
+        <Folder Name="time">
+          <Folder Name="in">
+            <Folder Name="process/"/>
+          </Folder>
+        </Folder>
+      </Folder>
     </Folder>
   </Folder>
   <Active_Settings>

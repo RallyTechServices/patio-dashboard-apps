@@ -9,3 +9,5 @@ deploy/app.min.js
 .settings
 deploy/ConfluenceApp.txt
 deploy/ExternalApp.txt
+*.pul
+*.prj

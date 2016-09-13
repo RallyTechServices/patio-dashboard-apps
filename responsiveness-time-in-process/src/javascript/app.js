@@ -22,20 +22,13 @@ Ext.define("TSResponsivenessTiP", {
     config: {
         defaultSettings: {
             showPatterns: false,
-            typeField: 'c_Type'
         }
     },
                         
     launch: function() {
         this.callParent();
         
-        if ( Ext.isEmpty(this.getSetting('typeField') ) ) {
-            Ext.Msg.alert('', 'Use the App Settings... menu option to choose a field to represent the type of task.');
-            return;
-        }
-
                 this.timebox_limit = 10;
-//                this.timebox_type = 'Release';
                 this.timebox_type = 'Iteration';
                 
                 this._addSelectors();
@@ -98,34 +91,6 @@ Ext.define("TSResponsivenessTiP", {
 
     }, 
     
-    _getAllowedValues: function(model, field_name) {
-
-        var deferred = Ext.create('Deft.Deferred');
-
-//        this.logger.log("_getAllowedValues for", model, field_name);
-        
-        Rally.data.ModelFactory.getModel({
-            type: model,
-            success: function(model) {
-                if ( Ext.isEmpty(model.getField(field_name) ) ) {
-                    deferred.reject('Please use the App Settings... menu option to choose a field to represent type of task.')
-                    return;
-                }
-                model.getField(field_name).getAllowedValueStore().load({
-                    callback: function(records, operation, success) {
-                        var values = Ext.Array.map(records, function(record) {
-                            return record.get('StringValue');
-                        });
-                        deferred.resolve(values);
-                    }
-                });
-            },
-            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
-        });
-        return deferred;
-
-    },
-    
     _updateData: function() {
         var me = this;
         this.metric = "size";
@@ -139,21 +104,13 @@ Ext.define("TSResponsivenessTiP", {
             scope: this,
             success: function(results) {
 
-//this.logger.log("success", results);
-              
 				this._sortObjectsbyTBDate(results);
-
-//this.logger.log("_sortObjectsbyTBDate", results);
 
         var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
 
-//this.logger.log("_collectArtifactsByTimebox", artifacts_by_timebox, results);
+        this.clearAdditionalDisplay();
 
-                this.clearAdditionalDisplay();
-
-//                this._makeGrid(artifacts_by_timebox);
-
-                this._makeChart(artifacts_by_timebox);
+        this._makeChart(artifacts_by_timebox);
             },
             failure: function(msg) {
                 Ext.Msg.alert('--', msg);
@@ -161,105 +118,14 @@ Ext.define("TSResponsivenessTiP", {
         });
         
     },
-
-    _makeGrid: function(artifacts_by_timebox) {
-        var me = this;
-        
-        var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
-        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field + '<br> Actuals Hours / %', 
-                            align: 'center',
-                            flex:1,
-                            renderer: function(value,meta,record) {
-                                //if(value.actual_hours_total > 0){
-                                    return value.actual_hours_total + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
-                                //}
-                            }
-                        });
-        });
-
-       
-        var rows = this._getGridRows(artifacts_by_timebox);
-        
-        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
-
-        this.addToAdditionalDisplay({
-            xtype:'rallygrid',
-            padding: 5,
-            margin: '10 0 0 0',
-            showPagingToolbar: false,
-            enableEditing: false,
-            showRowActionsColumn: false,                
-            store: store,
-            columnCfgs: columns
-        }); 
-
-    },
-    
-    _getGridRows: function(artifacts_by_timebox) {
-        var me = this;
-        // sprint objects have key = name of sprint
-        var row_fields = this._getCategories(artifacts_by_timebox);
-        
-        var series = this._getSeries(artifacts_by_timebox);
-
-        var rows = [
-        ];
-
-        Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-            rows.push({Type:rowname.name == "-None-" ? '':rowname.name,Name:rowname.name});
-        })
-
-        // set up fields
-        
-        Ext.Array.each(rows, function(row) {
-            Ext.Array.each(row_fields, function(field){
-                field = me._getSafeIterationName(field);
-                row[field] = [];
-                row[field + "_number"] = 0;
-            });
-        });
-                
-        Ext.Array.each(rows, function(row){
-            var type = row.Type;
-
-            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
-                sprint_name = me._getSafeIterationName(sprint_name);
-
-                row[sprint_name] = value.records[type];
-
-                var all_records = value.records['all'];
-
-                var actual_hours_total = 0;
-                var all_actual_hours_total = 0;
-
-                Ext.Array.each(all_records, function(record){
-                    var value = record.get('Actuals') || 0;
-                    all_actual_hours_total = all_actual_hours_total + value;
-                });  
-
-                Ext.Array.each(row[sprint_name], function(record){
-                    var value = record.get('Actuals') || 0;
-                    actual_hours_total = actual_hours_total + value;
-                });                
-                               
-                var actual_hours_pct = all_actual_hours_total > 0?Math.round((actual_hours_total / all_actual_hours_total)*100)/100:0;
-                row[sprint_name + "_number"] = {'actual_hours_total':actual_hours_total, 'actual_hours_pct':actual_hours_pct}; 
-                
-            });
-        });
-
-        return rows;
-    },
-
+ 
     _getSafeIterationName: function(name) {
         return name.replace(/\./,'&#46;'); 
     },
     
     _fetchTimeboxes: function() {
 
-//        this.logger.log("_fetchTimeboxes");
+        this.logger.log("_fetchTimeboxes");
 
         var me = this,
             deferred = Ext.create('Deft.Deferred');
@@ -287,8 +153,14 @@ Ext.define("TSResponsivenessTiP", {
     
     _sortTimeboxes: function(timeboxes) {
 
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
         this.setLoading("Fetching timeboxes...");
-//        this.logger.log("_sortTimeboxes IN", timeboxes);
+        this.logger.log("_sortTimeboxes IN", timeboxes);
        
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
       
@@ -305,7 +177,6 @@ Ext.define("TSResponsivenessTiP", {
     _sortObjectsbyTBDate: function(records) {
     	
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-//        this.logger.log("_sortObjectsbyTBDate IN", records, this.timebox_type, end_date_field);
 
 				for (i=0; i < records.length; i++) { 
 					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
@@ -317,8 +188,6 @@ Ext.define("TSResponsivenessTiP", {
             return 0;
         }); 
         
-//        this.logger.log("_sortObjectsbyTBDate OUT", records);
-
         return records;
 
     },
@@ -327,7 +196,6 @@ Ext.define("TSResponsivenessTiP", {
         if ( timeboxes.length === 0 ) { return; }
  
         var type = this.timebox_type;
-        var type_field = this.getSetting('typeField');
         
         var start_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
         var end_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
@@ -380,7 +248,6 @@ Ext.define("TSResponsivenessTiP", {
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
             timebox_type = this.timebox_type;
-            type_field = this.getSetting('typeField');
                 
         if ( items.length === 0 ) { return hash; }
      
@@ -435,38 +302,36 @@ Ext.define("TSResponsivenessTiP", {
         var categories = this._getCategories(artifacts_by_timebox);
         var datapoints = this._getdataPoints(artifacts_by_timebox);		
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
-
-//this.logger.log("_makeChart 1",artifacts_by_timebox, datapoints);
         
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
 
         this.setChart({
-        	chartData: {
-                        categories: categories,
-                        series: [{
-                        	name: 'Median Days in Process', 
-                        	data: datapoints
-                         	}]
-                     },
-        chartConfig: { 
-          							chart: {type: 'column'},
-                        title: {text: 'Responsiveness (Stories)'},
-                        subtitle: {text: 'Time in Process (P50)'},
-                        xAxis: {},
-                        yAxis: {title: {text: 'Days'}},
-                        plotOptions: {
-                            column: {stacking: 'normal'}
-                        },
-                        tooltip: {
-						                formatter: function() {
-                    					return '<b>'+ Ext.util.Format.number(this.point.y, '0.##')+ '</b>: ';
-                						} 
-             						}
-                     },
-			  chartColors: colors                                 
-                       
+		        	chartData: {
+		                        categories: categories,
+		                        series: [{
+		                        	name: 'Median Days in Process', 
+		                        	data: datapoints
+		                         	}]
+		                     },
+		        chartConfig: { 
+		          							chart: {type: 'column'},
+		                        title: {text: 'Responsiveness (Stories)'},
+		                        subtitle: {text: 'Time in Process (P50)'},
+		                        xAxis: {},
+		                        yAxis: {title: {text: 'Days'}},
+		                        plotOptions: {
+		                            column: {stacking: 'normal'}
+		                        },
+		                        tooltip: {
+								                formatter: function() {
+		                    					return '<b>'+ Ext.util.Format.number(this.point.y, '0.##')+ '</b>: ';
+		                						} 
+		             						}
+		                     },
+					  chartColors: colors                                 
+		                       
 				});
         this.setLoading(false);
 			},
@@ -496,18 +361,6 @@ Ext.define("TSResponsivenessTiP", {
     
     getSettingsFields: function() {
         return [
-        {
-            name: 'typeField',
-            xtype: 'rallyfieldcombobox',
-            model: 'Task',
-            _isNotHidden: function(field) {
-                if ( field.hidden ) { return false; }
-                var defn = field.attributeDefinition;
-                if ( Ext.isEmpty(defn) ) { return false; }
-                
-                return ( defn.Constrained && defn.AttributeType == 'STRING' );
-            }
-        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
@@ -520,7 +373,6 @@ Ext.define("TSResponsivenessTiP", {
         ];
     },
     
-
     getDrillDownColumns: function(title) {
         var columns = [
             {
@@ -542,14 +394,6 @@ Ext.define("TSResponsivenessTiP", {
                     return record.tip;
                 }
             },
-//            {
-//                dataIndex: 'Estimate',
-//                text: 'Task Hours (Est)'
-//            },
-//            {
-//                dataIndex: 'Actuals',
-//                text: 'Task Hours (Actual)'
-//            },
             {
                 dataIndex: 'Project',
                 text: 'Project',
