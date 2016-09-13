@@ -11,7 +11,13 @@
   </Folder>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/">
     <Folder Name="dashboard">
-      <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/"/>
+      <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/">
+        <Folder Name="time">
+          <Folder Name="in">
+            <Folder Name="process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/images/"/>
+          </Folder>
+        </Folder>
+      </Folder>
     </Folder>
   </Folder>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/templates/">
@@ -26,7 +32,9 @@
     </Folder>
   </Folder>
   <Project_Information>
-    <Project_Start>0E0000001B0000000D00000002000000080000007400000005000000F500000001000000E27F0000909DFFFFFFFFFFFF18018331E27F000065</Project_Start>
+    <Working_Time>952896</Working_Time>
+    <Project_Start>32000000080000000E0000000D000000080000007400000002000000000100000100000000600000909DFFFFFFFFFFFF18018331E27F00008A</Project_Start>
+    <MDIPerspective>(100,100,2098172,5,0,0,0,100000,0,(0,1,2,3,4))</MDIPerspective>
   </Project_Information>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/">
     <Folder Name="dashboard">
@@ -42,6 +50,13 @@
   <Active_Settings>
     <Active_File_Display_Mode>-1</Active_File_Display_Mode>
   </Active_Settings>
+  <Open_Files>
+    <File>Edit3</File>
+    <File>/Users/cbedekovich/2016_appdev/patio-dashboard-apps/common/src/javascript/_ts-date-calc-utils.js</File>
+    <File>/Users/cbedekovich/2016_appdev/patio-dashboard-apps/common/src/javascript/__ts-general-utils.js</File>
+    <File>/Users/cbedekovich/2016_appdev/patio-dashboard-apps/common/src/javascript/_ts-file-utilities.js</File>
+    <File>/Users/cbedekovich/2016_appdev/patio-dashboard-apps/common/src/javascript/ts-chart-app.js</File>
+  </Open_Files>
   <Folder Name="/Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/javascript/">
     <Folder Name="dashboard">
       <Folder Name="apps/responsiveness-time-in-process/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/ - /Users/cbedekovich/2016_appdev/patio-dashboard-apps/responsiveness-time-in-process/src/javascript/"/>

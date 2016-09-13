@@ -192,15 +192,21 @@ Ext.define("TSDeliveryEfficiency", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
+    _sortIterations: function(timeboxes) {
         
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
         // Ext.Array.sort(iterations, function(a,b){
         //     if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
         //     if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
         //     return 0;
         // });
         
-        return iterations.reverse();
+        return timeboxes.reverse();
     },
     
     _sortTasks: function(task_records) {
