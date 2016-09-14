@@ -1,26 +1,22 @@
-Ext.define("TSDeliveryEffortFocus", {
+Ext.define("TSResponsivenessTiP", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: "<strong>Delivery Effort Focus</strong><br/>" +
+    description: "<strong>Responsiveness - Time in Process</strong><br/>" +
             "<br/>" +
-            "How is effort distributed within the team? " +
-            "This dashboard shows how many hours are being spent on accepted stories during sprints (or Releases),  " +
-            "grouped by types assigned to the tasks.  (Your admin can choose a different field to define " +
-            "'type' with the App Settings... menu option.)" +
+            "Accurate planning and budgeting requires accurate work estimates. " + 
+            "Time in Process P50 shows how long the median of Stories are in process. " +
             "<p/>" +
-            "Click on a bar to see a table with the tasks from that type and timebox." +
+            "Time in Process is the number of business days a typical user story is in the 'In-progress' " + 
+            "or 'Completed' column. Similar to lead time, cycle time, and time to market. " +
             "<p/>" +
-            "The columns show a stacked count of actual hours by type on the tasks for tasks associated " +
-            "with stories accepted in the sprint (or Release)." +
+            "Click on a bar to see a table with the stories and TiP for the team in that timebox." +
             "<p/>" +
             "<strong>Notes:</strong>" +
-            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported." +
-            "<br/>(2) The percentages in the table may not total 100% in every case due to rounding of the individual " +
-            "row calculations, but the total should be between 99% and 101%",
+            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
     
             
     integrationHeaders : {
-        name : "TSDeliveryAcceleration"
+        name : "TSResponsivenessTiP"
     },
     
     config: {
@@ -37,21 +33,13 @@ Ext.define("TSDeliveryEffortFocus", {
             Ext.Msg.alert('', 'Use the App Settings... menu option to choose a field to represent the type of task.');
             return;
         }
-        this._getAllowedValues('Task',this.getSetting('typeField')).then({
-            scope: this,
-            success: function(values) {
-                this.allowed_types = values;
 
                 this.timebox_limit = 10;
+//                this.timebox_type = 'Release';
                 this.timebox_type = 'Iteration';
                 
                 this._addSelectors();
                 this._updateData();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('Problem loading allowed values', msg);
-            }
-        });
     },
 
     _addSelectors: function() {
@@ -111,9 +99,10 @@ Ext.define("TSDeliveryEffortFocus", {
     }, 
     
     _getAllowedValues: function(model, field_name) {
+
         var deferred = Ext.create('Deft.Deferred');
 
-        this.logger.log("_getAllowedValues for", model, field_name);
+//        this.logger.log("_getAllowedValues for", model, field_name);
         
         Rally.data.ModelFactory.getModel({
             type: model,
@@ -134,6 +123,7 @@ Ext.define("TSDeliveryEffortFocus", {
             failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
         });
         return deferred;
+
     },
     
     _updateData: function() {
@@ -148,14 +138,20 @@ Ext.define("TSDeliveryEffortFocus", {
         ],this).then({
             scope: this,
             success: function(results) {
-               
-				this._sortTasks(results);
+
+//this.logger.log("success", results);
+              
+				this._sortObjectsbyTBDate(results);
+
+//this.logger.log("_sortObjectsbyTBDate", results);
 
         var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
 
+//this.logger.log("_collectArtifactsByTimebox", artifacts_by_timebox, results);
+
                 this.clearAdditionalDisplay();
 
-                this._makeGrid(artifacts_by_timebox);
+//                this._makeGrid(artifacts_by_timebox);
 
                 this._makeChart(artifacts_by_timebox);
             },
@@ -262,6 +258,9 @@ Ext.define("TSDeliveryEffortFocus", {
     },
     
     _fetchTimeboxes: function() {
+
+//        this.logger.log("_fetchTimeboxes");
+
         var me = this,
             deferred = Ext.create('Deft.Deferred');
                 
@@ -283,17 +282,14 @@ Ext.define("TSDeliveryEffortFocus", {
                 projectScopeDown: false
             }
         };
-        
         return TSUtilities.loadWsapiRecords(config);
     },
     
     _sortTimeboxes: function(timeboxes) {
 
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
-            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
+        this.setLoading("Fetching timeboxes...");
+//        this.logger.log("_sortTimeboxes IN", timeboxes);
+       
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
       
         Ext.Array.sort(timeboxes, function(a,b){
@@ -306,21 +302,24 @@ Ext.define("TSDeliveryEffortFocus", {
 
     },
 
-    _sortTasks: function(task_records) {
+    _sortObjectsbyTBDate: function(records) {
     	
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-        
-				for (i=0; i < task_records.length; i++) { 
-					task_records[i].task_sort_field = task_records[i]['data'][this.timebox_type][end_date_field];
+//        this.logger.log("_sortObjectsbyTBDate IN", records, this.timebox_type, end_date_field);
+
+				for (i=0; i < records.length; i++) { 
+					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
 					};
      
-        Ext.Array.sort(task_records, function(a,b){      	
-            if ( a.task_sort_field < b.task_sort_field ) { return -1; }
-            if ( a.task_sort_field > b.task_sort_field ) { return  1; }
+        Ext.Array.sort(records, function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
             return 0;
         }); 
         
-        return task_records;
+//        this.logger.log("_sortObjectsbyTBDate OUT", records);
+
+        return records;
 
     },
     
@@ -336,23 +335,20 @@ Ext.define("TSDeliveryEffortFocus", {
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(end_field);
-//        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
             {property: type + '.' + end_field, operator: '<=', value:last_date},
-//            {property: type + '.' + start_field, operator: '<=', value:last_date},
-            {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
+            {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
         var config = {
-            model:'Task',
+            model:'HierarchicalRequirement',
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
-                'PlanEstimate','Project','Release',type_field,'Actuals','Estimate',
-                'ToDo','WorkProduct','StartDate','EndDate','ReleaseStartDate','ReleaseDate'],
-//           sorters: last_date,    
+                'PlanEstimate','Project','Release','InProgressDate','AcceptedDate',
+                'StartDate','EndDate','ReleaseStartDate','ReleaseDate'],
         };
         
         Deft.Chain.sequence([
@@ -380,135 +376,122 @@ Ext.define("TSDeliveryEffortFocus", {
      * as in
      * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
      */
+     
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
-            timebox_type = this.timebox_type,
-            type_field = this.getSetting('typeField'),
-            allowed_types = this.allowed_types;
+            timebox_type = this.timebox_type;
+            type_field = this.getSetting('typeField');
                 
         if ( items.length === 0 ) { return hash; }
-        
+     
         var base_hash = {
-            records: {
-                all: []
-            }
+            records: { all: []},
+            tip_values: [],
+            median: 0
         };
-        Ext.Array.each(allowed_types, function(value) {
-            base_hash.records[value] = [];
-        });
-        
-        Ext.Array.each(items, function(item){
-            var timebox = item.get(timebox_type).Name;
-            
+       
+				for (i=0; i < items.length; i++) { 
+            var timebox = items[i].get(timebox_type).Name;
+            var end_date = items[i].get('AcceptedDate');
+		        var start_date = items[i].get('InProgressDate');
+		        
+		        var responsiveness_value = Rally.technicalservices.util.Utilities.daysBetweenWithFraction(start_date,end_date,true);
+
+						items[i].tip = responsiveness_value;
+     
             if ( Ext.isEmpty(hash[timebox])){
                 
+//                hash[timebox] = Ext.clone(base_hash);
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            hash[timebox].records.all.push(item);
-            
-            var type = item.get(type_field) || "";
-            if ( Ext.isEmpty(hash[timebox].records[type]) ) {
-                hash[timebox].records[type] = [];
-            }
-            hash[timebox].records[type].push(item);
-        });
-        
+            hash[timebox].records.all.push(items[i]);
+            hash[timebox].tip_values.push(responsiveness_value);
+
+					};
+					
+// calculate and push median value into hash            
+					Ext.Object.each(hash, function (key, value) {
+						Ext.Object.each(value, function (entry) {
+							var median_value = 0;
+
+					    value.tip_values.sort( function(a,b) {return a - b;} );
+					
+					    var half = Math.floor(value.tip_values.length/2);
+					
+					    if(value.tip_values.length % 2)
+					        median_value = value.tip_values[half];
+					    else
+					        median_value = (value.tip_values[half-1] + value.tip_values[half]) / 2.0;
+
+	            value['median'] = median_value;
+						});					        					        
+					});
+
         return hash;
     },
-    
+        
     _makeChart: function(artifacts_by_timebox) {
         var me = this;
-
         var categories = this._getCategories(artifacts_by_timebox);
-        var series = this._getSeries(artifacts_by_timebox);
+        var datapoints = this._getdataPoints(artifacts_by_timebox);		
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
+
+//this.logger.log("_makeChart 1",artifacts_by_timebox, datapoints);
         
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
+
         this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getChartConfig(),
-            chartColors: colors
-        });
+        	chartData: {
+                        categories: categories,
+                        series: [{
+                        	name: 'Median Days in Process', 
+                        	data: datapoints
+                         	}]
+                     },
+        chartConfig: { 
+          							chart: {type: 'column'},
+                        title: {text: 'Responsiveness (Stories)'},
+                        subtitle: {text: 'Time in Process (P50)'},
+                        xAxis: {},
+                        yAxis: {title: {text: 'Days'}},
+                        plotOptions: {
+                            column: {stacking: 'normal'}
+                        },
+                        tooltip: {
+						                formatter: function() {
+                    					return '<b>'+ Ext.util.Format.number(this.point.y, '0.##')+ '</b>: ';
+                						} 
+             						}
+                     },
+			  chartColors: colors                                 
+                       
+				});
         this.setLoading(false);
-    },
-    
-    _getSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = this.allowed_types;
-        
-        Ext.Array.each(allowed_types, function(allowed_type){
-            var name = allowed_type;
-            if ( Ext.isEmpty(name) ) { name = "-None-"; }
-            
-            series.push({
-                name: name,
-                data: this._calculateMeasure(artifacts_by_timebox,allowed_type),
-                type: 'column',
-                stack: 'a'
-            });
-        },this);
-        return series;
-    },
-    
-    _calculateMeasure: function(artifacts_by_timebox,allowed_type) {
-        var me = this,
-            data = [];
-        
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var records = value.records[allowed_type] || [];
-            
-            var size = Ext.Array.sum(
-                Ext.Array.map(records, function(record){
-                    return record.get('Actuals') || 0;
-                })
-            );
-            
-            var title = Ext.String.format("{0} ({1})",
-                timebox,
-                (Ext.isEmpty(allowed_type)) ? "-- NONE --" : allowed_type
-            );
-            
-            data.push({ 
-                y:size,
-                _records: records,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  title);
-                    }
-                }
-            });
-        });
-        
-        return data;
-        
-    },
-    
+			},
+
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
-    _getChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type:'column' },
-            title: { text: 'Delivery Effort (Actual Task Hours by Type)' },
-            xAxis: {},
-            yAxis: [{ 
-                title: { text: 'Hours' }
-            }],
-            plotOptions: {
-                column: {
-                    stacking: 'normal'
-                }
-            },
-            tooltip: {
-                formatter: function() {
-                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
-                }
-            }
-        }
+    _getdataPoints: function(artifacts_by_timebox) {
+    		var me = this;
+    		var datapoints = [];
+        Ext.Object.each(artifacts_by_timebox, function (key, value) {
+        	var records = value.records || [];
+        	datapoints.push({
+        		y: value.median,
+        		_records: records,
+						events: {
+   					click: function () {
+   						me.showDrillDown(this._records.all,  "Median Time in Process (Stories P50) for " + key + ": " + Ext.util.Format.number(this.y, '0.##'));
+   						}
+						}      		
+        	});
+        });
+        	
+       return datapoints;
     },
     
     getSettingsFields: function() {
@@ -537,6 +520,7 @@ Ext.define("TSDeliveryEffortFocus", {
         ];
     },
     
+
     getDrillDownColumns: function(title) {
         var columns = [
             {
@@ -550,32 +534,32 @@ Ext.define("TSDeliveryEffortFocus", {
                 flex: 3
             },
             {
-                dataIndex: 'WorkProduct',
-                text: 'Work Product',
+                dataIndex: 'tip',
+                text: 'Time (Days) in Process',
                 flex: 2,
                 renderer: function(value,meta,record) {
-                    if ( Ext.isEmpty(value) ) { return ""; }
-                    return value.FormattedID + ": " + value.Name;
+//                    if ( Ext.isEmpty(value) ) { return "X"; }
+                    return record.tip;
                 }
             },
-            {
-                dataIndex: 'Estimate',
-                text: 'Task Hours (Est)'
-            },
-            {
-                dataIndex: 'Actuals',
-                text: 'Task Hours (Actual)'
-            },
+//            {
+//                dataIndex: 'Estimate',
+//                text: 'Task Hours (Est)'
+//            },
+//            {
+//                dataIndex: 'Actuals',
+//                text: 'Task Hours (Actual)'
+//            },
             {
                 dataIndex: 'Project',
                 text: 'Project',
                 renderer:function(Project){
                         return Project.Name;
                 },
-                flex: 1
+                flex: 3
             }
         ];
-        
+       
         if ( /\(multiple\)/.test(title)) {
             columns.push({
                 dataIndex: 'Name',
@@ -590,5 +574,6 @@ Ext.define("TSDeliveryEffortFocus", {
         
         return columns;
     }
+ 
     
 });
