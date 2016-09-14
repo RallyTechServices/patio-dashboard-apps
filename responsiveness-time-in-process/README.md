@@ -1,12 +1,9 @@
-#Delivery Effort Focus
+#Responsiveness - Time in Process (Stories P50)
 
-Over a series of iterations, show Actuals hours of tasks for accepted stories
-divided by type of each task.
+Over a series of iterations, show the median value of all user stories Time in Process.
+TiP being defined as the amount of time a Story is either in "In-Progess" or "Completed" states.
 
 ![Screen Shot](images/chart.png)
-
-The task type is choosable in app settings.
-
 
 ## Development Notes
 
