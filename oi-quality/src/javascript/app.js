@@ -6,7 +6,9 @@ Ext.define("TSDefectsByProgram", {
     descriptions: [
         "<strong>OCIO Dashboard - Quality</strong><br/>" +
             "<br/>" +
-            "Defects opened vs Defects closed vs Total Open"     
+            "Defects opened vs Defects closed vs Total Open<br/> "  +
+            "Defects that were created between Quarter start date and Quarter end date."
+
     ],
 
     integrationHeaders : {
@@ -89,7 +91,19 @@ Ext.define("TSDefectsByProgram", {
         var promises = [];
         if ( this.getSetting('showAllWorkspaces') ) {
         
-            promises = Ext.Array.map(this.workspaces, function(workspace){
+            //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+            //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+            var workspaces_of_selected_programs = []
+            Ext.Array.each(selectorValue.programs,function(selected){
+                workspaces_of_selected_programs.push(selectorValue.allPrograms[selected].workspace);
+            })
+
+            if(this.programs.length < 1){
+                workspaces_of_selected_programs = this.workspaces;
+            }
+
+
+            promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
                 var workspace_data = Ext.clone( workspace.getData() );
                 return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
             });
@@ -180,7 +194,7 @@ Ext.define("TSDefectsByProgram", {
                     
                     // TODO: another way to find out what the field on story is that gives us the feature
                     //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[1].get('TypePath');
                     Deft.Promise.all([

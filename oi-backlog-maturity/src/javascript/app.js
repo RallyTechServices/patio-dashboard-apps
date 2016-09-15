@@ -5,7 +5,8 @@ Ext.define("OIBMApp", {
     descriptions: [
         "<strong>OCIO Dashboard - Backlog Maturity</strong><br/>" +
             "<br/>" +
-            "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program." 
+            "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program.<br/>" + 
+            "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter "
             
     ],
 
@@ -86,8 +87,18 @@ Ext.define("OIBMApp", {
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
+        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+        var workspaces_of_selected_programs = []
+        Ext.Array.each(quarterAndPrograms.programs,function(selected){
+            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+        })
 
-        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+        if(this.programObjectIds.length < 1){
+            workspaces_of_selected_programs = me.workspaces;
+        }
+
+        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getData( workspace ) 
             };
@@ -149,29 +160,24 @@ Ext.define("OIBMApp", {
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        var workspace_name = workspace.get('Name');
-        var workspace_oid = workspace.get('ObjectID');
+        var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
+        var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
 
         
-
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
                 if ( types.length < 2 ) {
                     this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    var workspace_oid = workspace.get('ObjectID');
 
-                    this.setLoading('Loading Workspace ' + workspace.get('Name'));
+                    this.setLoading('Loading Workspace ' + workspace_name);
                     var featureModelPath = types[0].get('TypePath');
                     var featureModelName = types[0].get('Name').replace(/\s/g,'');
                     
-                    // TODO: another way to find out what the field on story is that gives us the feature
-                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[1].get('TypePath');
 
@@ -209,7 +215,7 @@ Ext.define("OIBMApp", {
                                             Ext.Array.each(all_projects_velocity,function(vel){
                                                 
                                                 var backlog_rec = {
-                                                    ObjectID: records2[vel.ProjectID].ObjectID,
+                                                    ObjectID: vel.ProjectID,
                                                     Program: records2[vel.ProjectID].Name,
                                                     StoryPoints: records2[vel.ProjectID].PlanEstimate > 0 ? records2[vel.ProjectID].PlanEstimate:0,
                                                     AvgVelocity: vel.Velocity,
@@ -263,6 +269,7 @@ Ext.define("OIBMApp", {
         var find = {
                         "_TypeHierarchy": "HierarchicalRequirement",
                         "Ready": true,
+                        "Feature": {$ne: null},
                         "__At": date
                     };
         if(me.programObjectIds && me.programObjectIds.length > 0){
@@ -272,10 +279,11 @@ Ext.define("OIBMApp", {
         workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             "context": {"workspace": {"_ref": workspace_oid }},
-            "fetch": [ "ObjectID","PlanEstimate","Project"],
+            "fetch": [ "ObjectID","PlanEstimate","Project","Feature"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
+            //"useHttpPost":true,
+            "removeUnauthorizedSnapshots":true,            
              "hydrate": ["Project"]
         });
 
@@ -297,6 +305,7 @@ Ext.define("OIBMApp", {
 
         if(!records || !records.length > 0){
             deferred.resolve({});
+            return deferred;
         }
         var object_id_filters = [];
 
@@ -304,7 +313,9 @@ Ext.define("OIBMApp", {
             object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
         })
 
-        var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: epmsModelName},{property:"Ready", value:"true"}];
+        var model_filters = [{property: "Feature.Parent.PortfolioItemType.Name", value: epmsModelName}
+        //,{property:"Ready", value:"true"}
+        ];
 
         if(object_id_filters.length > 0){
             model_filters = Rally.data.wsapi.Filter.and(model_filters).and(Rally.data.wsapi.Filter.or(object_id_filters));
@@ -314,10 +325,10 @@ Ext.define("OIBMApp", {
             model: 'UserStory',
             filters: model_filters,
             enablePostGet:true,
-            fetch:['ObjectID','Project','PlanEstimate','Name','PortfolioItemType','Feature','Parent','PortfolioItemTypeName'],
+            fetch:['ObjectID','Project','PlanEstimate','Name','PortfolioItemType','Feature','Parent','PortfolioItemTypeName']
+            ,
             context: { 
-                project: null
-                ,
+                project: null,
                 workspace: '/workspace/' + workspace_oid
             }
 
@@ -327,12 +338,13 @@ Ext.define("OIBMApp", {
                     me.logger.log('records',records);
                     var epms_id_projects = {};
                     Ext.Array.each(records,function(rec){
-                        if(epms_id_projects[rec.get('Project').ObjectID]){
-                            epms_id_projects[rec.get('Project').ObjectID].PlanEstimate += rec.get('PlanEstimate');
-                        }else{
-                            epms_id_projects[rec.get('Project').ObjectID] = {'PlanEstimate' : rec.get('PlanEstimate')};
-                            epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
-
+                         if(rec.get('Feature') && rec.get('Feature').Parent && rec.get('Feature').Parent.Project){
+                            if(epms_id_projects[rec.get('Feature').Parent.Project.ObjectID]){
+                                epms_id_projects[rec.get('Feature').Parent.Project.ObjectID].PlanEstimate += rec.get('PlanEstimate');
+                            }else{
+                                epms_id_projects[rec.get('Feature').Parent.Project.ObjectID] = {'PlanEstimate' : rec.get('PlanEstimate')};
+                                epms_id_projects[rec.get('Feature').Parent.Project.ObjectID].Name = rec.get('Project').Name;
+                            }                            
                         }
                     });
                     me.logger.log('epms_id_projects',epms_id_projects);

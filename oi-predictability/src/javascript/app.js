@@ -5,8 +5,10 @@ Ext.define("OIPApp", {
     descriptions: [
         "<strong>OCIO Dashboard - Predictability</strong><br/>" +
             "<br/>" +
-            "Predictability is measured as a percentage by dividing the amount of committed story points by the amount of earned story points." 
-            
+            "Predictability is measured as a percentage by dividing the amount of committed story points by the amount of earned story points." +
+            "Committed Points: Total points as of the end of first day of the quarter <br>" +
+            "Earned Points: Total points as of today <br>" +
+            "Commitment Variance (%): (Committed Points / Earned Points) * 100 <br>"
     ],
 
 
@@ -94,8 +96,18 @@ Ext.define("OIPApp", {
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
+        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+        var workspaces_of_selected_programs = []
+        Ext.Array.each(quarterAndPrograms.programs,function(selected){
+            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+        })
 
-        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+        if(this.programObjectIds.length < 1){
+            workspaces_of_selected_programs = me.workspaces;
+        }
+
+        var promises = Ext.Array.map(workspaces_of_selected_programs, function(workspace) {
             return function() { 
                 return me._getData( workspace ) 
             };
@@ -121,8 +133,8 @@ Ext.define("OIPApp", {
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        var workspace_name = workspace.get('Name');
-        var workspace_oid = workspace.get('ObjectID');
+        var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
+        var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
@@ -159,7 +171,7 @@ Ext.define("OIPApp", {
                             Ext.Object.each(merged_results,function(key,val){
                                 var predict_rec = {
                                     Program: val.Name,
-                                    CommittedPoints: val.CommittedPoints,
+                                    CommittedPoints: val.CommittedPoints > 0 ?val.CommittedPoints:0,
                                     EarnedPoints: val.EarnedPoints,
                                     Variance: val.EarnedPoints > 0 && val.CommittedPoints > 0 ? (val.EarnedPoints / val.CommittedPoints) * 100 : 0
                                 }
@@ -255,6 +267,7 @@ Ext.define("OIPApp", {
             "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true,            
             "useHttpPost":true,
             "hydrate": ["Project"]
         });
