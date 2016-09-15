@@ -1940,7 +1940,7 @@ Ext.define("TSSplitStoryPerSprint", {
             xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',  // offset from current into the past
+            fieldLabel: 'Timebox Limit',  // offset from current into the past
             value: 10,
             maxValue: 20,
             minValue: 1,            

@@ -39,7 +39,7 @@ Ext.define("IntegrityApp", {
             xtype: 'numberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
             minValue: 1,            

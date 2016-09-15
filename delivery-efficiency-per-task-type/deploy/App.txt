@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CB Delivery Efficiency</title>
+    <title>Delivery Efficiency</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
     <!--  Build Date: Tue Sep 13 2016 14:14:22 GMT-0700 (PDT) -->
     
@@ -2105,7 +2105,7 @@ Ext.define("TSDeliveryEfficiency", {
             xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
             minValue: 1,            
@@ -2706,7 +2706,7 @@ this.logger.log("_calculateMeasure IN", artifacts_by_timebox, allowed_type);
 
             
                Rally.launchApp('TSDeliveryEfficiency', {
-                   name: 'CB Delivery Efficiency'
+                   name: 'Delivery Efficiency'
                });
         });
     </script>

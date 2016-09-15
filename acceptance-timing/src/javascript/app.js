@@ -44,10 +44,10 @@ Ext.define("ATApp", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
             minValue: 1,            
@@ -157,15 +157,21 @@ Ext.define("ATApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
+    _sortIterations: function(timeboxes) {
         
-        Ext.Array.sort(iterations, function(a,b){
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
+        Ext.Array.sort(timeboxes, function(a,b){
             if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
             if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
             return 0;
         });
         
-        return iterations;
+        return timeboxes;
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
