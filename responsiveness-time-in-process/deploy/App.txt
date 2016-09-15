@@ -3,13 +3,13 @@
 <head>
     <title>Responsiveness - TiP</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 13 2016 13:50:07 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Sep 14 2016 16:25:06 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 13 2016 13:50:07 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Sep 14 2016 16:25:06 GMT-0700 (PDT)";
         var BUILDER = "cbedekovich";
-        var CHECKSUM = 180127449862;
+        var CHECKSUM = 180129166359;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2100,7 +2100,7 @@ Ext.define("TSResponsivenessTiP", {
             xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
             minValue: 1,            
@@ -2673,7 +2673,7 @@ Ext.define("TSResponsivenessTiP", {
             xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
-            fieldLabel: 'Time Box Limit',
+            fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
             minValue: 1,            
