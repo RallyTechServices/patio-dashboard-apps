@@ -189,7 +189,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var config = {
             model: epmsModelPath,
-            fetch:['ObjectID','Project','Name'],
+            fetch:['ObjectID','Project','Name','Workspace'],
             context: { 
                 project: null,
                 workspace: '/workspace/' + workspace_oid
@@ -198,14 +198,15 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(records) {
-                var epms_id_projects = {};
+                var epms_id_projects = {}
                 Ext.Array.each(records,function(rec){
                     var project_oid = rec.get('Project').ObjectID;
                     
                     if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
                         epms_id_projects[project_oid] = {
                             program: rec.get('Project'),
-                            projects: []
+                            projects: [],
+                            workspace: workspace
                         }
                     }
                     
