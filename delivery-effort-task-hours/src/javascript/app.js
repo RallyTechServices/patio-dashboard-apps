@@ -54,7 +54,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
     _addSelectors: function() {
 
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -118,6 +118,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
         ],this).then({
             scope: this,
             success: function(results) {
+								this._sortObjectsbyTBDate(results);
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeRawTopGrid(artifacts_by_timebox);
@@ -158,6 +159,13 @@ Ext.define("TSDeliveryEffortTaskHours", {
     },
     
     _sortTimeboxes: function(timeboxes) {
+
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
         
         Ext.Array.sort(timeboxes, function(a,b){
@@ -169,6 +177,24 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return timeboxes;
     },
     
+    _sortObjectsbyTBDate: function(records) {
+    	
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+				for (i=0; i < records.length; i++) { 
+					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(records, function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+
+        return records;
+
+    },
+
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
         

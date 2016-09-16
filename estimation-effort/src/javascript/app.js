@@ -47,7 +47,7 @@ Ext.define("TSEstimationEffort", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -116,6 +116,8 @@ Ext.define("TSEstimationEffort", {
         ],this).then({
             scope: this,
             success: function(artifacts) {
+
+								this._sortObjectsbyTBDate(artifacts);
                 var artifacts_by_size = this._collectArtifactsByFibonacci(artifacts||[]);
                 artifacts_by_size = this._setMinMaxAvg(artifacts_by_size);
                 
@@ -162,9 +164,9 @@ Ext.define("TSEstimationEffort", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
+    _sortIterations: function(timeboxes) {
         
-        Ext.Array.sort(iterations, function(a,b){
+        Ext.Array.sort(timeboxes, function(a,b){
             if ( Ext.isFunction(a.get) ) { a = a.getData(); }
             if ( Ext.isFunction(b.get) ) { b = b.getData(); }
             
@@ -173,11 +175,35 @@ Ext.define("TSEstimationEffort", {
             return 0;
         });
         
-        return iterations;
+        return timeboxes;
     },
     
+    _sortObjectsbyTBDate: function(records) {
+    	
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+				for (i=0; i < records.length; i++) { 
+					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(records, function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+
+        return records;
+
+    },
+
     _fetchArtifactsInTimeboxes: function(timeboxes) {
-        if ( timeboxes.length === 0 ) { return; }
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
+//        if ( timeboxes.length === 0 ) { return; }
         
         var type = this.timebox_type;
         

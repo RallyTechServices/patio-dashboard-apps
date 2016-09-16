@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Efficiency</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 13 2016 14:14:22 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 15 2016 11:23:52 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 13 2016 14:14:22 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 15 2016 11:23:52 GMT-0700 (PDT)";
         var BUILDER = "cbedekovich";
-        var CHECKSUM = 140635250807;
+        var CHECKSUM = 138318241448;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2280,11 +2280,12 @@ Ext.define("TSDeliveryEfficiency", {
     },
     
    _fetchArtifactsInTimeboxes: function(timeboxes) {
-        if ( timeboxes.length === 0 ) { 
-        	  Ext.Msg.alert('', 'No Timeboxes of selected type for selected Project');
-            return;
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
 				}
-        
+
         var type = this.timebox_type;
         var type_field = this.getSetting('typeField');
         
@@ -2322,31 +2323,6 @@ Ext.define("TSDeliveryEfficiency", {
         
         return TSUtilities.loadWsapiRecords(config);
 
-        // Deft.Chain.sequence([
-        //     function() { 
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "Defect";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "TestSet";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "DefectSuite";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     }
-        // ],this).then({
-        //     success: function(results) {
-        //         deferred.resolve(Ext.Array.flatten(results));
-        //     },
-        //     failure: function(msg) {
-        //         deferred.reject(msg);
-        //     }
-        // });
-        //return deferred.promise;
     },
     
     /* 

@@ -228,11 +228,12 @@ Ext.define("TSDeliveryEfficiency", {
     },
     
    _fetchArtifactsInTimeboxes: function(timeboxes) {
-        if ( timeboxes.length === 0 ) { 
-        	  Ext.Msg.alert('', 'No Timeboxes of selected type for selected Project');
-            return;
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
 				}
-        
+
         var type = this.timebox_type;
         var type_field = this.getSetting('typeField');
         
@@ -270,31 +271,6 @@ Ext.define("TSDeliveryEfficiency", {
         
         return TSUtilities.loadWsapiRecords(config);
 
-        // Deft.Chain.sequence([
-        //     function() { 
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "Defect";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "TestSet";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     },
-        //     function() {
-        //         config.model = "DefectSuite";
-        //         return TSUtilities.loadWsapiRecords(config);
-        //     }
-        // ],this).then({
-        //     success: function(results) {
-        //         deferred.resolve(Ext.Array.flatten(results));
-        //     },
-        //     failure: function(msg) {
-        //         deferred.reject(msg);
-        //     }
-        // });
-        //return deferred.promise;
     },
     
     /* 

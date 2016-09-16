@@ -2224,7 +2224,7 @@ Ext.define("TSDeliveryEffortFocus", {
         var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field + '<br> Actuals Hours / %', 
+                            text: field + '<br> Actual Hours / %', 
                             align: 'center',
                             flex:1,
                             renderer: function(value,meta,record) {
