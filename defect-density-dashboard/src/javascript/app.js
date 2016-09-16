@@ -4,7 +4,7 @@ Ext.define("DDApp", {
     descriptions: [
         "<strong>Defect Density per Timebox</strong><br/>" +
             "<br/>" +
-            "The top stacked bar chart displaysthetotal number of stories versus stories with at least one defect" 
+            "The top stacked bar chart displays the total number of stories versus stories with at least one defect" 
             ,
         "<strong>Percentage of stories with defects</strong><br/>"+
             "<br/>" +
@@ -335,7 +335,7 @@ Ext.define("DDApp", {
             title: { text: 'Defect Density - Stories vs Stories with Defects' },
             xAxis: {},
             yAxis: [{ 
-                title: { text: 'Total stories vs stories w/ defects' }
+                title: { text: 'Total Stories vs Stories w/ Defects' }
             }],
             plotOptions: {
                 column: {
@@ -402,12 +402,12 @@ Ext.define("DDApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            title: { text: 'Percentage of stories with defects' },
+            title: { text: 'Percentage of Stories with Defects' },
             xAxis: {
                 title: { }
             },
             yAxis: [{ 
-                title: { text: '% of stories w/ defects' }
+                title: { text: '% of Stories w/ Defects' }
             }],
             plotOptions: {
                 line: {
@@ -496,12 +496,12 @@ Ext.define("DDApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            title: { text: 'Percentage of points affected by defects' },
+            title: { text: 'Percentage of Points affected by Defects' },
             xAxis: {
                 title: { }
             },
             yAxis: [{ 
-                title: { text: '% of points affected by defects' }
+                title: { text: '% of Points affected by Defects' }
             }],
             plotOptions: {
                 line: {

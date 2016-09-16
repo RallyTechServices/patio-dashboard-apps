@@ -4,7 +4,7 @@ Ext.define("TSDeliveryAcceleration", {
     description: "<strong>Delivery Acceleration</strong><br/>" +
             "<br/>" +
             "This chart displays the velocity and change in velocity for timeboxes that " +
-            "follow a selected timebox.  Use the toggle switch to choose the type of " +
+            "follow a user-selected baseline timebox.  Use the radio buttons to choose the type of " +
             "timebox (iteration or release), then use the dropdown to choose a baseline " +
             "timebox." +
             "<p/>" +
@@ -35,8 +35,45 @@ Ext.define("TSDeliveryAcceleration", {
     
     _addSelectors: function() {
         
-        this.timebox_selector = null;
+//        this.timebox_selector = null;
         
+//        this.timebox_type = 'Iteration';
+        this.addToBanner(
+        {
+            xtype      : 'radiogroup',
+            fieldLabel : 'Timebox Type',
+            margin: '0 0 0 50',
+            width: 300,
+            defaults: {
+                flex: 1
+            },
+            layout: 'hbox',
+            items: [
+                {
+                    boxLabel  : 'Iteration',
+                    name      : 'timeBoxType',
+                    inputValue: 'Iteration',
+                    id        : 'radio1',
+//                    checked   : true                    
+                }, {
+                    boxLabel  : 'Release',
+                    name      : 'timeBoxType',
+                    inputValue: 'Release',
+                    id        : 'radio2'
+                }
+            ],
+            listeners:{
+                change:function(rb){
+                    this.timebox_type = rb.lastValue.timeBoxType;
+						        this._updateTimeboxSelector();
+
+//                    this._updateData();
+                },
+                scope:this
+            }
+        }
+        );
+/*
         this.timebox_type_selector = this.addToBanner({
             xtype: 'tstogglebutton',
             toggleState: 'iteration',
@@ -52,16 +89,17 @@ Ext.define("TSDeliveryAcceleration", {
         });
         
         this._updateTimeboxSelector();
+
+*/    
     },
-    
     _updateTimeboxSelector: function() {
-        var type = this.timebox_type_selector.getValue();
+        var type = this.timebox_type;
         
         if ( ! Ext.isEmpty(this.timebox_selector) ) {
             this.timebox_selector.destroy();
         }
         
-        if ( type == 'iteration' ) {
+        if ( type == 'Iteration' ) {
             this.timebox_selector = this.addToBanner({
                 xtype:'rallyiterationcombobox',
                 fieldLabel: 'Base Iteration:',
@@ -74,7 +112,9 @@ Ext.define("TSDeliveryAcceleration", {
                 stateEvents:['change'],
                 listeners: {
                     scope: this,
-                    change: this._updateData
+                    change: this._updateData,
+                    select: this._updateData
+
                 }
             });
         } else {
@@ -90,7 +130,9 @@ Ext.define("TSDeliveryAcceleration", {
                 stateEvents:['change'],
                 listeners: {
                     scope: this,
-                    change: this._updateData
+                    change: this._updateData,
+                    select: this._updateData
+
                 }
             });
         }
@@ -139,11 +181,11 @@ Ext.define("TSDeliveryAcceleration", {
             deferred.reject(msg);
         }
             
-        type = this.timebox_type_selector.getValue();
+        type = this.timebox_type;
         
         var start_field = "StartDate";
         var end_field = "EndDate";
-        if ( type == "release" ) {
+        if ( type == "Release" ) {
             start_field = "ReleaseStartDate",
             end_field = "ReleaseDate"
         }
@@ -184,18 +226,17 @@ Ext.define("TSDeliveryAcceleration", {
                 deferred.reject(msg);
             }
         });
-        
         return deferred.promise;
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
         
-        var type = this.timebox_type_selector.getValue();
+        var type = this.timebox_type;
         var start_field = "StartDate";
         var end_field = "EndDate";
         var timebox_property = 'Iteration';
-        if ( type == "release" ) {
+        if ( type == "Release" ) {
             start_field = "ReleaseStartDate",
             end_field = "ReleaseDate",
             timebox_property = "Release"
@@ -247,12 +288,12 @@ Ext.define("TSDeliveryAcceleration", {
     
     _collectArtifactsByTimebox: function(items) {
         var hash = {},
-            type = this.timebox_type_selector.getValue();
+            type = this.timebox_type;
             
         if ( items.length === 0 ) { return hash; }
         
         var timebox_property = 'Iteration';
-        if ( type == "release" ) {
+        if ( type == "Release" ) {
             timebox_property = "Release"
         }
         
