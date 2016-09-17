@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 17 2016 17:05:02 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 16 2016 10:11:08 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 17 2016 17:05:02 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Sep 16 2016 10:11:08 GMT-0700 (PDT)";
         var STORY    = "US555";
-        var BUILDER  = "arajaraman";
-        var CHECKSUM = 82666309839;
+        var BUILDER  = "cbedekovich";
+        var CHECKSUM = 84691857154;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1193,6 +1193,29 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadLookbackRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     loadWsapiRecordsWithParallelPages: function(config, msg) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
@@ -1462,7 +1485,7 @@ Ext.define("OIPRApp", {
 descriptions: [
         "<strong>OCIO Dashboard - Productivity</strong><br/>" +
             "<br/>" +
-            "It is the number of work broken down by user story, defects by program by quarter" 
+            "It is the number of work items broken down by user story and defects, grouped by program by quarter" 
             
     ],
 

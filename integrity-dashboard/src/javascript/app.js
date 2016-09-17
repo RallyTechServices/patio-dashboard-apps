@@ -36,7 +36,7 @@ Ext.define("IntegrityApp", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -362,7 +362,7 @@ Ext.define("IntegrityApp", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Percentage of stories with Functional Test Coverage' },
+            title: { text: 'Percentage of Stories with Functional Test Coverage' },
             xAxis: {},
             yAxis: { 
                 min: 0,
@@ -555,8 +555,8 @@ Ext.define("IntegrityApp", {
         
         var rows = [
             {Type:'TotalStoryCount', Name: 'Testable Stories'},
-            {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Case' },
-            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Pass Test Case' }
+            {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Cases' },
+            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Test Cases Pass' }
         ];
 
         // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){

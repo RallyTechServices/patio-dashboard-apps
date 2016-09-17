@@ -35,7 +35,7 @@ Ext.define("PredictabilityApp", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -514,7 +514,7 @@ Ext.define("PredictabilityApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            title: { text: 'Percentage of difference between planned and actual velocity' },
+            title: { text: 'Percentage of Difference between Planned and Actual Velocity' },
             xAxis: {
                 title: { }
             },
@@ -606,7 +606,7 @@ Ext.define("PredictabilityApp", {
         var rows = [
             {Type:'TotalStoryCount', Name: 'Testable Stories'},
             {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Case' },
-            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Pass Test Case' }
+            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ Test Cases All Pass' }
         ];
 
         // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
@@ -676,7 +676,7 @@ Ext.define("PredictabilityApp", {
                 boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
             },
             {
-                xtype: 'numberfield',
+                xtype: 'rallynumberfield',
                 name: 'targetVariability',
                 itemId: 'targetVariability',
                 fieldLabel: 'Target Variability (+/-)',

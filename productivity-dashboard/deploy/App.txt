@@ -3,11 +3,11 @@
 <head>
     <title>Productivity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Aug 29 2016 14:24:23 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 16 2016 17:30:35 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Aug 29 2016 14:24:23 GMT-0400 (EDT)";
-        var CHECKSUM = 141249499024;
+        var APP_BUILD_DATE = "Fri Sep 16 2016 17:30:35 GMT-0700 (PDT)";
+        var CHECKSUM = 145852443666;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2054,7 +2054,7 @@ Ext.define("ProductivityApp", {
     descriptions: [
         "<strong>Productivity Dashboard</strong><br/>" +
             "<br/>" +
-            "Velocity is the amount of work completed during each project or team’s sprint. The dashboard will allow the user to determine the number of points accepted in a sprint and if the effort allocated was from user stories (new and unfinished work) or defects.<br/>" +
+            "Velocity is the amount of work completed during each project or team’s sprint. The dashboard will allow the user to determine the number of points accepted in a sprint and if the effort allocated was from user Stories (new and unfinished work) or Defects.<br/>" +
             "The top stacked bar chart displays total points stacked by story, split story or defect points accepted in that sprint<br/>" +
             "The gray line is the average velocity for all sprints displayed in the dashboard"              
     ],
@@ -2080,7 +2080,7 @@ Ext.define("ProductivityApp", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -2150,6 +2150,8 @@ Ext.define("ProductivityApp", {
         ],this).then({
             scope: this,
             success: function(results) {
+								this._sortObjectsbyTBDate(results);
+
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeRawTopGrid(artifacts_by_timebox);
@@ -2192,15 +2194,49 @@ Ext.define("ProductivityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
+    _sortIterations: function(timeboxes) {
         
-        Ext.Array.sort(iterations, function(a,b){
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
+        Ext.Array.sort(timeboxes, function(a,b){
             if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
             if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
             return 0;
         });
         
-        return iterations;
+        return timeboxes;
+    },
+    
+    _sortObjectsbyTBDate: function(items) {
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+//				Sort Stories
+				for (i=0; i < items[0].length; i++) { 
+					items[0][i].sort_field = items[0][i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(items[0], function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+
+//				Sort Defects
+				for (i=0; i < items[1].length; i++) { 
+					items[1][i].sort_field = items[1][i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(items[1], function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+        return items;
+
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
@@ -2269,11 +2305,12 @@ Ext.define("ProductivityApp", {
      *    which then provides an array of items that match the allowed value 
      *    and timebox
      * as in
-     * { "iteration 1": { "records": { "stories": [o,o,o] } , { "split_stories": [o,o,o] }, { "defects": [o,o,o] } } }
+     * { "iteration 1": { "records": { "Stories": [o,o,o] } , { "Split_Stories": [o,o,o] }, { "Defects": [o,o,o] } } }
      * 
      */
 
     _collectArtifactsByTimebox: function(items) {
+        this.logger.log('_collectArtifactsByTimebox', items);    	
        
         var me = this;
         var hash = {},
@@ -2284,9 +2321,9 @@ Ext.define("ProductivityApp", {
         
         var base_hash = {
             records: {
-                stories: [],
-                split_stories: [],
-                defects:[]
+                Stories: [],
+                Split_Stories: [],
+                Defects:[]
             }
         };
 
@@ -2303,9 +2340,9 @@ Ext.define("ProductivityApp", {
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
             if(me._getTypeFromName(item.get('Name')) == "standard"){
-                hash[timebox].records.stories.push(item);
+                hash[timebox].records.Stories.push(item);
             }else{
-                hash[timebox].records.split_stories.push(item);
+                hash[timebox].records.Split_Stories.push(item);
             }
             
           
@@ -2320,7 +2357,7 @@ Ext.define("ProductivityApp", {
                 total_length += 1;                
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            hash[timebox].records.defects.push(item);
+            hash[timebox].records.Defects.push(item);
           
         });
         me.averageVelocity = total_velocity / total_length;
@@ -2350,7 +2387,7 @@ Ext.define("ProductivityApp", {
 
     _getTopSeries: function(artifacts_by_timebox) {
         var me = this;
-        var allowed_types = ['stories','split_stories','defects']
+        var allowed_types = ['Stories','Split_Stories','Defects']
         var series = [];
         
         Ext.Array.each(allowed_types,function(allowed_type){
@@ -2496,7 +2533,7 @@ Ext.define("ProductivityApp", {
             {Type:'TotalAcceptedPoints', Name: 'Total Accepted Points' },
             {Type:'StoryDefectCount', Name: 'Story/Defect Count' },
             {Type:'AverageStorySize', Name: 'Average Story Size (Pts)' },
-            {Type:'HoursPerPoint', Name: 'Hours per point' }
+            {Type:'HoursPerPoint', Name: 'Hours per Point' }
         ];
 
         Ext.Array.each(rows, function(row) {
@@ -2529,56 +2566,56 @@ Ext.define("ProductivityApp", {
             var size = 0;
 
             if('AcceptedDefectPoints' == type){
-                Ext.Array.each(value.records.defects, function(defect){
+                Ext.Array.each(value.records.Defects, function(defect){
                     size += defect.get('PlanEstimate');
                 }); 
             }else if('AcceptedSplitStoryPoints' == type){
-                Ext.Array.each(value.records.split_stories, function(story){
+                Ext.Array.each(value.records.Split_Stories, function(story){
                     size += story.get('PlanEstimate');
                 }); 
             }else if('AcceptedStoryPoints' == type){
-                Ext.Array.each(value.records.stories, function(story){
+                Ext.Array.each(value.records.Stories, function(story){
                     size += story.get('PlanEstimate');
                 }); 
             }else if('TotalAcceptedPoints' == type){
-                Ext.Array.each(value.records.defects, function(defect){
+                Ext.Array.each(value.records.Defects, function(defect){
                     size += defect.get('PlanEstimate');
                 });
-                Ext.Array.each(value.records.split_stories, function(story){
+                Ext.Array.each(value.records.Split_Stories, function(story){
                     size += story.get('PlanEstimate');
                 });                                  
-                Ext.Array.each(value.records.stories, function(story){
+                Ext.Array.each(value.records.Stories, function(story){
                     size += story.get('PlanEstimate');
                 }); 
             }else if('StoryDefectCount' == type){
-                size = value.records.defects.length + value.records.split_stories.length + value.records.stories.length;
+                size = value.records.Defects.length + value.records.Split_Stories.length + value.records.Stories.length;
             }else if('TotalAcceptedPoints' == type){
                 total_points = 0;
-                Ext.Array.each(value.records.defects, function(defect){
+                Ext.Array.each(value.records.Defects, function(defect){
                     total_points += defect.get('PlanEstimate');
                 });
-                Ext.Array.each(value.records.split_stories, function(story){
+                Ext.Array.each(value.records.Split_Stories, function(story){
                     total_points += story.get('PlanEstimate');
                 });                                  
-                Ext.Array.each(value.records.stories, function(story){
+                Ext.Array.each(value.records.Stories, function(story){
                     total_points += story.get('PlanEstimate');
                 }); 
 
-                total_count = value.records.defects.length + value.records.split_stories.length + value.records.stories.length;
+                total_count = value.records.Defects.length + value.records.Split_Stories.length + value.records.Stories.length;
 
                 size = total_count > 0 ? total_points / total_count : 0
             }else if('HoursPerPoint' == type){
                 total_points = 0;
                 total_hours = 0;
-                Ext.Array.each(value.records.defects, function(defect){
+                Ext.Array.each(value.records.Defects, function(defect){
                     total_points += defect.get('PlanEstimate');
                     total_hours += defect.get('TaskEstimateTotal');
                 });
-                Ext.Array.each(value.records.split_stories, function(story){
+                Ext.Array.each(value.records.Split_Stories, function(story){
                     total_points += story.get('PlanEstimate');
                     total_hours += story.get('TaskEstimateTotal');
                 });                                  
-                Ext.Array.each(value.records.stories, function(story){
+                Ext.Array.each(value.records.Stories, function(story){
                     total_points += story.get('PlanEstimate');
                     total_hours += story.get('TaskEstimateTotal');
                 }); 
@@ -2621,7 +2658,7 @@ Ext.define("ProductivityApp", {
                 boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
             },
             {
-                xtype: 'numberfield',
+                xtype: 'rallynumberfield',
                 name: 'targetVariability',
                 itemId: 'targetVariability',
                 fieldLabel: 'Target Variability (+/-)',
