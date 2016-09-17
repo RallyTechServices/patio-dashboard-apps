@@ -9,7 +9,7 @@ Ext.define("PredictabilityApp", {
             "The gold line graph displays the total points planned (planned velocity) in that sprint",
 "<strong>Percentage of difference between planned and actual velocity</strong><br/>" +
             "<br/>" +
-            "he orange line graph displays the % difference between planned and actual velocity for the sprint.<br/>" +
+            "The orange line graph displays the % difference between planned and actual velocity for the sprint.<br/>" +
             "The green box represents the target variability of ±7.5%<br/>" +
             "The target variability can be set using the app settings."              
     ],
@@ -105,6 +105,10 @@ Ext.define("PredictabilityApp", {
         ],this).then({
             scope: this,
             success: function(results) {
+
+        this.logger.log('B4 _sortObjectsbyTBDate', results);
+								this._sortObjectsbyTBDate(results);
+
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
@@ -150,6 +154,12 @@ Ext.define("PredictabilityApp", {
     
     _sortIterations: function(iterations) {
         
+				if (iterations === 'undefined' || iterations.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+
         Ext.Array.sort(iterations, function(a,b){
             if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
             if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
@@ -157,6 +167,54 @@ Ext.define("PredictabilityApp", {
         });
         
         return iterations;
+    },
+
+/*    
+    _sortObjectsbyTBDate: function(records) {
+    	
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+				for (i=0; i < records.length; i++) { 
+					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(records, function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+
+        return records;
+
+    },
+*/
+
+    _sortObjectsbyTBDate: function(items) {
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+
+//				Sort Stories
+				for (i=0; i < items[0].length; i++) { 
+					items[0][i].sort_field = items[0][i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(items[0], function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+
+//				Sort Defects
+				for (i=0; i < items[1].length; i++) { 
+					items[1][i].sort_field = items[1][i]['data'][this.timebox_type][end_date_field];
+					};
+     
+        Ext.Array.sort(items[1], function(a,b){      	
+            if ( a.sort_field < b.sort_field ) { return -1; }
+            if ( a.sort_field > b.sort_field ) { return  1; }
+            return 0;
+        }); 
+        return items;
+
     },
     
     _fetchArtifactsInTimeboxes: function(timeboxes) {
@@ -471,7 +529,7 @@ Ext.define("PredictabilityApp", {
         var series = [];
 
         series.push({
-            name: '% of difference',
+            name: '% of Difference',
             data: this._calculateBottomMeasure(artifacts_by_timebox),
             color: '#FFD700' // Gold.
         });
