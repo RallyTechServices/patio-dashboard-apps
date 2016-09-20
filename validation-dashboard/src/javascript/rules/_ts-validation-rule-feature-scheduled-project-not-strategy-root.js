@@ -14,11 +14,13 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Wrong Project'
+        label: 'Scheduled, Wrong Project'
+
     },
     constructor: function(config) {
         Ext.apply(this,config);
         this.model = this.portfolioItemTypes[0];
+        this.label = this.getLabel();
     },
     getDescription: function() {
         console.log("getDescription: WrongProject:",this);
@@ -33,12 +35,12 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent'];
+        return ['Name','Project','Parent','Release'];
     },
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "{0} Wrong Project",
+            "Scheduled, Wrong Project ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
         return this.label;
@@ -52,10 +54,10 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     applyRuleToRecord: function(record) {
         console.log("ScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
         // this rule: Scheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name == this.rootStrategyProject )) {
-            return null; // no rule violation   
+        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+            return this.getDescription();               
         } else {
-            return this.getDescription();
+            return null; // no rule violation
         }
     },
     

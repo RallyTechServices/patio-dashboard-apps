@@ -47,7 +47,8 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsstorynonullplanestimaterule' }            
         ],
         PortfolioItem: [            
-            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'}
+            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'}
         ]
     },
     
@@ -532,6 +533,7 @@ extend: 'CA.techservices.app.ChartApp',
         // add any selectors required
         this._addSelectors();
         
+
         me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
 
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
@@ -544,6 +546,7 @@ extend: 'CA.techservices.app.ChartApp',
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+
         });
         
         // add the array to the app as well.

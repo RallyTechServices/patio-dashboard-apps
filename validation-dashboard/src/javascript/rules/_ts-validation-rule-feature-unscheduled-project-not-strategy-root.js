@@ -14,11 +14,13 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Unscheduled and Wrong Project'
+        label: 'Unscheduled, Wrong Project'
+
     },
     constructor: function(config) {
         Ext.apply(this,config);
         this.model = this.portfolioItemTypes[0];
+        this.label = this.getLabel();
     },
     getDescription: function() {
         console.log("getDescription: WrongProject:",this);
@@ -38,9 +40,10 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "{0} Wrong Project",
+            "Unscheduled, Wrong Project ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
+        
         return this.label;
     },
 
