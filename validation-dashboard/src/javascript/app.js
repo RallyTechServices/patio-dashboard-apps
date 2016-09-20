@@ -15,6 +15,11 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 5,
+            rotate90: 10 
+        },
         defaultSettings: {
             showPatterns: false,
             showStoryRules: true,
@@ -232,12 +237,12 @@ extend: 'CA.techservices.app.ChartApp',
         
         this.setChart({
             chartData: data,
-            chartConfig: this._getChartConfig(),
+            chartConfig: this._getChartConfig(data),
             chartColors: colors
         });
     },
     
-    _getChartConfig: function() {
+    _getChartConfig: function(data) {
         var me = this;
         
         
@@ -252,7 +257,7 @@ extend: 'CA.techservices.app.ChartApp',
         return {
             chart: { type:'column' },
             title: { text: title_prefix + 'Validation Results' },
-            xAxis: {},
+            xAxis: this._rotateProjectLabels(data.categories.length), // returns label rotation styling
             yAxis: { 
                 min: 0,
                 title: { text: 'Count' }
@@ -520,7 +525,10 @@ extend: 'CA.techservices.app.ChartApp',
     },
     _initializeApp: function(portfolioItemTypes){
         var me = this;
-        
+        // do layout and configs
+        this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
+        this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
+
         // add any selectors required
         this._addSelectors();
         
@@ -569,6 +577,22 @@ extend: 'CA.techservices.app.ChartApp',
         
         return deferred;
     },
+    _rotateProjectLabels: function(project_count){
+        
+        var rotationSetting = {};
+
+        if (project_count <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = {labels:{rotation:0}};
+        } else if (project_count <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  {labels:{rotation:45}};
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  {labels:{rotation:90}};
+        }
+        this.logger.log("_rotateProjectLabels: ",project_count,this.chartLabelRotationSettings,rotationSetting);
+        
+        return rotationSetting;
+    },
+
     _showErrorMsg: function(msg){
         Rally.ui.notify.Notifier.showError({message:msg});
     },
@@ -585,6 +609,30 @@ extend: 'CA.techservices.app.ChartApp',
             itemId: 'rootDeliveryTeamProject',            
             xtype: 'rallytextfield',
             fieldLabel: 'Name of root Delivery Team project:'
+        },
+        { 
+            name: 'rotateChartLabels45',
+            itemId: 'rotateChartLabels45',            
+            xtype: 'rallynumberfield',
+            fieldLabel: 'Rotate Chart Labels 45 degrees at this project count:',
+            allowDecimals: false,
+            allowExponential: false,
+            autoStripChars: true,
+            baseChars: '0123456789',
+            maxValue: 20,
+            minValue: 1
+        },
+        { 
+            name: 'rotateChartLabels90',
+            itemId: 'rotateChartLabels90',            
+            xtype: 'rallynumberfield',
+            fieldLabel: 'Rotate Chart Labels 90 degrees at this project count:',
+            allowDecimals: false,
+            allowExponential: false,
+            autoStripChars: true,
+            baseChars: '0123456789',
+            maxValue: 30,
+            minValue: 5
         },
         { 
             name: 'showPatterns',
