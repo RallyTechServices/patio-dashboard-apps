@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 09:01:58 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 20 2016 09:34:24 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 09:01:58 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 20 2016 09:34:24 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 536278382783;
+        var CHECKSUM = 537847201721;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2616,11 +2616,13 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Wrong Project'
+        label: 'Scheduled, Wrong Project'
+
     },
     constructor: function(config) {
         Ext.apply(this,config);
         this.model = this.portfolioItemTypes[0];
+        this.label = this.getLabel();
     },
     getDescription: function() {
         console.log("getDescription: WrongProject:",this);
@@ -2635,12 +2637,12 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent'];
+        return ['Name','Project','Parent','Release'];
     },
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "{0} Wrong Project",
+            "Scheduled, Wrong Project ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
         return this.label;
@@ -2654,10 +2656,10 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     applyRuleToRecord: function(record) {
         console.log("ScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
         // this rule: Scheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name == this.rootStrategyProject )) {
-            return null; // no rule violation   
+        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+            return this.getDescription();               
         } else {
-            return this.getDescription();
+            return null; // no rule violation
         }
     },
     
@@ -2685,11 +2687,13 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Unscheduled and Wrong Project'
+        label: 'Unscheduled, Wrong Project'
+
     },
     constructor: function(config) {
         Ext.apply(this,config);
         this.model = this.portfolioItemTypes[0];
+        this.label = this.getLabel();
     },
     getDescription: function() {
         console.log("getDescription: WrongProject:",this);
@@ -2709,9 +2713,10 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "{0} Wrong Project",
+            "Unscheduled, Wrong Project ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
+        
         return this.label;
     },
 
@@ -4569,7 +4574,8 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsstorynonullplanestimaterule' }            
         ],
         PortfolioItem: [            
-            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'}
+            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'}
         ]
     },
     
@@ -5054,6 +5060,7 @@ extend: 'CA.techservices.app.ChartApp',
         // add any selectors required
         this._addSelectors();
         
+
         me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
 
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
@@ -5066,6 +5073,7 @@ extend: 'CA.techservices.app.ChartApp',
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+
         });
         
         // add the array to the app as well.
