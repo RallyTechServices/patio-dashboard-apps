@@ -125,9 +125,13 @@ Ext.define('CA.techservices.validator.Validator',{
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
                 
+        console.log("gatherData:");
+
         var fetch_by_model = this.getFetchFieldsByModel();
         var filters_by_model = this.getFiltersByModel();
         
+        console.log("gatherData: fetch_by_model",fetch_by_model);
+
         var promises = [];
         Ext.Object.each(fetch_by_model, function(model, fetch){
             var config = {
