@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Sep 19 2016 20:03:57 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 20 2016 07:06:45 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Sep 19 2016 20:03:57 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 20 2016 07:06:45 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 505023816134;
+        var CHECKSUM = 506513128418;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -4745,7 +4745,10 @@ extend: 'CA.techservices.app.ChartApp',
                 columnCfgs           : [
                     {
                         dataIndex : 'FormattedID',
-                        text: "id"
+                        text: "id",
+                        renderer: function(value,meta,record){
+                            return Ext.String.format("<a href='{0}' target='_top'>{1}</a>",Rally.nav.Manager.getDetailUrl(record.get('_ref')),value);
+                        }
                     },
                     {
                         dataIndex : 'Name',
