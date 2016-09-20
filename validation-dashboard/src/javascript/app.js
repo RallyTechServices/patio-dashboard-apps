@@ -46,8 +46,8 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsstorywithoutepmsid'},
             {xtype:'tsstorynonullplanestimaterule' }            
         ],
-        PortfolioItem: [
-            {xtype:'tsfeatureprojectnotstrategyrootrule'}
+        PortfolioItem: [            
+            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'}
         ]
     },
     

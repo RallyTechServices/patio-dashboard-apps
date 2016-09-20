@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 08:02:45 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 20 2016 09:01:58 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 08:02:45 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 20 2016 09:01:58 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 519932483519;
+        var CHECKSUM = 536278382783;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2600,9 +2600,9 @@ Ext.define('CA.techservices.validation.FeatureRequiredFieldRule',{
         return field_filter;
     }
 });
-Ext.define('CA.techservices.validation.FeatureProjectNotStrategyRootRule',{
+Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsfeatureprojectnotstrategyrootrule',
+    alias:  'widget.tsfeaturescheduledprojectnotstrategyrootrule',
    
     config: {
         /*
@@ -2652,13 +2652,81 @@ Ext.define('CA.techservices.validation.FeatureProjectNotStrategyRootRule',{
     },
     
     applyRuleToRecord: function(record) {
-        console.log("applyRuleToRecord:",record);        
-        // if we need check for target root and direct child projects, use the commented filter instead. 
-        // if (( record.get('Project').Name == this.project_PortfolioRoot ) || (record.get('Project').Parent.Name == this.project_PortfolioRoot)) {
-        if ( record.get('Project').Name == this.rootStrategyProject ) {
+        console.log("ScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
+        // this rule: Scheduled Feature is not in specified 'strategy' folder.
+        if ((record.get('Release') != null) && ( record.get('Project').Name == this.rootStrategyProject )) {
             return null; // no rule violation   
         } else {
             return this.getDescription();
+        }
+    },
+    
+    getFilters: function() {        
+
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsfeatureunscheduledprojectnotstrategyrootrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Unscheduled and Wrong Project'
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[0];
+    },
+    getDescription: function() {
+        console.log("getDescription: WrongProject:",this);
+        
+        var msg = Ext.String.format(
+            "Unscheduled {0} must be saved into *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            this.rootStrategyProject
+            );
+
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent','Release'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} Wrong Project",
+            /[^\/]*$/.exec(this.getModel())
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("UnScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
+        // this rule: Unscheduled Feature is not in specified 'strategy' folder.
+        if ((record.get('Release') == null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+            return this.getDescription();
+        } else {
+            return null; // no rule violation   
         }
     },
     
@@ -4500,8 +4568,8 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsstorywithoutepmsid'},
             {xtype:'tsstorynonullplanestimaterule' }            
         ],
-        PortfolioItem: [
-            {xtype:'tsfeatureprojectnotstrategyrootrule'}
+        PortfolioItem: [            
+            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'}
         ]
     },
     
