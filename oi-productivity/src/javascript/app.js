@@ -7,7 +7,6 @@ descriptions: [
             "<br/>" +
             "It is the number of work broken down by user stories, split stories and defects by program by quarter<br/>" +
             "Count displayed as of the end of First day of Quarter."
-            
     ],
 
     integrationHeaders : {

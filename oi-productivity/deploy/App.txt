@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 15 2016 09:14:35 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 16 2016 10:11:08 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 15 2016 09:14:35 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Sep 16 2016 10:11:08 GMT-0700 (PDT)";
         var STORY    = "US555";
-        var BUILDER  = "arajaraman";
-        var CHECKSUM = 83111420513;
+        var BUILDER  = "cbedekovich";
+        var CHECKSUM = 84691857154;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1488,7 +1488,6 @@ descriptions: [
             "<br/>" +
             "It is the number of work broken down by user stories, split stories and defects by program by quarter<br/>" +
             "Count displayed as of the end of First day of Quarter."
-            
     ],
 
     integrationHeaders : {
