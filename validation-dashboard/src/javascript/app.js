@@ -44,11 +44,14 @@ extend: 'CA.techservices.app.ChartApp',
                 'c_AcceptanceCriteria','c_Type','c_IsTestable']},
             {xtype:'tsstorycompletednoactuals'},
             {xtype:'tsstorywithoutepmsid'},
-            {xtype:'tsstorynonullplanestimaterule' }            
+            {xtype:'tsstorynonullplanestimaterule' },
+            {xtype: 'tsstorywithfeatureandfeatureprojectnotdeliveryroot'}            
         ],
         PortfolioItem: [            
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'}
+            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturewithoutparentrule'},
+            {xtype: 'tsepicwithoutparentrule'}
         ]
     },
     
@@ -536,24 +539,29 @@ extend: 'CA.techservices.app.ChartApp',
 
         me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
 
+        // add the array to the app.
+        me.portfolioItemTypes = portfolioItemTypes;
+
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
         Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
             // get the collection of workspace specific portfolio item names per level            
             rule.portfolioItemTypes = portfolioItemTypes;
   
-            console.log("RuleByRule:", rule.portfolioItemTypes);
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+        });
+        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
         });
-        
-        // add the array to the app as well.
-        me.portfolioItemTypes = portfolioItemTypes;
 
-        console.log("_initializeApp after assign:",me.rulesByType);
-        
+        // go get the data
         me._loadData();
     },
     _fetchPortfolioItemTypes: function(){

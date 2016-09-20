@@ -9,13 +9,11 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         */
         // Set Name of the Top-Level container where teams *must* put their portfolio items
         rootStrategyProject: null,
-        
-        // discovered in app.js, passed on crea
+        rootDeliveryProject: null,
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
         label: 'Scheduled, Wrong Project'
-
     },
     constructor: function(config) {
         Ext.apply(this,config);
@@ -23,14 +21,13 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("getDescription: WrongProject:",this);
+        console.log("FeatureScheduledProjectNotStrategy.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must be saved into *{1}*.",
             /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            this.rootDeliveryProject
             );
-
         return msg;
     },
     
@@ -52,9 +49,9 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("ScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
-        // this rule: Scheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record);        
+        // this rule: Scheduled Feature is not in specified 'delivery' folder.
+        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
             return this.getDescription();               
         } else {
             return null; // no rule violation
