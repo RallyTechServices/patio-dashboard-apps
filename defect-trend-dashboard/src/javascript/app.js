@@ -38,7 +38,8 @@ Ext.define("TSDefectTrendDashboard", {
         "<p/>" + 
         "This chart shows all priorities. " +
         "<p/>",
-        
+
+
         "<strong>Defect Closure Durations by Priority</strong><br/>" +
         "<br/>" +
         "How long do things stay open before closure? " +
