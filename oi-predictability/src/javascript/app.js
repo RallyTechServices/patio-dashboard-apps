@@ -107,7 +107,7 @@ Ext.define("OIPApp", {
             workspaces_of_selected_programs = me.workspaces;
         }
 
-        var promises = Ext.Array.map(workspaces_of_selected_programs, function(workspace) {
+        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getData( workspace ) 
             };
