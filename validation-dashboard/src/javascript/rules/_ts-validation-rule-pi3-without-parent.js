@@ -1,6 +1,6 @@
-Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
+Ext.define('CA.techservices.validation.Pi3WithoutParentRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsepicwithoutparentrule',
+    alias:  'widget.tspi3withoutparentrule',
    
     config: {
         /*
@@ -14,21 +14,21 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Epic No Parent'
+        label: 'Initiative No Parent'
 
     },
     constructor: function(config) {
         Ext.apply(this,config);
-        this.model = this.portfolioItemTypes[1];
+        this.model = this.portfolioItemTypes[3];
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("EpicNoParent.getDescription:",this);
+        console.log("Pi3NoParent.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must have a parent *{1}*.",
             /[^\/]*$/.exec(this.model),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
             );
         return msg;
     },
@@ -41,7 +41,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
         this.label = Ext.String.format(
             "{0} no parent {1}",
             /[^\/]*$/.exec(this.getModel()),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
         );
         return this.label;
     },
@@ -52,7 +52,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     },
     
     applyRuleToRecord: function(record) {
-        console.log("EpicNoParent.applyRuleToRecord:",record);        
+        console.log("Pi3NoParent.applyRuleToRecord:",record);        
         
         if (record.get('Parent') == null) {
             return this.getDescription();               

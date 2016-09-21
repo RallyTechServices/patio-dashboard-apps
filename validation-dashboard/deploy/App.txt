@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 21:00:28 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Sep 21 2016 17:33:21 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 21:00:28 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Sep 21 2016 17:33:21 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 647222474272;
+        var CHECKSUM = 648270193046;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2657,7 +2657,6 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     alias:  'widget.tsepicwithoutparentrule',
    
     config: {
-        active: true, 
         /*
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
@@ -2817,9 +2816,9 @@ Ext.define('CA.techservices.validation.FeatureRequiredFieldRule',{
         return field_filter;
     }
 });
-Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRule',{
+Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsfeaturescheduledprojectnotstrategyrootrule',
+    alias:  'widget.tsfeaturescheduledprojectnotdeliveryrootrule',
    
     config: {
         /*
@@ -2840,7 +2839,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("FeatureScheduledProjectNotStrategy.getDescription:",this);
+        console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must be saved into *{1}*.",
@@ -2868,7 +2867,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record);        
+        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record,this.rootDeliveryProject);        
         // this rule: Scheduled Feature is not in specified 'delivery' folder.
         if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
             return this.getDescription();               
@@ -3012,6 +3011,146 @@ Ext.define('CA.techservices.validation.FeatureWithoutParentRule',{
     applyRuleToRecord: function(record) {
         console.log("FeatureNoParent.applyRuleToRecord:",record);        
         // this rule: Feature has no parent.
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.Pi3WithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tspi3withoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Initiative No Parent'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[3];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("Pi3NoParent.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("Pi3NoParent.applyRuleToRecord:",record);        
+        
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.Pi4WithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tspi4withoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Objective No Parent'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[4];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("ObjectiveNoParent.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[5])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[5])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("Pi4NoParent.applyRuleToRecord:",record);        
+        
         if (record.get('Parent') == null) {
             return this.getDescription();               
         } else {
@@ -3645,303 +3784,142 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
         return this.label;
     }
 });
-Ext.define('CA.techservices.validator.Validator',{
-    alias: 'widget.tsvalidator',
-    
-    
-    /**
-     * 
-     * [{rule}] An array of validation rules
-     */
-    rules: [],
-    
-    recordsByModel: {},
-    
-    categoryField: 'Project',
-    
-    // fields that all rules should fetch
-    fetchFields: [],
-    /**
-     * 
-     * a hash containing events for a data point e.g.,
-     * 
-     * points will include a field called _records holding the associated records
-     * and each record will have a field called __ruleText holding a statement about
-     * its violation
-     * 
-     *     {
-     *          click: function() {
-     *          me.showDrillDown(this._records,this._name);
-     *      }
-     */
-    pointEvents: null,
-    /**
-     * 
-     * a hash of filters by model type.  Filter will be ANDed to the filters we get from the validation rules 
-     * (which are themselves ORed together).
-     */
-    baseFilters: {},
-    
+Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsthemewithoutepmsidrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'EPMS Project wo EPMS ID'
+
+    },
     constructor: function(config) {
         Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[2];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("ThemeNoEpmsId.getDescription:",this);
         
-        var rules = [];
-        
-        Ext.Array.each(this.rules, function(rule){
-            var name = rule.xtype;
-            if ( !Ext.isEmpty(name) ) {
-                delete rule.xtype;
-                console.log('Initializing ', name);
-                rules.push(Ext.createByAlias('widget.' + name, rule));
-            }
-        });
-        
-        this.rules = rules;
+        var msg = Ext.String.format(
+            "{0} must have an EPMS ID.",
+            /[^\/]*$/.exec(this.model)
+            );
+        return msg;
     },
     
-    getRuleDescriptions: function() {
-        var text = "<ul>";
-        
-        Ext.Array.each(this.rules, function(rule){
-            var rule_description = rule.getDescription() || "";
-            if ( !Ext.isEmpty(rule_description) ) {
-                text = text + "<li>" + rule_description + "</li>";
-            }
-        });
-        text = text + "</ul>";
-        
-        return text;
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
     },
-    
-    getFiltersByModel: function() {
-        var me = this,
-            filters_by_model = {};
-            
-        Ext.Array.each(this.rules, function(rule){
-            var model = rule.getModel();
-            var filters = rule.getFilters();
 
-            if ( !Ext.isEmpty(model) && !Ext.isEmpty(filters) ) {
-                if ( Ext.isEmpty(filters_by_model[model]) ) {
-                    filters_by_model[model] = [];
-                }
-                filters_by_model[model].push(filters);
-            }
-        });
-        
-        Ext.Object.each(filters_by_model, function(model, filters){
-            filters = Ext.Array.unique( Ext.Array.flatten(filters) );
-            filters_by_model[model] = Rally.data.wsapi.Filter.or(filters);
-            
-            if ( me.baseFilters && me.baseFilters != {} && me.baseFilters[model] != {} ) {
-                filters_by_model[model] = filters_by_model[model].and(me.baseFilters[model]);
-            }
-        });
-        
-        return filters_by_model;
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no EPMS ID",
+            /[^\/]*$/.exec(this.getModel())
+        );
+        return this.label;
     },
-    
-    getFetchFieldsByModel: function() {
-        var me = this,
-            fields_by_model = {};
-            
-        Ext.Array.each(this.rules, function(rule){
-            var model = rule.getModel();
-            var fields = rule.getFetchFields();
 
-            if ( !Ext.isEmpty(model) && !Ext.isEmpty(fields) && fields.length > 0 ) {
-                if ( Ext.isEmpty(fields_by_model[model]) ) {
-                    fields_by_model[model] = [me.categoryField,'Name'];
-                }
-                fields_by_model[model].push(fields);
-            }
-        });
-        
-        Ext.Object.each(fields_by_model, function(model, fields){
-            fields = Ext.Array.flatten(fields);
-            fields = Ext.Array.push(fields, me.fetchFields);
-            
-            fields_by_model[model] = Ext.Array.unique(fields);
-        });
-        
-        return fields_by_model;
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
     },
     
-    // returns a promise, promise fulfilled by hash of results by model type
-    gatherData: function() {
-        console.log("gatherData:","starting");
-
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
-                
-        var fetch_by_model = this.getFetchFieldsByModel();
-        var filters_by_model = this.getFiltersByModel();
-       
-        console.log("gatherData:",this.down('#featureNoEpicCheckBox').value);
-       
-        var promises = [];
-        Ext.Object.each(fetch_by_model, function(model, fetch){
-            var config = {
-                model: model,
-                fetch: fetch,
-                limit: Infinity,
-                filters: filters_by_model[model]
-            };
-            
-            promise = function() {
-                return this._loadWsapiRecords(config);
-            };
-            promises.push(promise);
-        },this);
+    applyRuleToRecord: function(record) {
+        console.log("ThemeNoEpmsId.applyRuleToRecord:",record);        
         
-        Deft.Chain.sequence(promises,this).then({
-            success: function(results) {
-                me.recordsByModel = {};
-                Ext.Array.each(results, function(result) {
-                    me.recordsByModel = Ext.apply(me.recordsByModel, result);
-                });
-                deferred.resolve(results);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    getChartData: function() {
-        if ( this.recordsByModel == {} ) {
-            console.log('No search results');
-            return {};
+        if (record.get('c_EPMSid') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
         }
-        
-        var categories = this.getCategories();
-        var series = this.getSeries(categories);
-        
-        return { series: series, categories: categories };
-        
     },
     
-    getCategories: function() {
-        var me = this,
-            records = Ext.Array.flatten(Ext.Object.getValues(this.recordsByModel));
-        
-        var category_field = this.categoryField;
-        
-        var possible_categories = Ext.Array.map(records, function(record) {
-            return me.getCategoryFromRecord(record,category_field);
-        });
-        
-        return Ext.Array.unique(possible_categories);
-    },
-    
-    getCategoryFromRecord: function(record,category_field) {
-        if ( Ext.isEmpty(record.get(category_field)) ) { return ""; }
-        if ( Ext.isString(record.get(category_field)) ) { return record.get(category_field); }
-        return record.get(category_field)._refObjectName;
-    },
-    
-    getSeries: function(categories) {
-        var me = this,
-            category_field = me.categoryField,
-            series = [];
-            
-        // one series per rule, one stack per model type
-        Ext.Array.each(this.rules, function(rule){
-            var series_name = rule.getUserFriendlyRuleLabel();
-            var model = rule.getModel();
-            var records = me.recordsByModel[model];
-            
-            var failed_records = me.getFailedRecordsForRule(records, rule);
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.ThemeWithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsthemewithoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Epic No Parent'
 
-            var records_by_category = me.getRecordsByCategory(failed_records, categories, category_field);
-            
-            var data = [];
-            Ext.Array.each(categories, function(category){
-                var category_records = records_by_category[category] || [];
-                
-                var count = category_records.length;
-                var datum = { 
-                    y: count,
-                    _records: category_records,
-                    _name: series_name
-                };
-                
-                if ( !Ext.isEmpty(me.pointEvents) ) {
-                    datum.events = me.pointEvents
-                }
-                data.push(datum);
-            });
-            series.push({
-                name: series_name,
-                
-                records: failed_records,
-                data: data,
-                stack: model
-            });
-        });
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[2];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("ThemeNoParent.getDescription:",this);
         
-        return series;
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[3])
+            );
+        return msg;
     },
     
-    getFailedRecordsForRule: function(records, rule) {
-        var failed_records = [];
-        Ext.Array.each(records, function(record) {
-            var failure = rule.applyRuleToRecord(record);
-            if ( failure ) {
-                var texts = record.get('__ruleText') || [];
-                texts.push(failure);
-                record.set('__ruleText', texts);
-                failed_records.push(record);
-            }
-        });
-        
-        return failed_records;
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[3])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
     },
     
-    getRecordsByCategory: function(records, categories, category_field) {
-        var me = this,
-            record_hash = {};
-            
-        Ext.Array.each(records, function(record){
-            var category = me.getCategoryFromRecord(record,category_field);
-            if ( Ext.isEmpty(record_hash[category]) ) {
-                record_hash[category] = [];
-            }
-            record_hash[category].push(record);
-        });
+    applyRuleToRecord: function(record) {
+        console.log("ThemeNoParent.applyRuleToRecord:",record);        
         
-        return record_hash;
-    },
-    
-    getPrecheckResults: function() {        
-        var promises = Ext.Array.map(this.rules, function(rule){
-            return function() {
-                return rule.precheckRule();
-            };
-        });
-        
-        if ( promises.length === 0 ) {
-            return null;
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
         }
-        
-        return Deft.Chain.sequence(promises);
     },
     
-    _loadWsapiRecords: function(config) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            success: function(results) {
-                var result = {};
-                result[config.model] = results;
-                deferred.resolve(result);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
     }
 });
 Ext.define('CA.techservices.validator.Validator',{
@@ -4943,7 +4921,9 @@ extend: 'CA.techservices.app.ChartApp',
 
 Ext.define("TSValidationApp", {
 extend: 'CA.techservices.app.ChartApp',
-    
+    //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
+    stateful: true,
+    stateEvents: ['refreshrules'],
     description: '<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
@@ -4992,15 +4972,26 @@ extend: 'CA.techservices.app.ChartApp',
         ],
         PortfolioItem: [            
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
-            {xtype: 'tsepicwithoutparentrule'}
+            {xtype: 'tsepicwithoutparentrule'},
+            {xtype: 'tsthemewithoutparentrule'},
+            {xtype: 'tspi3withoutparentrule'},
+            {xtype: 'tspi4withoutparentrule'},
+            {xtype: 'tsthemewithoutepmsidrule'}
         ]
     },
     
     launch: function() {
         this.callParent();
         
+        this.addEvents(
+            /**
+             * @event refreshrules
+             * Fires when rules have been changed and the user closes the dialog box
+             */
+            'refreshrules'
+        );
         // dynamically lookup portfolio item type names
         this._fetchPortfolioItemTypes().then({
             success: this._initializeApp, 
@@ -5064,14 +5055,19 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    Ext.Msg.alert('','No violations found');
+                    // remove the last chart, have to redraw anyway
+                    this.down('#main_display_box').removeAll();
+                   
+                    Ext.Msg.alert('','No violations using the current rules. ' +
+                        'Please select other rules and/or change your project selection.');
                     return;
                 }
                 
                 this.display_rows = Ext.Object.getValues( this.validator.recordsByModel );
                 
                 this._makeChart(results);
-                this.down('#export_button').setDisabled(false);
+                // REMOVE EXPORT BUTTON: sr 2016-09-21
+                //this.down('#export_button').setDisabled(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading data', msg);
@@ -5121,20 +5117,20 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
-
-        container.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: true,
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
     },
     
     _makeChart: function(data) {
@@ -5250,135 +5246,11 @@ extend: 'CA.techservices.app.ChartApp',
                 itemschosen: function(dialog,rules){
                     console.log('ShowRulesDialogItemsChosen:',dialog,rules);
                     this.validator.rules = rules;
+                    this.fireEvent('refreshrules'); // fire the app level save of rules
                     this._loadData();                    
                 }    
             }
         }).show();
-        // Ext.create('Rally.ui.dialog.Dialog', {
-        //     id        : 'rulesSelectionPopup',
-        //     title     : "Rules Selection",
-        //     disableScroll: false,
-        //     width     : 300,
-        //     height    : 400,
-        //     autoShow: true,
-        //     draggable: true,
-        //     closable  : true,
-        //     //layout    : 'border',
-        //     items     : [
-        //     {
-        //         xtype: 'rallycheckboxfield',
-        //         fieldLabel: 'Feature wo Epic ',
-        //         name: 'featureNoEpic',
-        //         itemId: 'featureNoEpicCheckBox',
-        //         stateful: true,
-        //         stateId: 'featureNoEpicCheckBox',
-        //         stateEvents: ['change'],
-        //         value: true,
-        //         listeners: {
-        //                 scope: this,
-        //                 change: function() {
-        //                     this._updateData();
-        //                 },
-        //             }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Epic wo EPMSID ',
-        //     name: 'epicNoEPMS',
-        //     itemId: 'epicNoEPMSCheckBox',
-        //     stateful: true,
-        //     stateId: 'epicNoEPMSCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'EPMS wo Initiative',
-        //     name: 'epmsNoInitiative',
-        //     itemId: 'epmsNoInitiativeCheckBox',
-        //     stateful: true,
-        //     stateId: 'epmsNoInitiativeCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Initiative wo Objective',
-        //     name: 'initiativeNoObjective',
-        //     itemId: 'initiativeNoObjectiveCheckBox',
-        //     stateful: true,
-        //     stateId: 'initiativeNoObjectiveCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Objective wo Goal',
-        //     name: 'objectiveNoGoal',
-        //     itemId: 'objectiveNoGoalCheckBox',
-        //     stateful: true,
-        //     stateId: 'objectiveNoGoalCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },        
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Objective wo Goal',
-        //     name: 'storyRules',
-        //     itemId: 'storyRulesCheckBox',
-        //     stateful: true,
-        //     stateId: 'storyRulesCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Task Rules',
-        //     name: 'storyRules',
-        //     itemId: 'taskRulesCheckBox',
-        //     stateful: true,
-        //     stateId: 'taskRulesCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     }           
-        //     ]
-        // }).show();
     },
     
     _export: function(){
@@ -5461,6 +5333,21 @@ extend: 'CA.techservices.app.ChartApp',
         // add the array to the app.
         me.portfolioItemTypes = portfolioItemTypes;
 
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        //if ( this.getSetting('showPortfolioItemRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        //}
+
+        // if ( this.getSetting('showStoryRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        // }
+        // if ( this.getSetting('showTaskRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        // }
+
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
         Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
@@ -5469,6 +5356,10 @@ extend: 'CA.techservices.app.ChartApp',
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
         });
         // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
         Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
@@ -5478,8 +5369,28 @@ extend: 'CA.techservices.app.ChartApp',
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
         });
-        // setup rule configs
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // setup filter rule configs
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}
@@ -5502,19 +5413,7 @@ extend: 'CA.techservices.app.ChartApp',
         ]);
         this.task_filter = task_base_filter.or(task_ready_filter);
 
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        //}
-
-        if ( this.getSetting('showStoryRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        }
-        if ( this.getSetting('showTaskRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
-        }
+        // create the validator object
         this.validator = this._instantiateValidator();
         
         // add any selectors required
@@ -5566,6 +5465,14 @@ extend: 'CA.techservices.app.ChartApp',
     _showErrorMsg: function(msg){
         Rally.ui.notify.Notifier.showError({message:msg});
     },
+
+    applyState: function(state){
+       console.log('app.applyState:',state);
+       if ((state) && (state.activeRules)) {
+           this.activeRules = state.activeRules;
+       }
+    },
+
     getSettingsFields: function() {
         return [
         { 
@@ -5611,25 +5518,32 @@ extend: 'CA.techservices.app.ChartApp',
             fieldLabel: '',
             margin: '0 0 25 200',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        },
-        { 
-            name: 'showStoryRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Story Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Stories.</i></span>'
-        },
-        { 
-            name: 'showTaskRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Task Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Tasks.</i></span>'
-        }
+        } 
         ];
-    }
+    },
+    getState: function() {
+        var me = this,
+            state = null;
+        if (this.validator){
+            var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
+                return rule.xtype;
+            });
+            state = this.addPropertyToState(state, 'activeRules', active);
+        }
+        //     sizeModel = me.getSizeModel();
+
+        // if (sizeModel.width.configured) {
+        //     state = me.addPropertyToState(state, 'width');
+        // }
+        // if (sizeModel.height.configured) {
+        //     state = me.addPropertyToState(state, 'height');
+        // }
+
+
+        // return state;
+        console.log("app.getState:");
+        return state;
+    },
 });
             
                Rally.launchApp('TSValidationApp', {

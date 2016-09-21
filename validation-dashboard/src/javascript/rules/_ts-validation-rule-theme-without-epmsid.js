@@ -1,6 +1,6 @@
-Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
+Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsepicwithoutparentrule',
+    alias:  'widget.tsthemewithoutepmsidrule',
    
     config: {
         /*
@@ -14,21 +14,20 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Epic No Parent'
+        label: 'EPMS Project wo EPMS ID'
 
     },
     constructor: function(config) {
         Ext.apply(this,config);
-        this.model = this.portfolioItemTypes[1];
+        this.model = this.portfolioItemTypes[2];
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("EpicNoParent.getDescription:",this);
+        console.log("ThemeNoEpmsId.getDescription:",this);
         
         var msg = Ext.String.format(
-            "{0} must have a parent *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            "{0} must have an EPMS ID.",
+            /[^\/]*$/.exec(this.model)
             );
         return msg;
     },
@@ -39,9 +38,8 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "{0} no parent {1}",
-            /[^\/]*$/.exec(this.getModel()),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            "{0} no EPMS ID",
+            /[^\/]*$/.exec(this.getModel())
         );
         return this.label;
     },
@@ -52,9 +50,9 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     },
     
     applyRuleToRecord: function(record) {
-        console.log("EpicNoParent.applyRuleToRecord:",record);        
+        console.log("ThemeNoEpmsId.applyRuleToRecord:",record);        
         
-        if (record.get('Parent') == null) {
+        if (record.get('c_EPMSid') == null) {
             return this.getDescription();               
         } else {
             return null; // no rule violation

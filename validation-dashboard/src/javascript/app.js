@@ -1,6 +1,8 @@
 Ext.define("TSValidationApp", {
 extend: 'CA.techservices.app.ChartApp',
-    
+    //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
+    stateful: true,
+    stateEvents: ['refreshrules'],
     description: '<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
@@ -49,15 +51,26 @@ extend: 'CA.techservices.app.ChartApp',
         ],
         PortfolioItem: [            
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
-            {xtype: 'tsepicwithoutparentrule'}
+            {xtype: 'tsepicwithoutparentrule'},
+            {xtype: 'tsthemewithoutparentrule'},
+            {xtype: 'tspi3withoutparentrule'},
+            {xtype: 'tspi4withoutparentrule'},
+            {xtype: 'tsthemewithoutepmsidrule'}
         ]
     },
     
     launch: function() {
         this.callParent();
         
+        this.addEvents(
+            /**
+             * @event refreshrules
+             * Fires when rules have been changed and the user closes the dialog box
+             */
+            'refreshrules'
+        );
         // dynamically lookup portfolio item type names
         this._fetchPortfolioItemTypes().then({
             success: this._initializeApp, 
@@ -121,14 +134,19 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    Ext.Msg.alert('','No violations found');
+                    // remove the last chart, have to redraw anyway
+                    this.down('#main_display_box').removeAll();
+                   
+                    Ext.Msg.alert('','No violations using the current rules. ' +
+                        'Please select other rules and/or change your project selection.');
                     return;
                 }
                 
                 this.display_rows = Ext.Object.getValues( this.validator.recordsByModel );
                 
                 this._makeChart(results);
-                this.down('#export_button').setDisabled(false);
+                // REMOVE EXPORT BUTTON: sr 2016-09-21
+                //this.down('#export_button').setDisabled(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading data', msg);
@@ -178,20 +196,20 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
-
-        container.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: true,
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
     },
     
     _makeChart: function(data) {
@@ -307,135 +325,11 @@ extend: 'CA.techservices.app.ChartApp',
                 itemschosen: function(dialog,rules){
                     console.log('ShowRulesDialogItemsChosen:',dialog,rules);
                     this.validator.rules = rules;
+                    this.fireEvent('refreshrules'); // fire the app level save of rules
                     this._loadData();                    
                 }    
             }
         }).show();
-        // Ext.create('Rally.ui.dialog.Dialog', {
-        //     id        : 'rulesSelectionPopup',
-        //     title     : "Rules Selection",
-        //     disableScroll: false,
-        //     width     : 300,
-        //     height    : 400,
-        //     autoShow: true,
-        //     draggable: true,
-        //     closable  : true,
-        //     //layout    : 'border',
-        //     items     : [
-        //     {
-        //         xtype: 'rallycheckboxfield',
-        //         fieldLabel: 'Feature wo Epic ',
-        //         name: 'featureNoEpic',
-        //         itemId: 'featureNoEpicCheckBox',
-        //         stateful: true,
-        //         stateId: 'featureNoEpicCheckBox',
-        //         stateEvents: ['change'],
-        //         value: true,
-        //         listeners: {
-        //                 scope: this,
-        //                 change: function() {
-        //                     this._updateData();
-        //                 },
-        //             }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Epic wo EPMSID ',
-        //     name: 'epicNoEPMS',
-        //     itemId: 'epicNoEPMSCheckBox',
-        //     stateful: true,
-        //     stateId: 'epicNoEPMSCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'EPMS wo Initiative',
-        //     name: 'epmsNoInitiative',
-        //     itemId: 'epmsNoInitiativeCheckBox',
-        //     stateful: true,
-        //     stateId: 'epmsNoInitiativeCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Initiative wo Objective',
-        //     name: 'initiativeNoObjective',
-        //     itemId: 'initiativeNoObjectiveCheckBox',
-        //     stateful: true,
-        //     stateId: 'initiativeNoObjectiveCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Objective wo Goal',
-        //     name: 'objectiveNoGoal',
-        //     itemId: 'objectiveNoGoalCheckBox',
-        //     stateful: true,
-        //     stateId: 'objectiveNoGoalCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },        
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Objective wo Goal',
-        //     name: 'storyRules',
-        //     itemId: 'storyRulesCheckBox',
-        //     stateful: true,
-        //     stateId: 'storyRulesCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     },
-        //     {
-        //     xtype: 'rallycheckboxfield',
-        //     fieldLabel: 'Task Rules',
-        //     name: 'storyRules',
-        //     itemId: 'taskRulesCheckBox',
-        //     stateful: true,
-        //     stateId: 'taskRulesCheckBox',
-        //     stateEvents: ['change'],
-        //     value: true,
-        //     listeners: {
-        //             scope: this,
-        //             change: function() {
-        //                 this._updateData();
-        //             },
-        //         }            
-        //     }           
-        //     ]
-        // }).show();
     },
     
     _export: function(){
@@ -518,6 +412,21 @@ extend: 'CA.techservices.app.ChartApp',
         // add the array to the app.
         me.portfolioItemTypes = portfolioItemTypes;
 
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        //if ( this.getSetting('showPortfolioItemRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        //}
+
+        // if ( this.getSetting('showStoryRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        // }
+        // if ( this.getSetting('showTaskRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        // }
+
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
         Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
@@ -526,6 +435,10 @@ extend: 'CA.techservices.app.ChartApp',
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
         });
         // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
         Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
@@ -535,8 +448,28 @@ extend: 'CA.techservices.app.ChartApp',
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
         });
-        // setup rule configs
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // setup filter rule configs
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}
@@ -559,19 +492,7 @@ extend: 'CA.techservices.app.ChartApp',
         ]);
         this.task_filter = task_base_filter.or(task_ready_filter);
 
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        //}
-
-        if ( this.getSetting('showStoryRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        }
-        if ( this.getSetting('showTaskRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
-        }
+        // create the validator object
         this.validator = this._instantiateValidator();
         
         // add any selectors required
@@ -623,6 +544,14 @@ extend: 'CA.techservices.app.ChartApp',
     _showErrorMsg: function(msg){
         Rally.ui.notify.Notifier.showError({message:msg});
     },
+
+    applyState: function(state){
+       console.log('app.applyState:',state);
+       if ((state) && (state.activeRules)) {
+           this.activeRules = state.activeRules;
+       }
+    },
+
     getSettingsFields: function() {
         return [
         { 
@@ -668,23 +597,30 @@ extend: 'CA.techservices.app.ChartApp',
             fieldLabel: '',
             margin: '0 0 25 200',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        },
-        { 
-            name: 'showStoryRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Story Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Stories.</i></span>'
-        },
-        { 
-            name: 'showTaskRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Task Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Tasks.</i></span>'
-        }
+        } 
         ];
-    }
+    },
+    getState: function() {
+        var me = this,
+            state = null;
+        if (this.validator){
+            var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
+                return rule.xtype;
+            });
+            state = this.addPropertyToState(state, 'activeRules', active);
+        }
+        //     sizeModel = me.getSizeModel();
+
+        // if (sizeModel.width.configured) {
+        //     state = me.addPropertyToState(state, 'width');
+        // }
+        // if (sizeModel.height.configured) {
+        //     state = me.addPropertyToState(state, 'height');
+        // }
+
+
+        // return state;
+        console.log("app.getState:");
+        return state;
+    },
 });
