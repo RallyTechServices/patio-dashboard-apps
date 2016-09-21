@@ -3,11 +3,11 @@
 <head>
     <title>Productivity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Sep 16 2016 17:30:35 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Sep 20 2016 19:01:39 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Sep 16 2016 17:30:35 GMT-0700 (PDT)";
-        var CHECKSUM = 145852443666;
+        var APP_BUILD_DATE = "Tue Sep 20 2016 19:01:39 GMT-0700 (PDT)";
+        var CHECKSUM = 146021012136;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1994,7 +1994,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var config = {
             model: epmsModelPath,
-            fetch:['ObjectID','Project','Name'],
+            fetch:['ObjectID','Project','Name','Workspace'],
             context: { 
                 project: null,
                 workspace: '/workspace/' + workspace_oid
@@ -2003,14 +2003,15 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(records) {
-                var epms_id_projects = {};
+                var epms_id_projects = {}
                 Ext.Array.each(records,function(rec){
                     var project_oid = rec.get('Project').ObjectID;
                     
                     if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
                         epms_id_projects[project_oid] = {
                             program: rec.get('Project'),
-                            projects: []
+                            projects: [],
+                            workspace: workspace
                         }
                     }
                     

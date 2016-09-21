@@ -1,8 +1,14 @@
 #Defect Trend Dashboard
 
+![chart picture](./images/chart.png "Screenshot of the chart")
+
+![chart settings picture](./images/chart_settings.png "Screenshot of the chart settings")
+
 ## Development Notes
 
-* The settings box allows the user to chose one or more states that can mean "closed"
+* The settings box allows the admin to chose one or more states that can mean "closed"
+* The settings box allows the admin to choose the field to group by (e.g., Severity)
+* The settings box allows the admin to choose a color for each group allowed value.  The colors NOT vetted
 
 ### First Load
 
