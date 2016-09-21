@@ -3,14 +3,16 @@ extend: 'CA.techservices.app.ChartApp',
     //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
     stateful: true,
     stateEvents: ['refreshrules'],
-    description: '<strong>Data Validation</strong>' +
+    appDescription: '<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
                 'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
                 '<strong>Rules</strong>' +
-                '<p/>',
+                '<p/>', 
+    
+    description: '',
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -82,7 +84,10 @@ extend: 'CA.techservices.app.ChartApp',
         
         console.log("_loadData:", this.validator);
 
-        this.description = this.description + this.validator.getRuleDescriptions();
+        // as we set and reset the description, we need to not retain the previous rule descriptions.
+        // separating the appDescription from the description accumulator allows us to handle them
+        // independently.
+        this.description = this.appDescription + this.validator.getRuleDescriptions();
         
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
