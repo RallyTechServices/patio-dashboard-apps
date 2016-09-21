@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 21 2016 14:49:36 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Sep 21 2016 15:41:55 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 21 2016 14:49:36 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Sep 21 2016 15:41:55 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 593582250621;
+        var CHECKSUM = 645456899640;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -3025,6 +3025,146 @@ Ext.define('CA.techservices.validation.FeatureWithoutParentRule',{
        return [];
     }
 });
+Ext.define('CA.techservices.validation.Pi3WithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tspi3withoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Initiative No Parent'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[3];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("Pi3NoParent.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[4])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("Pi3NoParent.applyRuleToRecord:",record);        
+        
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.Pi4WithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tspi4withoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Objective No Parent'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[4];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("ObjectiveNoParent.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[5])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[5])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("Pi4NoParent.applyRuleToRecord:",record);        
+        
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
 Ext.define('CA.techservices.validation.StoryCompletedNoActuals',{
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorycompletednoactuals',
@@ -3644,9 +3784,77 @@ Ext.define('CA.techservices.validation.TaskTodoNoEstimate',{
         return this.label;
     }
 });
-Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
+Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsepicwithoutparentrule',
+    alias:  'widget.tsthemewithoutepmsidrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'EPMS Project wo EPMS ID'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[2];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("ThemeNoEpmsId.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have an EPMS ID.",
+            /[^\/]*$/.exec(this.model)
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no EPMS ID",
+            /[^\/]*$/.exec(this.getModel())
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("ThemeNoEpmsId.applyRuleToRecord:",record);        
+        
+        if (record.get('c_EPMSid') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.ThemeWithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsthemewithoutparentrule',
    
     config: {
         /*
@@ -3665,16 +3873,16 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     },
     constructor: function(config) {
         Ext.apply(this,config);
-        this.model = this.portfolioItemTypes[1];
+        this.model = this.portfolioItemTypes[2];
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("EpicNoParent.getDescription:",this);
+        console.log("ThemeNoParent.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must have a parent *{1}*.",
             /[^\/]*$/.exec(this.model),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            /[^\/]*$/.exec(this.portfolioItemTypes[3])
             );
         return msg;
     },
@@ -3687,7 +3895,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
         this.label = Ext.String.format(
             "{0} no parent {1}",
             /[^\/]*$/.exec(this.getModel()),
-            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            /[^\/]*$/.exec(this.portfolioItemTypes[3])
         );
         return this.label;
     },
@@ -3698,7 +3906,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     },
     
     applyRuleToRecord: function(record) {
-        console.log("EpicNoParent.applyRuleToRecord:",record);        
+        console.log("ThemeNoParent.applyRuleToRecord:",record);        
         
         if (record.get('Parent') == null) {
             return this.getDescription();               
@@ -4766,7 +4974,11 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
             {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
-            {xtype: 'tsepicwithoutparentrule'}
+            {xtype: 'tsepicwithoutparentrule'},
+            {xtype: 'tsthemewithoutparentrule'},
+            {xtype: 'tspi3withoutparentrule'},
+            {xtype: 'tspi4withoutparentrule'},
+            {xtype: 'tsthemewithoutepmsidrule'}
         ]
     },
     

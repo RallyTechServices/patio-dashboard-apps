@@ -53,7 +53,11 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
             {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
-            {xtype: 'tsepicwithoutparentrule'}
+            {xtype: 'tsepicwithoutparentrule'},
+            {xtype: 'tsthemewithoutparentrule'},
+            {xtype: 'tspi3withoutparentrule'},
+            {xtype: 'tspi4withoutparentrule'},
+            {xtype: 'tsthemewithoutepmsidrule'}
         ]
     },
     
