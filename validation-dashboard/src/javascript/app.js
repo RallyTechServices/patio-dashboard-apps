@@ -51,7 +51,7 @@ extend: 'CA.techservices.app.ChartApp',
         ],
         PortfolioItem: [            
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
             {xtype: 'tsepicwithoutparentrule'}
         ]
@@ -403,6 +403,21 @@ extend: 'CA.techservices.app.ChartApp',
         // add the array to the app.
         me.portfolioItemTypes = portfolioItemTypes;
 
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        //if ( this.getSetting('showPortfolioItemRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        //}
+
+        // if ( this.getSetting('showStoryRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        // }
+        // if ( this.getSetting('showTaskRules') ) {
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        // }
+
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
         Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
@@ -412,7 +427,7 @@ extend: 'CA.techservices.app.ChartApp',
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array against second argument
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
                 rule.active = true;
             }
         });
@@ -424,8 +439,28 @@ extend: 'CA.techservices.app.ChartApp',
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
         });
-        // setup rule configs
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // setup filter rule configs
         var story_base_filter = Rally.data.wsapi.Filter.or([
             {property:'ScheduleState', value:'Completed' },
             {property:'ScheduleState', value:'In-Progress'}
@@ -448,19 +483,7 @@ extend: 'CA.techservices.app.ChartApp',
         ]);
         this.task_filter = task_base_filter.or(task_ready_filter);
 
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        //}
-
-        if ( this.getSetting('showStoryRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        }
-        if ( this.getSetting('showTaskRules') ) {
-            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
-        }
+        // create the validator object
         this.validator = this._instantiateValidator();
         
         // add any selectors required
@@ -565,23 +588,7 @@ extend: 'CA.techservices.app.ChartApp',
             fieldLabel: '',
             margin: '0 0 25 200',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        },
-        { 
-            name: 'showStoryRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Story Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Stories.</i></span>'
-        },
-        { 
-            name: 'showTaskRules',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Task Rules<br/><span style="color:#999999;"><i>Tick to apply rules for Tasks.</i></span>'
-        }
+        } 
         ];
     },
     getState: function() {

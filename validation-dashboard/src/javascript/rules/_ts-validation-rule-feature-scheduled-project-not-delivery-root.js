@@ -1,6 +1,6 @@
-Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRule',{
+Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsfeaturescheduledprojectnotstrategyrootrule',
+    alias:  'widget.tsfeaturescheduledprojectnotdeliveryrootrule',
    
     config: {
         /*
