@@ -3,13 +3,13 @@
 <head>
     <title>Productivity Velocity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 22:16:33 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Sep 21 2016 15:49:01 GMT-0400 (EDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 22:16:33 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Sep 21 2016 15:49:01 GMT-0400 (EDT)";
         var BUILDER = "arajaraman";
-        var CHECKSUM = 112301515455;
+        var CHECKSUM = 116693538496;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2054,15 +2054,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 Ext.define("PVNApp", {
     extend: 'CA.techservices.app.ChartApp',
 
-    description: "<strong>Velocity (Stories)</strong><br/>" +
-            "<br/>" +
-            "This Chart displays the velocity for each timebox." + 
-            "Click on a bar to see a table with the stories for the team in that timebox." +
-            "<p/>" +
-            "<strong>Notes:</strong>" +
-            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
-    
-            
+     
     integrationHeaders : {
         name : "PVNApp"
     },
@@ -2070,17 +2062,40 @@ Ext.define("PVNApp", {
     config: {
         defaultSettings: {
             showPatterns: false,
+            showCount:  false
         }
     },
-                        
+         
+    description: "",
+
+    _getDescriptions: function(){
+        var me = this;
+        return  me.getSetting('showCount') ? "<strong>Productivity Throughput (Stories)</strong><br/>" +
+                    "<br/>" +
+                    "This Chart displays the velocity for each timebox." + 
+                    "Click on a bar to see a table with the stories for the team in that timebox." +
+                    "<p/>" +
+                    "<strong>Notes:</strong>" +
+                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported."
+                    :"<strong>Productivity Velocity (Stories)</strong><br/>" +
+                    "<br/>" +
+                    "This Chart displays the velocity for each timebox." + 
+                    "Click on a bar to see a table with the stories for the team in that timebox." +
+                    "<p/>" +
+                    "<strong>Notes:</strong>" +
+                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.";
+    },
+
+
     launch: function() {
+        this.description = this._getDescriptions();
         this.callParent();
         
-                this.timebox_limit = 10;
-                this.timebox_type = 'Iteration';
-                
-                this._addSelectors();
-                this._updateData();
+        this.timebox_limit = 10;
+        this.timebox_type = 'Iteration';
+        
+        this._addSelectors();
+        this._updateData();
     },
 
     _addSelectors: function() {
@@ -2326,6 +2341,8 @@ Ext.define("PVNApp", {
     _makeChart: function(artifacts_by_timebox) {
         //console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
         var me = this;
+        var title = me.getSetting('showCount') ? 'Productivity Throughput (Stories)':'Productivity Velocity (Stories)';
+        var name = me.getSetting('showCount') ? 'Counts':'Points';
         var categories = this._getCategories(artifacts_by_timebox);
         var series = this._getSeries(artifacts_by_timebox);		
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
@@ -2338,15 +2355,15 @@ Ext.define("PVNApp", {
 		        	chartData: {
 		                        categories: categories,
 		                        series: [{
-		                        	name: 'Points', 
+		                        	name: name, 
 		                        	data: series
 		                         	}]
 		                     },
 		        chartConfig: { 
 		          							chart: {type: 'column'},
-		                        title: {text: 'Velocity (Stories)'},
+		                        title: {text: title},
 		                        xAxis: {},
-		                        yAxis: {title: {text: 'Points'}},
+		                        yAxis: {title: {text: name}},
 		                        plotOptions: {
 		                            column: {stacking: 'normal'}
 		                        },
@@ -2368,20 +2385,25 @@ Ext.define("PVNApp", {
     
     _getSeries: function(artifacts_by_timebox) {
     		var me = this;
+            var name = me.getSetting('showCount') ? 'Counts':'Points';
     		var datapoints = [];
             Ext.Object.each(artifacts_by_timebox, function (key, value) {
             	var records = value.records || [];
                 var value = 0;
-                Ext.Array.each(records.all,function(story){
-                    value += story.get('PlanEstimate');
-                });
+                if(me.getSetting('showCount')){
+                    value = records.all.length;
+                }else{
+                    Ext.Array.each(records.all,function(story){
+                        value += story.get('PlanEstimate');
+                    });
+                }
 
             	datapoints.push({
             		y: value,
             		_records: records,
     				events: {
        					click: function () {
-       						me.showDrillDown(this._records.all,  "Stories for " + key + " - Total Points: " + Ext.util.Format.number(this.y, '0'));
+       						me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
        					}
     				}      		
             	});
@@ -2399,8 +2421,15 @@ Ext.define("PVNApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        },
+        {
+            name: 'showCount',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 25',
+            boxLabel: 'Show by Count<br/><span style="color:#999999;"><i>Tick to use story count.  Otherwise, uses story points.</i></span>'
         }
-        
         ];
     },
     
