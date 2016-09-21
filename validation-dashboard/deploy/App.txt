@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 09:34:24 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 20 2016 21:00:28 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 09:34:24 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 20 2016 21:00:28 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 537847201721;
+        var CHECKSUM = 647222474272;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2439,8 +2439,154 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     }
 
 });
+Ext.define('CA.technicalservices.RulePickerDialog', {
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.rulepickerdialog',
+
+    //layout: 'fit',
+    
+    config: {
+        /**
+         * @cfg {String}
+         * Title to give to the dialog
+         */
+        title: 'Choose Rule(s)',
+
+        /**
+         * @cfg {String}
+         * Text to be displayed on the button when selection is complete
+         */
+        selectionButtonText: 'Done',
+
+        /**
+         * @cfg {String}|{String[]}
+         * The ref(s) of items which should be selected when the chooser loads
+         */
+        rules: undefined,
+        minWidth: 400,
+        minHeight: 400
+    },
+
+    constructor: function(config) {
+        this.mergeConfig(config);
+
+        this.callParent([this.config]);
+    },
+
+    selectionCache: [],
+
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents(
+            /**
+             * @event itemschosen
+             * Fires when user clicks done after choosing one or more rules
+             * @param {CA.technicalservices.RulePickerDialog} source the dialog
+             * @param {CA.techservices.validation.BaseRule[]} selection of an array of selected rules
+             */
+            'itemschosen'
+        );
+
+        this.addCls(['chooserDialog', 'chooser-dialog']);
+    },
+
+    beforeRender: function() {
+        this.callParent(arguments);
+
+        this.addDocked({
+            xtype: 'toolbar',
+            dock: 'bottom',
+            padding: '0 0 10 0',
+            layout: {
+                type: 'hbox',
+                pack: 'center'
+            },
+            ui: 'footer',
+            items: [
+                {
+                    xtype: 'rallybutton',
+                    itemId: 'doneButton',
+                    text: this.selectionButtonText,
+                    cls: 'primary rly-small',
+                    scope: this,
+                    disabled: false,
+                    userAction: 'clicked done in dialog',
+                    handler: function() {
+                        this.fireEvent('itemschosen', this, this.getSelectedRecords());
+                        this.close();
+                    }
+                },
+                {
+                    xtype: 'rallybutton',
+                    text: 'Cancel',
+                    cls: 'secondary rly-small',
+                    handler: this.close,
+                    scope: this,
+                    ui: 'link'
+                }
+            ]
+        });
+
+        if (this.introText) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                html: this.introText
+            });
+        }
+
+        this._buildCheckboxes();
+
+       // this.selectionCache = this.getInitialSelectedRecords() || [];
+    },
+
+    /**
+     * Get the records currently selected in the dialog
+     * {Rally.data.Model}|{Rally.data.Model[]}
+     */
+    getSelectedRecords: function() {
+        return this.rules;
+    },
+
+    _buildCheckboxes: function() {
+        console.log("_buildCheckboxes:", this.rules);
+
+        Ext.Array.each(this.rules,function(rule){
+            console.log('InsideArray:',rule);
+            this.add( {
+                xtype: 'rallycheckboxfield',
+                fieldLabel: rule.label,
+                name: rule.xtype,
+                height: 25,
+                value: rule.active,
+                listeners: {
+                    change: function() {
+                        rule.active = this.getValue();
+                    }
+                }                 
+            });
+        },this );
+    },
+
+    _enableDoneButton: function() {
+        this.down('#doneButton').setDisabled(this.selectionCache.length ? false : true);
+    },
+
+    _findRecordInSelectionCache: function(record){
+        return _.findIndex(this.selectionCache, function(cachedRecord) {
+            return cachedRecord.get('_ref') === record.get('_ref');
+        });
+    }
+});
 Ext.define('CA.techservices.validation.BaseRule',{
     extend: 'Ext.Base',
+    /**
+     * 
+     * @cfg {Boolean} an indicator of whether this rule has been selected for use
+     */
+    active: false,
+    
     /**
      * 
      * @cfg
@@ -2504,6 +2650,77 @@ Ext.define('CA.techservices.validation.BaseRule',{
     
     getUserFriendlyRuleLabel: function() {        
         return this.label;
+    }
+});
+Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsepicwithoutparentrule',
+   
+    config: {
+        active: true, 
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'Epic No Parent'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[1];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("EpicNoParent.getDescription:",this);
+        
+        var msg = Ext.String.format(
+            "{0} must have a parent *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[2])
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("EpicNoParent.applyRuleToRecord:",record);        
+        
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
     }
 });
 Ext.define('CA.techservices.validation.FeatureRequiredFieldRule',{
@@ -2611,13 +2828,11 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         */
         // Set Name of the Top-Level container where teams *must* put their portfolio items
         rootStrategyProject: null,
-        
-        // discovered in app.js, passed on crea
+        rootDeliveryProject: null,
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
         label: 'Scheduled, Wrong Project'
-
     },
     constructor: function(config) {
         Ext.apply(this,config);
@@ -2625,14 +2840,13 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("getDescription: WrongProject:",this);
+        console.log("FeatureScheduledProjectNotStrategy.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must be saved into *{1}*.",
             /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            this.rootDeliveryProject
             );
-
         return msg;
     },
     
@@ -2654,9 +2868,9 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotStrategyRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("ScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
-        // this rule: Scheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record);        
+        // this rule: Scheduled Feature is not in specified 'delivery' folder.
+        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
             return this.getDescription();               
         } else {
             return null; // no rule violation
@@ -2716,7 +2930,7 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
             "Unscheduled, Wrong Project ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
-        
+
         return this.label;
     },
 
@@ -2737,6 +2951,75 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
     
     getFilters: function() {        
 
+       // return Rally.data.wsapi.Filter.and([
+       //     {property:'Parent',operator:'=',value:null}
+       // ]);
+       return [];
+    }
+});
+Ext.define('CA.techservices.validation.FeatureWithoutParentRule',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias:  'widget.tsfeaturewithoutparentrule',
+   
+    config: {
+        /*
+        * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
+        * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
+        */
+        // Set Name of the Top-Level container where teams *must* put their portfolio items
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        // discovered in app.js, passed on crea
+        portfolioItemTypes:[],
+        //model: 'PortfolioItem/Feature - types loaded in base class.',
+        model: null,
+        label: 'No Parent (Feature)'
+
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.model = this.portfolioItemTypes[0];
+        this.label = this.getLabel();
+    },
+    getDescription: function() {
+        console.log("FeatureNoParent.getDescription: ",this);
+        
+        var msg = Ext.String.format(
+            "{0} must be linked to a *{1}*.",
+            /[^\/]*$/.exec(this.model),
+            /[^\/]*$/.exec(this.portfolioItemTypes[1])
+            );
+        return msg;
+    },
+    
+    getFetchFields: function() {
+        return ['Name','Project','Parent'];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "No Parent ({0})",
+            /[^\/]*$/.exec(this.getModel())
+        );
+        return this.label;
+    },
+
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    applyRuleToRecord: function(record) {
+        console.log("FeatureNoParent.applyRuleToRecord:",record);        
+        // this rule: Feature has no parent.
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
+        } else {
+            return null; // no rule violation
+        }
+    },
+    
+    getFilters: function() {        
        // return Rally.data.wsapi.Filter.and([
        //     {property:'Parent',operator:'=',value:null}
        // ]);
@@ -2937,14 +3220,137 @@ Ext.define('CA.techservices.validation.StoryNoNullPlanEstimateRule',{
         ]);
     }
 });
+Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliveryRoot',{
+    extend: 'CA.techservices.validation.BaseRule',
+    alias: 'widget.tsstorywithfeatureandfeatureprojectnotdeliveryroot',
+    config: {
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        portfolioItemTypes:[],
+        model: 'HierarchicalRequirement',
+        label: 'Story Feature in Wrong Project(Story)'                
+    },
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.label = this.getLabel();
+    },
+
+    getDescription: function() {
+        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the {2} project.",
+            this.label,
+            /[^\/]*$/.exec(this.portfolioItemTypes[0]), 
+            this.rootDeliveryProject);
+
+        console.log('StoryFeatureWrongProject.getDescription: ',explanation);
+
+        return explanation;
+    },
+
+    getFetchFields: function() {
+        return [this.portfolioItemTypes[0],'Parent','c_EPMSid'];
+    },
+    
+    getFilters: function() {
+        var propertyPortfolioItemName = /[^\/]*$/.exec(this.portfolioItemTypes[0]) + '.Parent.c_EPMSid'; // Feature name in this workspace plus the Parent.c_EPMSid
+        
+        console.log('StoryFeatureWrongProject.getFilters: ',propertyPortfolioItemName );
+
+        // return Rally.data.wsapi.Filter.and([
+        //     {property: propertyPortfolioItemName, operator:'=', value:''},
+        //     {property:'DirectChildrenCount', value: 0}        
+        // ]);
+        return [];
+    },
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} Wrong Project (Story)",
+            /[^\/]*$/.exec(this.portfolioItemTypes[0])
+        );
+        return this.label;
+    },
+
+    /* model MUST be a wsapi model, not its name */
+    isValidField: function(model, field_name) {
+        var field_defn = model.getField(field_name);
+        return ( !Ext.isEmpty(field_defn) );
+    },
+    
+    /* override to allow the validator to check if the rule makes sense to run 
+     * (e.g., the field checker for fields that don't even exist)
+     * 
+     * resolve promise with text if problem -- the validator will return the text so
+     * it can be put into a description
+     * 
+     * The rule will still be executed unless this.shouldExecuteRule is set to false (and
+     * the rule class implements skipping because of this.shouldExecuteRule).
+     * 
+     * A rule class could be multi-part and only partially fail, so execution or not execution
+     * needs to be handled by the class itself.
+     * 
+     */
+    precheckRule: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'PortfolioItem',
+            success: function(model) {
+                var text = null;
+                if ( !me.isValidField(model,'c_EPMSid') ) {
+                    text = "EPMS ID check will not be run.  PortfolioItem records do not have a c_EPMSid field ";
+                    me.shouldExecuteRule = false;
+                    me._filters = Rally.data.wsapi.Filter.and([{property:'ObjectID',value:0}])
+                }                
+                deferred.resolve(text);
+            },
+            failure: function() {
+                deferred.reject("Issue prechecking Rule");
+            }
+        });        
+        return deferred.promise;
+    },
+   
+    // return false if the record doesn't match
+    // return string if record fails the rule
+    applyRuleToRecord: function(record) {
+
+        // check precheck rule first and exit if fails
+        if ( ! this.shouldExecuteRule ) { return false; }
+        
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0])) ) {
+            return 'Has no EPMS ID (' + /[^\/]*$/.exec(this.portfolioItemTypes[0]) + ')';
+        }
+        
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent )) {
+            return 'Has no EPMS ID (no EPMS Project)';
+        }
+        
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent.c_EPMSid) ) {
+            return 'Has no EPMS ID';
+        }
+        return false;
+    },
+    
+    getUserFriendlyRuleLabel: function() {        
+        return this.label;
+    },
+    
+});
 Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorywithoutepmsid',
     config: {
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
+        portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
         label: 'Missing EPMS ID (Story)'
     },
-    
+    constructor: function(config) {
+        Ext.apply(this,config);
+    },
+
     _filters: Rally.data.wsapi.Filter.and([
         {property:'Feature.Parent.c_EPMSid',operator:'=',value:''},
         {property:'DirectChildrenCount',value: 0}
@@ -2959,7 +3365,7 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     },
     
     getFetchFields: function() {
-        return ['Feature','Parent','c_EPMSid'];
+        return [/[^\/]*$/.exec(this.portfolioItemTypes[0]),'Parent','c_EPMSid'];
     },
     
     getFilters: function() {
@@ -3013,15 +3419,15 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     applyRuleToRecord: function(record) {
         if ( ! this.shouldExecuteRule ) { return false; }
         
-        if ( Ext.isEmpty(record.get('Feature')) ) {
-            return 'Has no EPMS ID (no Feature)';
+        if ( Ext.isEmpty(record.get(/[^\/]*$/.exec(this.portfolioItemTypes[0])) )) {
+            return 'Has no EPMS ID (' + /[^\/]*$/.exec(this.portfolioItemTypes[0]) + ')';
         }
         
-        if ( Ext.isEmpty(record.get('Feature').Parent )) {
-            return 'Has no EPMS ID (no EPMS Project)';
+        if ( Ext.isEmpty(record.get(/[^\/]*$/.exec(this.portfolioItemTypes[0])).Parent )) {
+            return 'Has no EPMS ID (no ' + /[^\/]*$/.exec(this.portfolioItemTypes[1]) + ')';
         }
         
-        if ( Ext.isEmpty(record.get('Feature').Parent.c_EPMSid) ) {
+        if ( Ext.isEmpty(record.get(/[^\/]*$/.exec(this.portfolioItemTypes[0])).Parent.c_EPMSid) ) {
             return 'Has no EPMS ID';
         }
         return false;
@@ -3595,7 +4001,7 @@ Ext.define('CA.techservices.validator.Validator',{
     getRuleDescriptions: function() {
         var text = "<ul>";
         
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var rule_description = rule.getDescription() || "";
             if ( !Ext.isEmpty(rule_description) ) {
                 text = text + "<li>" + rule_description + "</li>";
@@ -3606,11 +4012,21 @@ Ext.define('CA.techservices.validator.Validator',{
         return text;
     },
     
+    getRules: function(){
+        return this.rules;
+    },
+    
+    getActiveRules: function(){
+        return Ext.Array.filter(this.getRules(),function(rule){
+                return rule.active;
+            });
+    },
+
     getFiltersByModel: function() {
         var me = this,
             filters_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var filters = rule.getFilters();
 
@@ -3638,7 +4054,7 @@ Ext.define('CA.techservices.validator.Validator',{
         var me = this,
             fields_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
@@ -3740,7 +4156,7 @@ Ext.define('CA.techservices.validator.Validator',{
             series = [];
             
         // one series per rule, one stack per model type
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var series_name = rule.getUserFriendlyRuleLabel();
             var model = rule.getModel();
             var records = me.recordsByModel[model];
@@ -3808,7 +4224,7 @@ Ext.define('CA.techservices.validator.Validator',{
     },
     
     getPrecheckResults: function() {        
-        var promises = Ext.Array.map(this.rules, function(rule){
+        var promises = Ext.Array.map(this.getActiveRules(), function(rule){
             return function() {
                 return rule.precheckRule();
             };
@@ -4571,11 +4987,14 @@ extend: 'CA.techservices.app.ChartApp',
                 'c_AcceptanceCriteria','c_Type','c_IsTestable']},
             {xtype:'tsstorycompletednoactuals'},
             {xtype:'tsstorywithoutepmsid'},
-            {xtype:'tsstorynonullplanestimaterule' }            
+            {xtype:'tsstorynonullplanestimaterule' },
+            {xtype: 'tsstorywithfeatureandfeatureprojectnotdeliveryroot'}            
         ],
         PortfolioItem: [            
             {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'}
+            {xtype: 'tsfeaturescheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturewithoutparentrule'},
+            {xtype: 'tsepicwithoutparentrule'}
         ]
     },
     
@@ -4590,8 +5009,6 @@ extend: 'CA.techservices.app.ChartApp',
         });  
     },
     _loadData:function(){
-        
-        this.validator = this._instantiateValidator();
         
         console.log("_loadData:", this.validator);
 
@@ -4665,46 +5082,13 @@ extend: 'CA.techservices.app.ChartApp',
     
     _instantiateValidator: function() {
         var me = this;
-        
-        var story_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'ScheduleState', value:'Completed' },
-            {property:'ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var story_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'ScheduleState', value: 'Defined' },
-            {property:'Ready', value: true }
-        ]);
-        
-        var task_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'WorkProduct.ScheduleState', value:'Completed' },
-            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var task_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'WorkProduct.ScheduleState', value: 'Defined' },
-            {property:'WorkProduct.Ready', value: true }
-        ]);
                 
-        var rules = [];
-
-        //console.log('_instantiateValidator: ', this.down('#featureNoEpicCheckBox').value);
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['PortfolioItem']);
-        //}
-        if ( this.getSetting('showStoryRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['HierarchicalRequirement']);
-        }
-        if ( this.getSetting('showTaskRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['Task']);
-        }
-        
         var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: rules,
+            rules: this.ruleConfigs,
             fetchFields: ['FormattedID','ObjectID'],
             baseFilters: {
-                HierarchicalRequirement: story_base_filter.or(story_ready_filter),
-                Task: task_base_filter.or(task_ready_filter)                
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
             },        
             pointEvents: {
                 click: function() {
@@ -4855,132 +5239,146 @@ extend: 'CA.techservices.app.ChartApp',
     },
     _showRulesSelection: function() {
         var me = this;
+        var rules = this.validator.getRules();
 
-        Ext.create('Rally.ui.dialog.Dialog', {
-            id        : 'rulesSelectionPopup',
-            title     : "Rules Selection",
-            disableScroll: false,
-            width     : 300,
-            height    : 400,
-            autoShow: true,
-            draggable: true,
-            closable  : true,
-            //layout    : 'border',
-            items     : [
-            {
-                xtype: 'rallycheckboxfield',
-                fieldLabel: 'Feature wo Epic ',
-                name: 'featureNoEpic',
-                itemId: 'featureNoEpicCheckBox',
-                stateful: true,
-                stateId: 'featureNoEpicCheckBox',
-                stateEvents: ['change'],
-                value: true,
-                listeners: {
-                        scope: this,
-                        change: function() {
-                            this._updateData();
-                        },
-                    }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Epic wo EPMSID ',
-            name: 'epicNoEPMS',
-            itemId: 'epicNoEPMSCheckBox',
-            stateful: true,
-            stateId: 'epicNoEPMSCheckBox',
-            stateEvents: ['change'],
-            value: true,
+        console.log("_showRulesSelection:",rules);
+
+        Ext.create('CA.technicalservices.RulePickerDialog',{
+            rules: rules,
             listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'EPMS wo Initiative',
-            name: 'epmsNoInitiative',
-            itemId: 'epmsNoInitiativeCheckBox',
-            stateful: true,
-            stateId: 'epmsNoInitiativeCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Initiative wo Objective',
-            name: 'initiativeNoObjective',
-            itemId: 'initiativeNoObjectiveCheckBox',
-            stateful: true,
-            stateId: 'initiativeNoObjectiveCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Objective wo Goal',
-            name: 'objectiveNoGoal',
-            itemId: 'objectiveNoGoalCheckBox',
-            stateful: true,
-            stateId: 'objectiveNoGoalCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },        
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Objective wo Goal',
-            name: 'storyRules',
-            itemId: 'storyRulesCheckBox',
-            stateful: true,
-            stateId: 'storyRulesCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Task Rules',
-            name: 'storyRules',
-            itemId: 'taskRulesCheckBox',
-            stateful: true,
-            stateId: 'taskRulesCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            }           
-            ]
+                scope: this,
+                itemschosen: function(dialog,rules){
+                    console.log('ShowRulesDialogItemsChosen:',dialog,rules);
+                    this.validator.rules = rules;
+                    this._loadData();                    
+                }    
+            }
         }).show();
+        // Ext.create('Rally.ui.dialog.Dialog', {
+        //     id        : 'rulesSelectionPopup',
+        //     title     : "Rules Selection",
+        //     disableScroll: false,
+        //     width     : 300,
+        //     height    : 400,
+        //     autoShow: true,
+        //     draggable: true,
+        //     closable  : true,
+        //     //layout    : 'border',
+        //     items     : [
+        //     {
+        //         xtype: 'rallycheckboxfield',
+        //         fieldLabel: 'Feature wo Epic ',
+        //         name: 'featureNoEpic',
+        //         itemId: 'featureNoEpicCheckBox',
+        //         stateful: true,
+        //         stateId: 'featureNoEpicCheckBox',
+        //         stateEvents: ['change'],
+        //         value: true,
+        //         listeners: {
+        //                 scope: this,
+        //                 change: function() {
+        //                     this._updateData();
+        //                 },
+        //             }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Epic wo EPMSID ',
+        //     name: 'epicNoEPMS',
+        //     itemId: 'epicNoEPMSCheckBox',
+        //     stateful: true,
+        //     stateId: 'epicNoEPMSCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'EPMS wo Initiative',
+        //     name: 'epmsNoInitiative',
+        //     itemId: 'epmsNoInitiativeCheckBox',
+        //     stateful: true,
+        //     stateId: 'epmsNoInitiativeCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Initiative wo Objective',
+        //     name: 'initiativeNoObjective',
+        //     itemId: 'initiativeNoObjectiveCheckBox',
+        //     stateful: true,
+        //     stateId: 'initiativeNoObjectiveCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Objective wo Goal',
+        //     name: 'objectiveNoGoal',
+        //     itemId: 'objectiveNoGoalCheckBox',
+        //     stateful: true,
+        //     stateId: 'objectiveNoGoalCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },        
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Objective wo Goal',
+        //     name: 'storyRules',
+        //     itemId: 'storyRulesCheckBox',
+        //     stateful: true,
+        //     stateId: 'storyRulesCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Task Rules',
+        //     name: 'storyRules',
+        //     itemId: 'taskRulesCheckBox',
+        //     stateful: true,
+        //     stateId: 'taskRulesCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     }           
+        //     ]
+        // }).show();
     },
     
     _export: function(){
@@ -5057,11 +5455,11 @@ extend: 'CA.techservices.app.ChartApp',
         this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
         this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
 
-        // add any selectors required
-        this._addSelectors();
-        
-
+      
         me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
+
+        // add the array to the app.
+        me.portfolioItemTypes = portfolioItemTypes;
 
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
@@ -5069,18 +5467,60 @@ extend: 'CA.techservices.app.ChartApp',
             // get the collection of workspace specific portfolio item names per level            
             rule.portfolioItemTypes = portfolioItemTypes;
   
-            console.log("RuleByRule:", rule.portfolioItemTypes);
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+        });
+        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
   
             // for rules that need to have a specific project folder for portfolio items
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
         });
+        // setup rule configs
+        var story_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'ScheduleState', value:'Completed' },
+            {property:'ScheduleState', value:'In-Progress'}
+        ]);
         
-        // add the array to the app as well.
-        me.portfolioItemTypes = portfolioItemTypes;
+        var story_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'ScheduleState', value: 'Defined' },
+            {property:'Ready', value: true }
+        ]);
+        this.story_filter = story_base_filter.or(story_ready_filter);
 
-        console.log("_initializeApp after assign:",me.rulesByType);
+        var task_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'WorkProduct.ScheduleState', value:'Completed' },
+            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
+        ]);
         
+        var task_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'WorkProduct.ScheduleState', value: 'Defined' },
+            {property:'WorkProduct.Ready', value: true }
+        ]);
+        this.task_filter = task_base_filter.or(task_ready_filter);
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        //if ( this.getSetting('showPortfolioItemRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        //}
+
+        if ( this.getSetting('showStoryRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        }
+        if ( this.getSetting('showTaskRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        }
+        this.validator = this._instantiateValidator();
+        
+        // add any selectors required
+        this._addSelectors();
+        
+        // go get the data
         me._loadData();
     },
     _fetchPortfolioItemTypes: function(){

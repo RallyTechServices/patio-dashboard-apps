@@ -1,49 +1,49 @@
-Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootRule',{
+Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsfeatureunscheduledprojectnotstrategyrootrule',
+    alias:  'widget.tsepicwithoutparentrule',
    
     config: {
+        active: true, 
         /*
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
         // Set Name of the Top-Level container where teams *must* put their portfolio items
         rootStrategyProject: null,
-        
+        rootDeliveryProject: null,
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Unscheduled, Wrong Project'
+        label: 'Epic No Parent'
 
     },
     constructor: function(config) {
         Ext.apply(this,config);
-        this.model = this.portfolioItemTypes[0];
+        this.model = this.portfolioItemTypes[1];
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("getDescription: WrongProject:",this);
+        console.log("EpicNoParent.getDescription:",this);
         
         var msg = Ext.String.format(
-            "Unscheduled {0} must be saved into *{1}*.",
+            "{0} must have a parent *{1}*.",
             /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            /[^\/]*$/.exec(this.portfolioItemTypes[2])
             );
-
         return msg;
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent','Release'];
+        return ['Name','Project','Parent'];
     },
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "Unscheduled, Wrong Project ({0})",
-            /[^\/]*$/.exec(this.getModel())
+            "{0} no parent {1}",
+            /[^\/]*$/.exec(this.getModel()),
+            /[^\/]*$/.exec(this.portfolioItemTypes[2])
         );
-
         return this.label;
     },
 
@@ -53,17 +53,16 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
     },
     
     applyRuleToRecord: function(record) {
-        console.log("UnScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
-        // this rule: Unscheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') == null) && ( record.get('Project').Name != this.rootStrategyProject )) {
-            return this.getDescription();
+        console.log("EpicNoParent.applyRuleToRecord:",record);        
+        
+        if (record.get('Parent') == null) {
+            return this.getDescription();               
         } else {
-            return null; // no rule violation   
+            return null; // no rule violation
         }
     },
     
     getFilters: function() {        
-
        // return Rally.data.wsapi.Filter.and([
        //     {property:'Parent',operator:'=',value:null}
        // ]);
