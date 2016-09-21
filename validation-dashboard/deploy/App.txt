@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 17:25:50 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 20 2016 21:00:28 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 17:25:50 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 20 2016 21:00:28 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 611990774823;
+        var CHECKSUM = 647222474272;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2439,8 +2439,154 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     }
 
 });
+Ext.define('CA.technicalservices.RulePickerDialog', {
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.rulepickerdialog',
+
+    //layout: 'fit',
+    
+    config: {
+        /**
+         * @cfg {String}
+         * Title to give to the dialog
+         */
+        title: 'Choose Rule(s)',
+
+        /**
+         * @cfg {String}
+         * Text to be displayed on the button when selection is complete
+         */
+        selectionButtonText: 'Done',
+
+        /**
+         * @cfg {String}|{String[]}
+         * The ref(s) of items which should be selected when the chooser loads
+         */
+        rules: undefined,
+        minWidth: 400,
+        minHeight: 400
+    },
+
+    constructor: function(config) {
+        this.mergeConfig(config);
+
+        this.callParent([this.config]);
+    },
+
+    selectionCache: [],
+
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents(
+            /**
+             * @event itemschosen
+             * Fires when user clicks done after choosing one or more rules
+             * @param {CA.technicalservices.RulePickerDialog} source the dialog
+             * @param {CA.techservices.validation.BaseRule[]} selection of an array of selected rules
+             */
+            'itemschosen'
+        );
+
+        this.addCls(['chooserDialog', 'chooser-dialog']);
+    },
+
+    beforeRender: function() {
+        this.callParent(arguments);
+
+        this.addDocked({
+            xtype: 'toolbar',
+            dock: 'bottom',
+            padding: '0 0 10 0',
+            layout: {
+                type: 'hbox',
+                pack: 'center'
+            },
+            ui: 'footer',
+            items: [
+                {
+                    xtype: 'rallybutton',
+                    itemId: 'doneButton',
+                    text: this.selectionButtonText,
+                    cls: 'primary rly-small',
+                    scope: this,
+                    disabled: false,
+                    userAction: 'clicked done in dialog',
+                    handler: function() {
+                        this.fireEvent('itemschosen', this, this.getSelectedRecords());
+                        this.close();
+                    }
+                },
+                {
+                    xtype: 'rallybutton',
+                    text: 'Cancel',
+                    cls: 'secondary rly-small',
+                    handler: this.close,
+                    scope: this,
+                    ui: 'link'
+                }
+            ]
+        });
+
+        if (this.introText) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                html: this.introText
+            });
+        }
+
+        this._buildCheckboxes();
+
+       // this.selectionCache = this.getInitialSelectedRecords() || [];
+    },
+
+    /**
+     * Get the records currently selected in the dialog
+     * {Rally.data.Model}|{Rally.data.Model[]}
+     */
+    getSelectedRecords: function() {
+        return this.rules;
+    },
+
+    _buildCheckboxes: function() {
+        console.log("_buildCheckboxes:", this.rules);
+
+        Ext.Array.each(this.rules,function(rule){
+            console.log('InsideArray:',rule);
+            this.add( {
+                xtype: 'rallycheckboxfield',
+                fieldLabel: rule.label,
+                name: rule.xtype,
+                height: 25,
+                value: rule.active,
+                listeners: {
+                    change: function() {
+                        rule.active = this.getValue();
+                    }
+                }                 
+            });
+        },this );
+    },
+
+    _enableDoneButton: function() {
+        this.down('#doneButton').setDisabled(this.selectionCache.length ? false : true);
+    },
+
+    _findRecordInSelectionCache: function(record){
+        return _.findIndex(this.selectionCache, function(cachedRecord) {
+            return cachedRecord.get('_ref') === record.get('_ref');
+        });
+    }
+});
 Ext.define('CA.techservices.validation.BaseRule',{
     extend: 'Ext.Base',
+    /**
+     * 
+     * @cfg {Boolean} an indicator of whether this rule has been selected for use
+     */
+    active: false,
+    
     /**
      * 
      * @cfg
@@ -2511,6 +2657,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     alias:  'widget.tsepicwithoutparentrule',
    
     config: {
+        active: true, 
         /*
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
@@ -3854,7 +4001,7 @@ Ext.define('CA.techservices.validator.Validator',{
     getRuleDescriptions: function() {
         var text = "<ul>";
         
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var rule_description = rule.getDescription() || "";
             if ( !Ext.isEmpty(rule_description) ) {
                 text = text + "<li>" + rule_description + "</li>";
@@ -3865,11 +4012,21 @@ Ext.define('CA.techservices.validator.Validator',{
         return text;
     },
     
+    getRules: function(){
+        return this.rules;
+    },
+    
+    getActiveRules: function(){
+        return Ext.Array.filter(this.getRules(),function(rule){
+                return rule.active;
+            });
+    },
+
     getFiltersByModel: function() {
         var me = this,
             filters_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var filters = rule.getFilters();
 
@@ -3897,7 +4054,7 @@ Ext.define('CA.techservices.validator.Validator',{
         var me = this,
             fields_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
@@ -3999,7 +4156,7 @@ Ext.define('CA.techservices.validator.Validator',{
             series = [];
             
         // one series per rule, one stack per model type
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var series_name = rule.getUserFriendlyRuleLabel();
             var model = rule.getModel();
             var records = me.recordsByModel[model];
@@ -4067,7 +4224,7 @@ Ext.define('CA.techservices.validator.Validator',{
     },
     
     getPrecheckResults: function() {        
-        var promises = Ext.Array.map(this.rules, function(rule){
+        var promises = Ext.Array.map(this.getActiveRules(), function(rule){
             return function() {
                 return rule.precheckRule();
             };
@@ -4853,8 +5010,6 @@ extend: 'CA.techservices.app.ChartApp',
     },
     _loadData:function(){
         
-        this.validator = this._instantiateValidator();
-        
         console.log("_loadData:", this.validator);
 
         this.description = this.description + this.validator.getRuleDescriptions();
@@ -4927,46 +5082,13 @@ extend: 'CA.techservices.app.ChartApp',
     
     _instantiateValidator: function() {
         var me = this;
-        
-        var story_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'ScheduleState', value:'Completed' },
-            {property:'ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var story_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'ScheduleState', value: 'Defined' },
-            {property:'Ready', value: true }
-        ]);
-        
-        var task_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'WorkProduct.ScheduleState', value:'Completed' },
-            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var task_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'WorkProduct.ScheduleState', value: 'Defined' },
-            {property:'WorkProduct.Ready', value: true }
-        ]);
                 
-        var rules = [];
-
-        //console.log('_instantiateValidator: ', this.down('#featureNoEpicCheckBox').value);
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['PortfolioItem']);
-        //}
-        if ( this.getSetting('showStoryRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['HierarchicalRequirement']);
-        }
-        if ( this.getSetting('showTaskRules') ) {
-            rules = Ext.Array.push(rules, this.rulesByType['Task']);
-        }
-        
         var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: rules,
+            rules: this.ruleConfigs,
             fetchFields: ['FormattedID','ObjectID'],
             baseFilters: {
-                HierarchicalRequirement: story_base_filter.or(story_ready_filter),
-                Task: task_base_filter.or(task_ready_filter)                
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
             },        
             pointEvents: {
                 click: function() {
@@ -5117,132 +5239,146 @@ extend: 'CA.techservices.app.ChartApp',
     },
     _showRulesSelection: function() {
         var me = this;
+        var rules = this.validator.getRules();
 
-        Ext.create('Rally.ui.dialog.Dialog', {
-            id        : 'rulesSelectionPopup',
-            title     : "Rules Selection",
-            disableScroll: false,
-            width     : 300,
-            height    : 400,
-            autoShow: true,
-            draggable: true,
-            closable  : true,
-            //layout    : 'border',
-            items     : [
-            {
-                xtype: 'rallycheckboxfield',
-                fieldLabel: 'Feature wo Epic ',
-                name: 'featureNoEpic',
-                itemId: 'featureNoEpicCheckBox',
-                stateful: true,
-                stateId: 'featureNoEpicCheckBox',
-                stateEvents: ['change'],
-                value: true,
-                listeners: {
-                        scope: this,
-                        change: function() {
-                            this._updateData();
-                        },
-                    }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Epic wo EPMSID ',
-            name: 'epicNoEPMS',
-            itemId: 'epicNoEPMSCheckBox',
-            stateful: true,
-            stateId: 'epicNoEPMSCheckBox',
-            stateEvents: ['change'],
-            value: true,
+        console.log("_showRulesSelection:",rules);
+
+        Ext.create('CA.technicalservices.RulePickerDialog',{
+            rules: rules,
             listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'EPMS wo Initiative',
-            name: 'epmsNoInitiative',
-            itemId: 'epmsNoInitiativeCheckBox',
-            stateful: true,
-            stateId: 'epmsNoInitiativeCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Initiative wo Objective',
-            name: 'initiativeNoObjective',
-            itemId: 'initiativeNoObjectiveCheckBox',
-            stateful: true,
-            stateId: 'initiativeNoObjectiveCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Objective wo Goal',
-            name: 'objectiveNoGoal',
-            itemId: 'objectiveNoGoalCheckBox',
-            stateful: true,
-            stateId: 'objectiveNoGoalCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },        
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Objective wo Goal',
-            name: 'storyRules',
-            itemId: 'storyRulesCheckBox',
-            stateful: true,
-            stateId: 'storyRulesCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            },
-            {
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Task Rules',
-            name: 'storyRules',
-            itemId: 'taskRulesCheckBox',
-            stateful: true,
-            stateId: 'taskRulesCheckBox',
-            stateEvents: ['change'],
-            value: true,
-            listeners: {
-                    scope: this,
-                    change: function() {
-                        this._updateData();
-                    },
-                }            
-            }           
-            ]
+                scope: this,
+                itemschosen: function(dialog,rules){
+                    console.log('ShowRulesDialogItemsChosen:',dialog,rules);
+                    this.validator.rules = rules;
+                    this._loadData();                    
+                }    
+            }
         }).show();
+        // Ext.create('Rally.ui.dialog.Dialog', {
+        //     id        : 'rulesSelectionPopup',
+        //     title     : "Rules Selection",
+        //     disableScroll: false,
+        //     width     : 300,
+        //     height    : 400,
+        //     autoShow: true,
+        //     draggable: true,
+        //     closable  : true,
+        //     //layout    : 'border',
+        //     items     : [
+        //     {
+        //         xtype: 'rallycheckboxfield',
+        //         fieldLabel: 'Feature wo Epic ',
+        //         name: 'featureNoEpic',
+        //         itemId: 'featureNoEpicCheckBox',
+        //         stateful: true,
+        //         stateId: 'featureNoEpicCheckBox',
+        //         stateEvents: ['change'],
+        //         value: true,
+        //         listeners: {
+        //                 scope: this,
+        //                 change: function() {
+        //                     this._updateData();
+        //                 },
+        //             }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Epic wo EPMSID ',
+        //     name: 'epicNoEPMS',
+        //     itemId: 'epicNoEPMSCheckBox',
+        //     stateful: true,
+        //     stateId: 'epicNoEPMSCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'EPMS wo Initiative',
+        //     name: 'epmsNoInitiative',
+        //     itemId: 'epmsNoInitiativeCheckBox',
+        //     stateful: true,
+        //     stateId: 'epmsNoInitiativeCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Initiative wo Objective',
+        //     name: 'initiativeNoObjective',
+        //     itemId: 'initiativeNoObjectiveCheckBox',
+        //     stateful: true,
+        //     stateId: 'initiativeNoObjectiveCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Objective wo Goal',
+        //     name: 'objectiveNoGoal',
+        //     itemId: 'objectiveNoGoalCheckBox',
+        //     stateful: true,
+        //     stateId: 'objectiveNoGoalCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },        
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Objective wo Goal',
+        //     name: 'storyRules',
+        //     itemId: 'storyRulesCheckBox',
+        //     stateful: true,
+        //     stateId: 'storyRulesCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     },
+        //     {
+        //     xtype: 'rallycheckboxfield',
+        //     fieldLabel: 'Task Rules',
+        //     name: 'storyRules',
+        //     itemId: 'taskRulesCheckBox',
+        //     stateful: true,
+        //     stateId: 'taskRulesCheckBox',
+        //     stateEvents: ['change'],
+        //     value: true,
+        //     listeners: {
+        //             scope: this,
+        //             change: function() {
+        //                 this._updateData();
+        //             },
+        //         }            
+        //     }           
+        //     ]
+        // }).show();
     },
     
     _export: function(){
@@ -5319,10 +5455,7 @@ extend: 'CA.techservices.app.ChartApp',
         this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
         this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
 
-        // add any selectors required
-        this._addSelectors();
-        
-
+      
         me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
 
         // add the array to the app.
@@ -5346,7 +5479,47 @@ extend: 'CA.techservices.app.ChartApp',
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
         });
+        // setup rule configs
+        var story_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'ScheduleState', value:'Completed' },
+            {property:'ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var story_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'ScheduleState', value: 'Defined' },
+            {property:'Ready', value: true }
+        ]);
+        this.story_filter = story_base_filter.or(story_ready_filter);
 
+        var task_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'WorkProduct.ScheduleState', value:'Completed' },
+            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var task_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'WorkProduct.ScheduleState', value: 'Defined' },
+            {property:'WorkProduct.Ready', value: true }
+        ]);
+        this.task_filter = task_base_filter.or(task_ready_filter);
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        //if ( this.getSetting('showPortfolioItemRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        //}
+
+        if ( this.getSetting('showStoryRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        }
+        if ( this.getSetting('showTaskRules') ) {
+            this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        }
+        this.validator = this._instantiateValidator();
+        
+        // add any selectors required
+        this._addSelectors();
+        
         // go get the data
         me._loadData();
     },

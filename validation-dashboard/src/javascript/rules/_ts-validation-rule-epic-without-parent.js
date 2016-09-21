@@ -3,6 +3,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
     alias:  'widget.tsepicwithoutparentrule',
    
     config: {
+        active: true, 
         /*
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)

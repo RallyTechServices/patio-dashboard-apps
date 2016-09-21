@@ -2,6 +2,12 @@ Ext.define('CA.techservices.validation.BaseRule',{
     extend: 'Ext.Base',
     /**
      * 
+     * @cfg {Boolean} an indicator of whether this rule has been selected for use
+     */
+    active: false,
+    
+    /**
+     * 
      * @cfg
      * {String} model The name of a record type that this rule applies to 
      */
