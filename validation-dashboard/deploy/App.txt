@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 21 2016 15:41:55 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Sep 21 2016 17:33:21 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 21 2016 15:41:55 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Sep 21 2016 17:33:21 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 645456899640;
+        var CHECKSUM = 648270193046;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2839,7 +2839,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("FeatureScheduledProjectNotStrategy.getDescription:",this);
+        console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must be saved into *{1}*.",
@@ -2867,7 +2867,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record);        
+        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record,this.rootDeliveryProject);        
         // this rule: Scheduled Feature is not in specified 'delivery' folder.
         if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
             return this.getDescription();               
@@ -5055,14 +5055,19 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    Ext.Msg.alert('','No violations found');
+                    // remove the last chart, have to redraw anyway
+                    this.down('#main_display_box').removeAll();
+                   
+                    Ext.Msg.alert('','No violations using the current rules. ' +
+                        'Please select other rules and/or change your project selection.');
                     return;
                 }
                 
                 this.display_rows = Ext.Object.getValues( this.validator.recordsByModel );
                 
                 this._makeChart(results);
-                this.down('#export_button').setDisabled(false);
+                // REMOVE EXPORT BUTTON: sr 2016-09-21
+                //this.down('#export_button').setDisabled(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading data', msg);
@@ -5112,20 +5117,20 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
-
-        container.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: true,
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
     },
     
     _makeChart: function(data) {

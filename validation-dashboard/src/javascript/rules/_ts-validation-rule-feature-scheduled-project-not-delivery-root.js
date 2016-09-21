@@ -21,7 +21,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("FeatureScheduledProjectNotStrategy.getDescription:",this);
+        console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
             "{0} must be saved into *{1}*.",
@@ -49,7 +49,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record);        
+        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record,this.rootDeliveryProject);        
         // this rule: Scheduled Feature is not in specified 'delivery' folder.
         if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
             return this.getDescription();               

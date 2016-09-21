@@ -134,14 +134,19 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    Ext.Msg.alert('','No violations found');
+                    // remove the last chart, have to redraw anyway
+                    this.down('#main_display_box').removeAll();
+                   
+                    Ext.Msg.alert('','No violations using the current rules. ' +
+                        'Please select other rules and/or change your project selection.');
                     return;
                 }
                 
                 this.display_rows = Ext.Object.getValues( this.validator.recordsByModel );
                 
                 this._makeChart(results);
-                this.down('#export_button').setDisabled(false);
+                // REMOVE EXPORT BUTTON: sr 2016-09-21
+                //this.down('#export_button').setDisabled(false);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading data', msg);
@@ -191,20 +196,20 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             }
         });
-
-        container.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: true,
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
     },
     
     _makeChart: function(data) {
