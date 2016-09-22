@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 21 2016 21:46:48 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 22 2016 08:27:43 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 21 2016 21:46:48 GMT-0700 (PDT)";
-        var BUILDER = "jmartin";
-        var CHECKSUM = 667795226991;
+        var APP_BUILD_DATE = "Thu Sep 22 2016 08:27:43 GMT-0400 (EDT)";
+        var BUILDER = "srhoads";
+        var CHECKSUM = 668767045337;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2613,7 +2613,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         name: rule.xtype,
                         //height: 25,
                         padding: 10,
-                        value: rule.active,
+                        value: rule.active,  // boolean on whether the rule has been selected
                         listeners: {
                             change: function() {
                                 rule.active = this.getValue();
@@ -2651,7 +2651,8 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         }                 
                     });                  
             } else {
-                // No match on Model!
+                // No match on Model! drop the checkboxes on the raw panel. Will be a 
+                // flag to see that we're handling a new model!
                 this.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
@@ -5054,7 +5055,7 @@ extend: 'CA.techservices.app.ChartApp',
         }
     },
     
-    stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (apps need unique stateIds)
+    stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [], // a listing of the xtypes of active rules (saved for each user)
     getState: function() {
@@ -5116,6 +5117,7 @@ extend: 'CA.techservices.app.ChartApp',
             scope: this
         });  
     },
+
     _initializeApp: function(portfolioItemTypes){
         var me = this;
         // do layout and configs
@@ -5210,6 +5212,64 @@ extend: 'CA.techservices.app.ChartApp',
         // go get the data
         me._loadData();
     },
+
+    _instantiateValidator: function() {
+        var me = this;
+                
+        var validator = Ext.create('CA.techservices.validator.Validator',{
+            rules: this.ruleConfigs,
+            fetchFields: ['FormattedID','ObjectID'],
+            baseFilters: {
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
+            },        
+            pointEvents: {
+                click: function() {
+                    me.showDrillDown(this._records,this._name);
+                }
+            }
+        });
+        
+        return validator;
+    },
+
+    _addSelectors: function() {
+        var container = this.down('#banner_box');
+        container.removeAll();
+        
+        container.add({xtype:'container',flex: 1});
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId:'rules_selection_button',
+            cls: 'secondary',
+            text: 'Select Rules',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function() {
+                    console.log('addSelectors: ');
+
+                    this._showRulesSelection();
+                }
+            }
+        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
+    },
+
     _loadData:function(){
         this.setLoading("Performing prechecks...");
 
@@ -5235,6 +5295,7 @@ extend: 'CA.techservices.app.ChartApp',
             });
         }               
     },
+
     _processPrecheckResults: function(issues){
         var messages = Ext.Array.filter(issues, function(issue){
             return !Ext.isEmpty(issue);
@@ -5255,6 +5316,7 @@ extend: 'CA.techservices.app.ChartApp',
         this.applyDescription(this.description, 0);
         this._updateData();
     },
+
     _updateData: function() {
         var me = this;
         this.setLoading("Loading data...");
@@ -5290,65 +5352,8 @@ extend: 'CA.techservices.app.ChartApp',
             }
         }).always(function() { me.setLoading(false); });
         
-    }, 
-    
-    _instantiateValidator: function() {
-        var me = this;
-                
-        var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: this.ruleConfigs,
-            fetchFields: ['FormattedID','ObjectID'],
-            baseFilters: {
-                HierarchicalRequirement: this.story_filter, 
-                Task: this.task_filter                
-            },        
-            pointEvents: {
-                click: function() {
-                    me.showDrillDown(this._records,this._name);
-                }
-            }
-        });
-        
-        return validator;
     },
-    
-    _addSelectors: function() {
-        var container = this.down('#banner_box');
-        container.removeAll();
-        
-        container.add({xtype:'container',flex: 1});
-        
-        container.add({
-            xtype:'rallybutton',
-            itemId:'rules_selection_button',
-            cls: 'secondary',
-            text: 'Select Rules',
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function() {
-                    console.log('addSelectors: ',this.defaultSettings.showEpicNoEpms);
 
-                    this._showRulesSelection();
-                }
-            }
-        });
-        // REMOVE EXPORT BUTTON (sr 2016-09-21)
-        // container.add({
-        //     xtype:'rallybutton',
-        //     itemId:'export_button',
-        //     cls: 'secondary',
-        //     text: '<span class="icon-export"> </span>',
-        //     disabled: true,
-        //     listeners: {
-        //         scope: this,
-        //         click: function() {
-        //             this._export();
-        //         }
-        //     }
-        // });
-    },
-    
     _makeChart: function(data) {
         var me = this;
         
@@ -5365,7 +5370,7 @@ extend: 'CA.techservices.app.ChartApp',
             chartColors: colors
         });
     },
-    
+
     _getChartConfig: function(data) {
         var me = this;
         
