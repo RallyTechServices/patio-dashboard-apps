@@ -9,7 +9,8 @@ Ext.define("PVNApp", {
     config: {
         defaultSettings: {
             showPatterns: false,
-            showCount:  false
+            showCount:  false,
+            model: 'UserStory'
         }
     },
          
@@ -17,20 +18,24 @@ Ext.define("PVNApp", {
 
     _getDescriptions: function(){
         var me = this;
-        return  me.getSetting('showCount') ? "<strong>Productivity Throughput (Stories)</strong><br/>" +
-                    "<br/>" +
-                    "This Chart displays the velocity for each timebox." + 
-                    "Click on a bar to see a table with the stories for the team in that timebox." +
-                    "<p/>" +
-                    "<strong>Notes:</strong>" +
-                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported."
-                    :"<strong>Productivity Velocity (Stories)</strong><br/>" +
-                    "<br/>" +
-                    "This Chart displays the velocity for each timebox." + 
-                    "Click on a bar to see a table with the stories for the team in that timebox." +
-                    "<p/>" +
-                    "<strong>Notes:</strong>" +
-                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.";
+        var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
+        var model = model_names[this.getSetting('model')];
+        var metric = 'number of points accepted for each item';
+        if ( this.getSetting('showCount') ) {
+            metric = 'number of items accepted';
+        }
+        
+        return  Ext.String.format("<strong>Productivity Throughput ({0})</strong><br/>" +
+            "<br/>" +
+            "This Chart displays the {1} item in each timebox." + 
+            "Click on a bar to see a table with the stories for the team in that timebox." +
+            "<p/>" +
+            "<strong>Notes:</strong>" +
+            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
+            
+            model,
+            metric
+        );
     },
 
 
@@ -185,12 +190,12 @@ Ext.define("PVNApp", {
     },
 
     _sortObjectsbyTBDate: function(records) {
-    	
+        
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
 
-				for (i=0; i < records.length; i++) { 
-					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
-					};
+        for (i=0; i < records.length; i++) { 
+            records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
+        };
      
         Ext.Array.sort(records, function(a,b){      	
             if ( a.sort_field < b.sort_field ) { return -1; }
@@ -220,8 +225,11 @@ Ext.define("PVNApp", {
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
+        var model_name = this.getSetting('model');
+        console.log('model:', model_name);
+        
         var config = {
-            model:'HierarchicalRequirement',
+            model:model_name,
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
@@ -286,9 +294,19 @@ Ext.define("PVNApp", {
     },
         
     _makeChart: function(artifacts_by_timebox) {
-        //console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
+        console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
         var me = this;
-        var title = me.getSetting('showCount') ? 'Productivity Throughput (Stories)':'Productivity Velocity (Stories)';
+        
+        var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
+        var model_name = model_names[this.getSetting('model')];
+        var type = "Velocity";
+        if ( me.getSetting('showCount') ) { type = "Throughput"; }
+        
+        var title = Ext.String.format('Productivity {0} ({1})',
+            type,
+            model_name
+        );
+        
         var name = me.getSetting('showCount') ? 'Counts':'Points';
         var categories = this._getCategories(artifacts_by_timebox);
         var series = this._getSeries(artifacts_by_timebox);		
@@ -299,32 +317,32 @@ Ext.define("PVNApp", {
         }
 
         this.setChart({
-		        	chartData: {
-		                        categories: categories,
-		                        series: [{
-		                        	name: name, 
-		                        	data: series
-		                         	}]
-		                     },
-		        chartConfig: { 
-		          							chart: {type: 'column'},
-		                        title: {text: title},
-		                        xAxis: {},
-		                        yAxis: {title: {text: name}},
-		                        plotOptions: {
-		                            column: {stacking: 'normal'}
-		                        },
-		                        tooltip: {
-								                formatter: function() {
-		                    					return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
-		                						} 
-		             						}
-		                     },
-					  chartColors: colors                                 
-		                       
-				});
+            chartData: {
+                            categories: categories,
+                            series: [{
+                            	name: name, 
+                            	data: series
+                             	}]
+                         },
+            chartConfig: { 
+                            chart: {type: 'column'},
+                            title: {text: title},
+                            xAxis: {},
+                            yAxis: {title: {text: name}},
+                            plotOptions: {
+                                column: {stacking: 'normal'}
+                            },
+                            tooltip: {
+    						                formatter: function() {
+                        					return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
+                    						} 
+                 						}
+                         },
+    		chartColors: colors                                 
+                       
+		});
         this.setLoading(false);
-			},
+	},
 
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
@@ -360,6 +378,14 @@ Ext.define("PVNApp", {
     },
     
     getSettingsFields: function() {
+        var artifact_name_store = Ext.create('Ext.data.Store', {
+            fields: ['Name','Model'],
+            data : [
+                { Name: 'User Story', Model: 'HierarchicalRequirement'},
+                { Name:'Defect', Model:'Defect'}
+            ]
+        });        
+
         return [
         { 
             name: 'showPatterns',
@@ -376,6 +402,16 @@ Ext.define("PVNApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show by Count<br/><span style="color:#999999;"><i>Tick to use story count.  Otherwise, uses story points.</i></span>'
+        },
+        {
+            name: 'model',
+            xtype: 'combobox',
+            fieldLabel: 'Choose Type',
+            store: artifact_name_store,
+            queryMode: 'local',
+            displayField: 'Name',
+            valueField: 'Model',
+            margin: '0 0 25 25'
         }
         ];
     },
