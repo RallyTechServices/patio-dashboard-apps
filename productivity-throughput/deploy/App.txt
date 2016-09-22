@@ -3,13 +3,13 @@
 <head>
     <title>TS Productivity Throughput</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 20:31:12 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 22 2016 09:32:33 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 20:31:12 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 22 2016 09:32:33 GMT-0700 (PDT)";
         var STORY    = "US95";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 113134086091;
+        var CHECKSUM = 115391518247;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1378,11 +1378,16 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         });
     },
     
-    setChart: function(config) {
+    removeChart: function() {
         var box = this.down('#chart_box');
         box.removeAll();
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
         
-        
+        this.removeChart();
+
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,
@@ -1426,6 +1431,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
+            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -1480,6 +1486,11 @@ Ext.define("CA.techservices.app.ChartApp", {
     getChartBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
         return this.down('#main_chart_' + index);
+    },
+    
+    clearChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        this.down('#main_chart_' + index) && this.down('#main_chart_' + index).removeChart();
     },
     
     setChart: function(config,index) {
@@ -2436,12 +2447,19 @@ Ext.define("TSProductivityThroughput", {
         },
         {
             dataIndex: 'ActualStartDate',
-            text:'Actual Start Date'
+            text:'Actual Start Date',
+            renderer: function(value,meta,record) {
+                if ( Ext.isEmpty(value) ) { return ""; }
+                return Rally.util.DateTime.formatDate(value);
+            }
         },
         {
             dataIndex: 'ActualEndDate',
-            text:'Actual End Date'
-                
+            text:'Actual End Date',
+            renderer: function(value,meta,record) {
+                if ( Ext.isEmpty(value) ) { return ""; }
+                return Rally.util.DateTime.formatDate(value);
+            }
         },
         {
             dataIndex: 'Project',

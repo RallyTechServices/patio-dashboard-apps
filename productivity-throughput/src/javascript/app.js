@@ -190,12 +190,19 @@ Ext.define("TSProductivityThroughput", {
         },
         {
             dataIndex: 'ActualStartDate',
-            text:'Actual Start Date'
+            text:'Actual Start Date',
+            renderer: function(value,meta,record) {
+                if ( Ext.isEmpty(value) ) { return ""; }
+                return Rally.util.DateTime.formatDate(value);
+            }
         },
         {
             dataIndex: 'ActualEndDate',
-            text:'Actual End Date'
-                
+            text:'Actual End Date',
+            renderer: function(value,meta,record) {
+                if ( Ext.isEmpty(value) ) { return ""; }
+                return Rally.util.DateTime.formatDate(value);
+            }
         },
         {
             dataIndex: 'Project',
