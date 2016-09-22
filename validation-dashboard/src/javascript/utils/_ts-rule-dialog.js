@@ -161,7 +161,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         name: rule.xtype,
                         //height: 25,
                         padding: 10,
-                        value: rule.active,
+                        value: rule.active,  // boolean on whether the rule has been selected
                         listeners: {
                             change: function() {
                                 rule.active = this.getValue();
@@ -199,7 +199,8 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         }                 
                     });                  
             } else {
-                // No match on Model!
+                // No match on Model! drop the checkboxes on the raw panel. Will be a 
+                // flag to see that we're handling a new model!
                 this.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,

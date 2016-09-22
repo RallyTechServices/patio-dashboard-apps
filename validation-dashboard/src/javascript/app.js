@@ -33,7 +33,7 @@ extend: 'CA.techservices.app.ChartApp',
         }
     },
     
-    stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (apps need unique stateIds)
+    stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [], // a listing of the xtypes of active rules (saved for each user)
     getState: function() {
@@ -95,6 +95,7 @@ extend: 'CA.techservices.app.ChartApp',
             scope: this
         });  
     },
+
     _initializeApp: function(portfolioItemTypes){
         var me = this;
         // do layout and configs
@@ -189,6 +190,64 @@ extend: 'CA.techservices.app.ChartApp',
         // go get the data
         me._loadData();
     },
+
+    _instantiateValidator: function() {
+        var me = this;
+                
+        var validator = Ext.create('CA.techservices.validator.Validator',{
+            rules: this.ruleConfigs,
+            fetchFields: ['FormattedID','ObjectID'],
+            baseFilters: {
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
+            },        
+            pointEvents: {
+                click: function() {
+                    me.showDrillDown(this._records,this._name);
+                }
+            }
+        });
+        
+        return validator;
+    },
+
+    _addSelectors: function() {
+        var container = this.down('#banner_box');
+        container.removeAll();
+        
+        container.add({xtype:'container',flex: 1});
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId:'rules_selection_button',
+            cls: 'secondary',
+            text: 'Select Rules',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function() {
+                    console.log('addSelectors: ');
+
+                    this._showRulesSelection();
+                }
+            }
+        });
+        // REMOVE EXPORT BUTTON (sr 2016-09-21)
+        // container.add({
+        //     xtype:'rallybutton',
+        //     itemId:'export_button',
+        //     cls: 'secondary',
+        //     text: '<span class="icon-export"> </span>',
+        //     disabled: true,
+        //     listeners: {
+        //         scope: this,
+        //         click: function() {
+        //             this._export();
+        //         }
+        //     }
+        // });
+    },
+
     _loadData:function(){
         this.setLoading("Performing prechecks...");
 
@@ -214,6 +273,7 @@ extend: 'CA.techservices.app.ChartApp',
             });
         }               
     },
+
     _processPrecheckResults: function(issues){
         var messages = Ext.Array.filter(issues, function(issue){
             return !Ext.isEmpty(issue);
@@ -234,6 +294,7 @@ extend: 'CA.techservices.app.ChartApp',
         this.applyDescription(this.description, 0);
         this._updateData();
     },
+
     _updateData: function() {
         var me = this;
         this.setLoading("Loading data...");
@@ -269,65 +330,8 @@ extend: 'CA.techservices.app.ChartApp',
             }
         }).always(function() { me.setLoading(false); });
         
-    }, 
-    
-    _instantiateValidator: function() {
-        var me = this;
-                
-        var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: this.ruleConfigs,
-            fetchFields: ['FormattedID','ObjectID'],
-            baseFilters: {
-                HierarchicalRequirement: this.story_filter, 
-                Task: this.task_filter                
-            },        
-            pointEvents: {
-                click: function() {
-                    me.showDrillDown(this._records,this._name);
-                }
-            }
-        });
-        
-        return validator;
     },
-    
-    _addSelectors: function() {
-        var container = this.down('#banner_box');
-        container.removeAll();
-        
-        container.add({xtype:'container',flex: 1});
-        
-        container.add({
-            xtype:'rallybutton',
-            itemId:'rules_selection_button',
-            cls: 'secondary',
-            text: 'Select Rules',
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function() {
-                    console.log('addSelectors: ',this.defaultSettings.showEpicNoEpms);
 
-                    this._showRulesSelection();
-                }
-            }
-        });
-        // REMOVE EXPORT BUTTON (sr 2016-09-21)
-        // container.add({
-        //     xtype:'rallybutton',
-        //     itemId:'export_button',
-        //     cls: 'secondary',
-        //     text: '<span class="icon-export"> </span>',
-        //     disabled: true,
-        //     listeners: {
-        //         scope: this,
-        //         click: function() {
-        //             this._export();
-        //         }
-        //     }
-        // });
-    },
-    
     _makeChart: function(data) {
         var me = this;
         
@@ -344,7 +348,7 @@ extend: 'CA.techservices.app.ChartApp',
             chartColors: colors
         });
     },
-    
+
     _getChartConfig: function(data) {
         var me = this;
         
