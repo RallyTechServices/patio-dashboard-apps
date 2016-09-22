@@ -52,11 +52,16 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         });
     },
     
-    setChart: function(config) {
+    removeChart: function() {
         var box = this.down('#chart_box');
         box.removeAll();
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
         
-        
+        this.removeChart();
+
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,

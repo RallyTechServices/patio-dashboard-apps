@@ -1,18 +1,15 @@
 Ext.define("TSValidationApp", {
 extend: 'CA.techservices.app.ChartApp',
-    //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
-    stateful: true,
-    stateEvents: ['refreshrules'],
-    appDescription: '<strong>Data Validation</strong>' +
+    // need an array of descriptions - 1 for each chartbox containers
+    // need at least one or the container won't be initialized
+    descriptions: ['<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
                 'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
                 '<strong>Rules</strong>' +
-                '<p/>', 
-    
-    description: '',
+                '<p/>'], 
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -35,7 +32,32 @@ extend: 'CA.techservices.app.ChartApp',
             showObjectiveNoGoal: false
         }
     },
+    
+    stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (apps need unique stateIds)
+    stateful: true,
+    initialActiveRules: [], // a listing of the xtypes of active rules (saved for each user)
+    getState: function() {
+        var state = null;
+        
+        if (this.validator){
+            var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
+                return rule.xtype;
+            });
+            state = {
+                initialActiveRules: active
+            };
+        }
 
+        return state;
+    },
+    
+    applyState: function(state) {
+        this.callParent(arguments);
+        if ( state.hasOwnProperty('initialActiveRules') ) {
+            this.initialActiveRules = state.initialActiveRules;
+        }
+    },
+    
     rulesByType: {
         Task: [
             {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
@@ -66,13 +88,6 @@ extend: 'CA.techservices.app.ChartApp',
     launch: function() {
         this.callParent();
         
-        this.addEvents(
-            /**
-             * @event refreshrules
-             * Fires when rules have been changed and the user closes the dialog box
-             */
-            'refreshrules'
-        );
         // dynamically lookup portfolio item type names
         this._fetchPortfolioItemTypes().then({
             success: this._initializeApp, 
@@ -104,7 +119,7 @@ extend: 'CA.techservices.app.ChartApp',
             rule.rootStrategyProject = me.getSetting('rootStrategyProject');
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
                         
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
                 rule.active = true;
             }
         });
@@ -118,7 +133,7 @@ extend: 'CA.techservices.app.ChartApp',
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
 
             // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
                 rule.active = true;
             }
         });
@@ -132,7 +147,7 @@ extend: 'CA.techservices.app.ChartApp',
             rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
 
             // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
                 rule.active = true;
             }
         });
@@ -175,14 +190,16 @@ extend: 'CA.techservices.app.ChartApp',
         me._loadData();
     },
     _loadData:function(){
-        
-        console.log("_loadData:", this.validator);
+        this.setLoading("Performing prechecks...");
 
+        // remove the last chart, have to redraw anyway
+        this.clearChartBox(0);
+       
         // as we set and reset the description, we need to not retain the previous rule descriptions.
         // separating the appDescription from the description accumulator allows us to handle them
         // independently.
-        this.description = this.appDescription + this.validator.getRuleDescriptions();
-        
+        this.description = this.descriptions[0] + this.validator.getRuleDescriptions();
+
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
             this._processPrecheckResults([]);
@@ -214,7 +231,7 @@ extend: 'CA.techservices.app.ChartApp',
             this.description = this.description + " " + append_text;
         }
         
-        this.setDescription();
+        this.applyDescription(this.description, 0);
         this._updateData();
     },
     _updateData: function() {
@@ -235,9 +252,7 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    // remove the last chart, have to redraw anyway
-                    this.down('#main_display_box').removeAll();
-                   
+
                     Ext.Msg.alert('','No violations using the current rules. ' +
                         'Please select other rules and/or change your project selection.');
                     return;
@@ -345,7 +360,12 @@ extend: 'CA.techservices.app.ChartApp',
         return {
             chart: { type:'column' },
             title: { text: title_prefix + 'Validation Results' },
-            xAxis: this._rotateProjectLabels(data.categories.length), // returns label rotation styling
+            xAxis: {
+                labels:{
+                    rotation:this._rotateProjectLabels(data.categories.length)
+                }
+            },
+           
             yAxis: { 
                 min: 0,
                 title: { text: 'Count' }
@@ -426,7 +446,7 @@ extend: 'CA.techservices.app.ChartApp',
                 itemschosen: function(dialog,rules){
                     console.log('ShowRulesDialogItemsChosen:',dialog,rules);
                     this.validator.rules = rules;
-                    this.fireEvent('refreshrules'); // fire the app level save of rules
+                    this.saveState();
                     this._loadData();                    
                 }    
             }
@@ -526,31 +546,24 @@ extend: 'CA.techservices.app.ChartApp',
         
         return deferred;
     },
+    
     _rotateProjectLabels: function(project_count){
         
-        var rotationSetting = {};
+        var rotationSetting = 0;
 
         if (project_count <= this.chartLabelRotationSettings.rotate45) {
-            rotationSetting = {labels:{rotation:0}};
+            rotationSetting = 0;
         } else if (project_count <= this.chartLabelRotationSettings.rotate90){
-            rotationSetting =  {labels:{rotation:45}};
+            rotationSetting =  45;
         } else { // full vertical rotation for more than 10 items (good for up-to about 20)
-            rotationSetting =  {labels:{rotation:90}};
+            rotationSetting =  90;
         }
-        this.logger.log("_rotateProjectLabels: ",project_count,this.chartLabelRotationSettings,rotationSetting);
         
         return rotationSetting;
     },
 
     _showErrorMsg: function(msg){
         Rally.ui.notify.Notifier.showError({message:msg});
-    },
-
-    applyState: function(state){
-       console.log('app.applyState:',state);
-       if ((state) && (state.activeRules)) {
-           this.activeRules = state.activeRules;
-       }
     },
 
     getSettingsFields: function() {
@@ -614,28 +627,5 @@ extend: 'CA.techservices.app.ChartApp',
             labelPad: 10
         } 
         ];
-    },
-    getState: function() {
-        var me = this,
-            state = null;
-        if (this.validator){
-            var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
-                return rule.xtype;
-            });
-            state = this.addPropertyToState(state, 'activeRules', active);
-        }
-        //     sizeModel = me.getSizeModel();
-
-        // if (sizeModel.width.configured) {
-        //     state = me.addPropertyToState(state, 'width');
-        // }
-        // if (sizeModel.height.configured) {
-        //     state = me.addPropertyToState(state, 'height');
-        // }
-
-
-        // return state;
-        console.log("app.getState:");
-        return state;
-    },
+    }
 });
