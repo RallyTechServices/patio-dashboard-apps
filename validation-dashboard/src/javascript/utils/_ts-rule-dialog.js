@@ -16,14 +16,23 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
          * Text to be displayed on the button when selection is complete
          */
         selectionButtonText: 'Done',
+        /**
+         * @cfg {Boolean}
+         * Enables the dialog to be draggable.
+         */
+        draggable: true,
 
         /**
          * @cfg {String}|{String[]}
          * The ref(s) of items which should be selected when the chooser loads
          */
         rules: undefined,
-        minWidth: 400,
-        minHeight: 400
+        layout:{
+            type: 'hbox',
+            align: 'left'
+        },
+        minWidth: 800,
+        minHeight: 500
     },
 
     constructor: function(config) {
@@ -110,21 +119,101 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
 
     _buildCheckboxes: function() {
         console.log("_buildCheckboxes:", this.rules);
-
+        // add three containers, one per rule model family(task,story,portfolioitem)
+        this.add([
+                {
+                    xtype: 'panel',
+                    title: '<h3>PortfolioItems</h3>',
+                    itemId: 'portfolioRulesPanel',
+                    layout: 'auto',
+                    margin: 5,
+                    height: 400,
+                    width: 250
+                },
+                {
+                    xtype: 'panel',
+                    title: '<h3>Stories</h3>',
+                    itemId: 'storyRulesPanel',
+                    layout: 'auto',
+                    margin: 5,                    
+                    height: 400,
+                    width: 250                    
+                },
+                            {
+                    xtype: 'panel',
+                    title: '<h3>Tasks</h3>',
+                    itemId: 'taskRulesPanel',
+                    layout: 'auto',
+                    margin: 5,               
+                    height: 400,
+                    width: 250                    
+                }
+            ]
+        );
+        // now add the checkboxes for the rules to the appropriate panel
         Ext.Array.each(this.rules,function(rule){
-            console.log('InsideArray:',rule);
-            this.add( {
-                xtype: 'rallycheckboxfield',
-                fieldLabel: rule.label,
-                name: rule.xtype,
-                height: 25,
-                value: rule.active,
-                listeners: {
-                    change: function() {
-                        rule.active = this.getValue();
-                    }
-                }                 
-            });
+            console.log('InsideArray:',rule.model,rule.label,rule);
+            if (/^PortfolioItem/.exec(rule.model)){
+                this.down('#portfolioRulesPanel').add( {
+                        xtype: 'rallycheckboxfield',
+                        boxLabel: rule.label,
+                        autoScroll: true,
+                        name: rule.xtype,
+                        //height: 25,
+                        padding: 10,
+                        value: rule.active,
+                        listeners: {
+                            change: function() {
+                                rule.active = this.getValue();
+                            }
+                        }                 
+                    });                
+            } else if (/^HierarchicalRequirement/.exec(rule.model)){
+                this.down('#storyRulesPanel').add( {
+                        xtype: 'rallycheckboxfield',
+                        boxLabel: rule.label,
+                        autoScroll: true,
+                        name: rule.xtype,
+                        height: 25,
+                        padding: 10,
+                        value: rule.active,
+                        listeners: {
+                            change: function() {
+                                rule.active = this.getValue();
+                            }
+                        }                 
+                    });                  
+            } else if (/^Task/.exec(rule.model)){
+                this.down('#taskRulesPanel').add( {
+                        xtype: 'rallycheckboxfield',
+                        boxLabel: rule.label,
+                        autoScroll: true,
+                        name: rule.xtype,
+                        height: 25,
+                        padding: 10,
+                        value: rule.active,
+                        listeners: {
+                            change: function() {
+                                rule.active = this.getValue();
+                            }
+                        }                 
+                    });                  
+            } else {
+                // No match on Model!
+                this.add( {
+                        xtype: 'rallycheckboxfield',
+                        boxLabel: rule.label,
+                        autoScroll: true,
+                        name: rule.xtype,
+                        height: 25,
+                        value: rule.active,
+                        listeners: {
+                            change: function() {
+                                rule.active = this.getValue();
+                            }
+                        }                 
+                    });
+            }                  
         },this );
     },
 

@@ -80,6 +80,100 @@ extend: 'CA.techservices.app.ChartApp',
             scope: this
         });  
     },
+    _initializeApp: function(portfolioItemTypes){
+        var me = this;
+        // do layout and configs
+        this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
+        this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
+
+        me.logger.log('app.InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
+
+        // add the array to the app.
+        me.portfolioItemTypes = portfolioItemTypes;
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
+        // also grab appSetting for a target folder to hold high-level portfolio items
+        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+                        
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
+            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
+
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // Get all the ruleConfigs into the array
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+
+        // setup filter rule configs
+        var story_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'ScheduleState', value:'Completed' },
+            {property:'ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var story_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'ScheduleState', value: 'Defined' },
+            {property:'Ready', value: true }
+        ]);
+        this.story_filter = story_base_filter.or(story_ready_filter);
+
+        var task_base_filter = Rally.data.wsapi.Filter.or([
+            {property:'WorkProduct.ScheduleState', value:'Completed' },
+            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
+        ]);
+        
+        var task_ready_filter = Rally.data.wsapi.Filter.and([
+            {property:'WorkProduct.ScheduleState', value: 'Defined' },
+            {property:'WorkProduct.Ready', value: true }
+        ]);
+        this.task_filter = task_base_filter.or(task_ready_filter);
+
+        // create the validator object
+        this.validator = this._instantiateValidator();
+        
+        // add any selectors required
+        this._addSelectors();
+        
+        // go get the data
+        me._loadData();
+    },
     _loadData:function(){
         
         console.log("_loadData:", this.validator);
@@ -115,6 +209,8 @@ extend: 'CA.techservices.app.ChartApp',
             });
             append_text += "</ul>";
             
+            // note: appDescription is already combined with rulesText. 
+            // This function appends the pre-check results to the existing combined description
             this.description = this.description + " " + append_text;
         }
         
@@ -405,107 +501,7 @@ extend: 'CA.techservices.app.ChartApp',
             }
         }).always(function() { me.setLoading(false); });
     },
-    _initializeApp: function(portfolioItemTypes){
-        var me = this;
-        // do layout and configs
-        this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
-        this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
 
-      
-        me.logger.log('InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
-
-        // add the array to the app.
-        me.portfolioItemTypes = portfolioItemTypes;
-
-
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        //if ( this.getSetting('showPortfolioItemRules') ) {
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        //}
-
-        // if ( this.getSetting('showStoryRules') ) {
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        // }
-        // if ( this.getSetting('showTaskRules') ) {
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
-        // }
-
-        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
-        // also grab appSetting for a target folder to hold high-level portfolio items
-        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.Task, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.activeRules) && (Ext.Array.contains(me.activeRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-
-        // setup filter rule configs
-        var story_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'ScheduleState', value:'Completed' },
-            {property:'ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var story_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'ScheduleState', value: 'Defined' },
-            {property:'Ready', value: true }
-        ]);
-        this.story_filter = story_base_filter.or(story_ready_filter);
-
-        var task_base_filter = Rally.data.wsapi.Filter.or([
-            {property:'WorkProduct.ScheduleState', value:'Completed' },
-            {property:'WorkProduct.ScheduleState', value:'In-Progress'}
-        ]);
-        
-        var task_ready_filter = Rally.data.wsapi.Filter.and([
-            {property:'WorkProduct.ScheduleState', value: 'Defined' },
-            {property:'WorkProduct.Ready', value: true }
-        ]);
-        this.task_filter = task_base_filter.or(task_ready_filter);
-
-        // create the validator object
-        this.validator = this._instantiateValidator();
-        
-        // add any selectors required
-        this._addSelectors();
-        
-        // go get the data
-        me._loadData();
-    },
     _fetchPortfolioItemTypes: function(){
         var deferred = Ext.create('Deft.Deferred');
         Ext.create('Rally.data.wsapi.Store',{
@@ -563,19 +559,28 @@ extend: 'CA.techservices.app.ChartApp',
             name: 'rootStrategyProject',
             itemId: 'rootStrategyProject',
             xtype: 'rallytextfield',
-            fieldLabel: 'Name of root Business Strategy project:'
+            fieldLabel: 'Name of root Business Strategy project:',
+            labelAlign:'left',
+            labelWidth: 200,
+            labelPad: 10
         },
         { 
-            name: 'rootDeliveryTeamProject',
-            itemId: 'rootDeliveryTeamProject',            
+            name: 'rootDeliveryProject',
+            itemId: 'rootDeliveryProject',            
             xtype: 'rallytextfield',
-            fieldLabel: 'Name of root Delivery Team project:'
+            fieldLabel: 'Name of root Delivery Team project:',
+            labelAlign:'left',
+            labelWidth: 200,
+            labelPad: 10
         },
         { 
             name: 'rotateChartLabels45',
             itemId: 'rotateChartLabels45',            
             xtype: 'rallynumberfield',
             fieldLabel: 'Rotate Chart Labels 45 degrees at this project count:',
+            labelAlign:'left',
+            labelWidth: 200,
+            labelPad: 10,
             allowDecimals: false,
             allowExponential: false,
             autoStripChars: true,
@@ -588,6 +593,9 @@ extend: 'CA.techservices.app.ChartApp',
             itemId: 'rotateChartLabels90',            
             xtype: 'rallynumberfield',
             fieldLabel: 'Rotate Chart Labels 90 degrees at this project count:',
+            labelAlign:'left',
+            labelWidth: 200,
+            labelPad: 10,
             allowDecimals: false,
             allowExponential: false,
             autoStripChars: true,
@@ -598,10 +606,12 @@ extend: 'CA.techservices.app.ChartApp',
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 200',
-            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+            //boxLabelAlign: 'after',
+            //margin: '0 0 25 200',
+            fieldLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>',
+            labelAlign:'left',
+            labelWidth: 200,
+            labelPad: 10
         } 
         ];
     },
