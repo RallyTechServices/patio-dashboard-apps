@@ -22,6 +22,8 @@ Ext.define("TSProductivityThroughput", {
             showPatterns: false
         }
     },
+    
+    timeboxLimit: 12,
                         
     launch: function() {
         this.callParent();
@@ -30,12 +32,37 @@ Ext.define("TSProductivityThroughput", {
             scope: this,
             success: function(types) {
                 this._piTypes = types;
+                this._addSelectors();
                 this._updateData();
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem Loading PI Types', msg);
             }
         });
+    },
+
+    _addSelectors: function() {
+
+        this.addToBanner({
+            xtype: 'rallynumberfield',
+            name: 'timeBoxLimit',
+            itemId: 'timeBoxLimit',
+            fieldLabel: 'Timebox Limit',
+            value: 12,
+            maxValue: 24,
+            minValue: 1,
+            margin: '0 0 0 50',
+            width: 150,
+            allowBlank: false,  // requires a non-empty value
+            listeners:{
+                change:function(nf){
+                    this.timeboxLimit = nf.value;
+                    this._updateData();
+                },
+                scope:this
+            }
+        });
+
     },
     
     _updateData: function() {
@@ -53,9 +80,11 @@ Ext.define("TSProductivityThroughput", {
         }).always(function() { me.setLoading(false); });
     },
     
-    _getMonthStartLastYear: function() {
+    _getFirstTimeboxStart: function() {
         var today = new Date();
-        var last_year = Rally.util.DateTime.add(today,'month',-12);
+        var limit = this.timeboxLimit || 12;
+        
+        var last_year = Rally.util.DateTime.add(today,'month',-1 * limit);
         
         last_year.setHours(0,0,0,0);
         last_year.setDate(1);
@@ -63,23 +92,24 @@ Ext.define("TSProductivityThroughput", {
         return last_year;
     },
     
-    _getYearOfBuckets: function() {
-        var start = this._getMonthStartLastYear();
-        
-        return Ext.Array.map( _.range(12), function(i) {
+    _getRangeOfBuckets: function() {
+        var start = this._getFirstTimeboxStart();
+        var limit = this.timeboxLimit || 12;
+
+        return Ext.Array.map( _.range(limit), function(i) {
             return Rally.util.DateTime.add(start,'month',i);
         });
     },
     
     _getCompletedFeatures: function() {
         var feature = this._piTypes[0].get('TypePath');
-        var start_date = this._getMonthStartLastYear();
+        var start_date = this._getFirstTimeboxStart();
         var start_date_iso = Rally.util.DateTime.toIsoString(start_date);
         
         this.logger.log('Start Date', start_date, start_date_iso);
         var filters = [{property:'ActualEndDate',operator:'>=',value:start_date_iso}];
         
-        config = {
+        var config = {
             model: feature,
             filters: filters,
             fetch: ['FormattedID','Name','State','Project','ActualStartDate','ActualEndDate']
@@ -103,7 +133,7 @@ Ext.define("TSProductivityThroughput", {
     },
     
     _getCategories: function() {
-        return Ext.Array.map(this._getYearOfBuckets(), function(start_of_month){
+        return Ext.Array.map(this._getRangeOfBuckets(), function(start_of_month){
             return Ext.util.Format.date(start_of_month,'Y-m');
         });
     },
@@ -111,7 +141,7 @@ Ext.define("TSProductivityThroughput", {
     _getProductivitySeries: function(features) {
         var me = this,
             features_by_bucket = {};
-        var buckets = this._getYearOfBuckets();
+        var buckets = this._getRangeOfBuckets();
         
         Ext.Array.each(buckets, function(bucket){
             features_by_bucket[Ext.util.Format.date(bucket, 'Y-m')] = [];
@@ -138,7 +168,7 @@ Ext.define("TSProductivityThroughput", {
                 
         });
         return {
-            name: 'Project',
+            name: 'Count for Project',
             data: data,
             type:'column'
         };
