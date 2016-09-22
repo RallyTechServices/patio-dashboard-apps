@@ -354,12 +354,12 @@ extend: 'CA.techservices.app.ChartApp',
         
         
         var title_prefix = "";
-        if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
-            title_prefix = "Story ";
-        }
-        if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
-            title_prefix = "Task ";
-        }
+        // if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
+        //     title_prefix = "Story ";
+        // }
+        // if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
+        //     title_prefix = "Task ";
+        // }
         
         return {
             chart: { type:'column' },
@@ -437,6 +437,7 @@ extend: 'CA.techservices.app.ChartApp',
             }]
         }).show();
     },
+
     _showRulesSelection: function() {
         var me = this;
         var rules = this.validator.getRules();

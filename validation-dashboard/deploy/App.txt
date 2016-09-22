@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 22 2016 08:27:43 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Sep 22 2016 08:45:01 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 22 2016 08:27:43 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Thu Sep 22 2016 08:45:01 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 668767045337;
+        var CHECKSUM = 668836966331;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -5376,12 +5376,12 @@ extend: 'CA.techservices.app.ChartApp',
         
         
         var title_prefix = "";
-        if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
-            title_prefix = "Story ";
-        }
-        if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
-            title_prefix = "Task ";
-        }
+        // if ( this.getSetting('showStoryRules') && !this.getSetting('showTaskRules') ) {
+        //     title_prefix = "Story ";
+        // }
+        // if ( this.getSetting('showTaskRules') && !this.getSetting('showStoryRules')) {
+        //     title_prefix = "Task ";
+        // }
         
         return {
             chart: { type:'column' },
@@ -5459,6 +5459,7 @@ extend: 'CA.techservices.app.ChartApp',
             }]
         }).show();
     },
+
     _showRulesSelection: function() {
         var me = this;
         var rules = this.validator.getRules();
