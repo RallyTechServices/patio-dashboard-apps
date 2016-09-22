@@ -119,7 +119,7 @@ Ext.define("PVNApp", {
             scope: this,
             success: function(results) {
 
-				this._sortObjectsbyTBDate(results);
+                this._sortObjectsbyTBDate(results);
 
         var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
 
@@ -168,11 +168,11 @@ Ext.define("PVNApp", {
     
     _sortTimeboxes: function(timeboxes) {
 
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+                if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
+            this.setLoading(false);                    
+                        return [];
+                }
 
         this.setLoading("Fetching timeboxes...");
         this.logger.log("_sortTimeboxes IN", timeboxes);
@@ -197,7 +197,7 @@ Ext.define("PVNApp", {
             records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
         };
      
-        Ext.Array.sort(records, function(a,b){      	
+        Ext.Array.sort(records, function(a,b){          
             if ( a.sort_field < b.sort_field ) { return -1; }
             if ( a.sort_field > b.sort_field ) { return  1; }
             return 0;
@@ -242,7 +242,7 @@ Ext.define("PVNApp", {
                 return TSUtilities.loadWsapiRecords(config);
             }
         ],this).then({
-            success: function(results) {            	    
+            success: function(results) {                    
                 deferred.resolve(Ext.Array.flatten(results));                             
             },
             failure: function(msg) {
@@ -309,7 +309,7 @@ Ext.define("PVNApp", {
         
         var name = me.getSetting('showCount') ? 'Counts':'Points';
         var categories = this._getCategories(artifacts_by_timebox);
-        var series = this._getSeries(artifacts_by_timebox);		
+        var series = this._getSeries(artifacts_by_timebox);        
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -318,63 +318,63 @@ Ext.define("PVNApp", {
 
         this.setChart({
             chartData: {
-                            categories: categories,
-                            series: [{
-                            	name: name, 
-                            	data: series
-                             	}]
-                         },
+                categories: categories,
+                series: [{
+                    name: name, 
+                    data: series
+                }]
+            },
             chartConfig: { 
-                            chart: {type: 'column'},
-                            title: {text: title},
-                            xAxis: {},
-                            yAxis: {title: {text: name}},
-                            plotOptions: {
-                                column: {stacking: 'normal'}
-                            },
-                            tooltip: {
-    						                formatter: function() {
-                        					return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
-                    						} 
-                 						}
-                         },
-    		chartColors: colors                                 
+                chart: {type: 'column'},
+                title: {text: title},
+                xAxis: {},
+                yAxis: {title: {text: name}},
+                plotOptions: {
+                    column: {stacking: 'normal'}
+                },
+                tooltip: {
+                    formatter: function() {
+                    return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
+                        } 
+                    }
+                },
+            chartColors: colors                                 
                        
-		});
+        });
         this.setLoading(false);
-	},
+    },
 
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
     _getSeries: function(artifacts_by_timebox) {
-    		var me = this;
-            var name = me.getSetting('showCount') ? 'Counts':'Points';
-    		var datapoints = [];
-            Ext.Object.each(artifacts_by_timebox, function (key, value) {
-            	var records = value.records || [];
-                var value = 0;
-                if(me.getSetting('showCount')){
-                    value = records.all.length;
-                }else{
-                    Ext.Array.each(records.all,function(story){
-                        value += story.get('PlanEstimate');
-                    });
-                }
-
-            	datapoints.push({
-            		y: value,
-            		_records: records,
-    				events: {
-       					click: function () {
-       						me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
-       					}
-    				}      		
-            	});
+        var me = this;
+        var name = me.getSetting('showCount') ? 'Counts':'Points';
+        var datapoints = [];
+        Ext.Object.each(artifacts_by_timebox, function (key, value) {
+            var records = value.records || [];
+            var value = 0;
+            if(me.getSetting('showCount')){
+                value = records.all.length;
+            }else{
+                Ext.Array.each(records.all,function(story){
+                    value += story.get('PlanEstimate');
+                });
+            }
+        
+            datapoints.push({
+                y: value,
+                _records: records,
+                events: {
+                   click: function () {
+                       me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
+                   }
+                }              
             });
-        	
-       return datapoints;
+        });
+            
+        return datapoints;
     },
     
     getSettingsFields: function() {
