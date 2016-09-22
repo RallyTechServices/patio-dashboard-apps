@@ -3,16 +3,16 @@ extend: 'CA.techservices.app.ChartApp',
     //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
     stateful: true,
     stateEvents: ['refreshrules'],
-    appDescription: '<strong>Data Validation</strong>' +
+    // need an array of descriptions - 1 for each chartbox containers
+    // need at least one or the container won't be initialized
+    descriptions: ['<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
                 'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
                 '<strong>Rules</strong>' +
-                '<p/>', 
-    
-    description: '',
+                '<p/>'], 
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -175,14 +175,16 @@ extend: 'CA.techservices.app.ChartApp',
         me._loadData();
     },
     _loadData:function(){
-        
-        console.log("_loadData:", this.validator);
+        this.setLoading("Performing prechecks...");
 
+        // remove the last chart, have to redraw anyway
+        this.clearChartBox(0);
+       
         // as we set and reset the description, we need to not retain the previous rule descriptions.
         // separating the appDescription from the description accumulator allows us to handle them
         // independently.
-        this.description = this.appDescription + this.validator.getRuleDescriptions();
-        
+        this.description = this.descriptions[0] + this.validator.getRuleDescriptions();
+
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
             this._processPrecheckResults([]);
@@ -214,7 +216,7 @@ extend: 'CA.techservices.app.ChartApp',
             this.description = this.description + " " + append_text;
         }
         
-        this.setDescription();
+        this.applyDescription(this.description, 0);
         this._updateData();
     },
     _updateData: function() {
@@ -235,9 +237,7 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    // remove the last chart, have to redraw anyway
-                    this.down('#main_display_box').removeAll();
-                   
+
                     Ext.Msg.alert('','No violations using the current rules. ' +
                         'Please select other rules and/or change your project selection.');
                     return;

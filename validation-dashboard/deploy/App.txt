@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 21 2016 21:07:48 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Sep 21 2016 21:23:31 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 21 2016 21:07:48 GMT-0400 (EDT)";
-        var BUILDER = "srhoads";
-        var CHECKSUM = 669586755356;
+        var APP_BUILD_DATE = "Wed Sep 21 2016 21:23:31 GMT-0700 (PDT)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 673522222114;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1377,11 +1377,16 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         });
     },
     
-    setChart: function(config) {
+    removeChart: function() {
         var box = this.down('#chart_box');
         box.removeAll();
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
         
-        
+        this.removeChart();
+
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,
@@ -1425,6 +1430,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
+            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -1479,6 +1485,11 @@ Ext.define("CA.techservices.app.ChartApp", {
     getChartBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
         return this.down('#main_chart_' + index);
+    },
+    
+    clearChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        this.down('#main_chart_' + index) && this.down('#main_chart_' + index).removeChart();
     },
     
     setChart: function(config,index) {
@@ -5013,16 +5024,16 @@ extend: 'CA.techservices.app.ChartApp',
     //stateId: this.getContext().getScopedStateId('CA.validationApp.1'), // automatically save a cookie (apps need unique stateIds)
     stateful: true,
     stateEvents: ['refreshrules'],
-    appDescription: '<strong>Data Validation</strong>' +
+    // need an array of descriptions - 1 for each chartbox containers
+    // need at least one or the container won't be initialized
+    descriptions: ['<strong>Data Validation</strong>' +
                 '<p/>' + 
                 'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
                 'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
                 'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
                 '<p/>' + 
                 '<strong>Rules</strong>' +
-                '<p/>', 
-    
-    description: '',
+                '<p/>'], 
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -5185,14 +5196,16 @@ extend: 'CA.techservices.app.ChartApp',
         me._loadData();
     },
     _loadData:function(){
-        
-        console.log("_loadData:", this.validator);
+        this.setLoading("Performing prechecks...");
 
+        // remove the last chart, have to redraw anyway
+        this.clearChartBox(0);
+       
         // as we set and reset the description, we need to not retain the previous rule descriptions.
         // separating the appDescription from the description accumulator allows us to handle them
         // independently.
-        this.description = this.appDescription + this.validator.getRuleDescriptions();
-        
+        this.description = this.descriptions[0] + this.validator.getRuleDescriptions();
+
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
             this._processPrecheckResults([]);
@@ -5224,7 +5237,7 @@ extend: 'CA.techservices.app.ChartApp',
             this.description = this.description + " " + append_text;
         }
         
-        this.setDescription();
+        this.applyDescription(this.description, 0);
         this._updateData();
     },
     _updateData: function() {
@@ -5245,9 +5258,7 @@ extend: 'CA.techservices.app.ChartApp',
             success: function(results) {
                 
                 if ( results.categories && results.categories.length === 0 ) {
-                    // remove the last chart, have to redraw anyway
-                    this.down('#main_display_box').removeAll();
-                   
+
                     Ext.Msg.alert('','No violations using the current rules. ' +
                         'Please select other rules and/or change your project selection.');
                     return;
