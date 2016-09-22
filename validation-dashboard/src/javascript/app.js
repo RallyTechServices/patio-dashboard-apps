@@ -360,7 +360,12 @@ extend: 'CA.techservices.app.ChartApp',
         return {
             chart: { type:'column' },
             title: { text: title_prefix + 'Validation Results' },
-            xAxis: this._rotateProjectLabels(data.categories.length), // returns label rotation styling
+            xAxis: {
+                labels:{
+                    rotation:this._rotateProjectLabels(data.categories.length)
+                }
+            },
+           
             yAxis: { 
                 min: 0,
                 title: { text: 'Count' }
@@ -541,18 +546,18 @@ extend: 'CA.techservices.app.ChartApp',
         
         return deferred;
     },
+    
     _rotateProjectLabels: function(project_count){
         
-        var rotationSetting = {};
+        var rotationSetting = 0;
 
         if (project_count <= this.chartLabelRotationSettings.rotate45) {
-            rotationSetting = {labels:{rotation:0}};
+            rotationSetting = 0;
         } else if (project_count <= this.chartLabelRotationSettings.rotate90){
-            rotationSetting =  {labels:{rotation:45}};
+            rotationSetting =  45;
         } else { // full vertical rotation for more than 10 items (good for up-to about 20)
-            rotationSetting =  {labels:{rotation:90}};
+            rotationSetting =  90;
         }
-        this.logger.log("_rotateProjectLabels: ",project_count,this.chartLabelRotationSettings,rotationSetting);
         
         return rotationSetting;
     },
