@@ -24,7 +24,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
-            "{0} must be saved into *{1}*.",
+            "Scheduled {0} must be saved into *{1}*.",
             /[^\/]*$/.exec(this.model),
             this.rootDeliveryProject
             );
