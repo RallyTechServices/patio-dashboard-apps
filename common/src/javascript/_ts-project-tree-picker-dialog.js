@@ -17,13 +17,20 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
          * Title to give to the dialog
          */
         title: 'Choose Project(s)',
-
+        /**
+         * 
+         * @cfg {String} introText
+         * 
+         *  Informational text to include on the dialog.
+         */
+        introText: null,
+        
         /**
          * @cfg {Boolean}
          * Allow multiple selection or not
          */
         multiple: true,
-
+        
         /**
          * @cfg {Object}  || Rally.data.wsapi.Filter[]  
          * Name of top project to start building the tree down through the hierarchy.
@@ -31,7 +38,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         root_filters: [{
                 property: 'Parent',
                 value: ""
-            }],
+        }],
 
         /**
          * @cfg {Object}
@@ -44,7 +51,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
             },
             sorters: [
                 {
-                    property: 'FormattedID',
+                    property: 'Name',
                     direction: 'DESC'
                 }
             ]
@@ -71,14 +78,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         gridConfig: {},
 
         /**
-         * @cfg {String}|{String[]}
-         * The ref(s) of items which should be selected when the chooser loads
-         */
-        selectedRecords: undefined,
-
-        /**
-         * @cfg {Array}
-         * The records to select when the chooser loads
+         * @cfg {Object[] || Rally.data.wsapi.Model[]}  initialSelectedRecords
+         * The records to select when the chooser loads.  Provide either configuration objects
+         * (with at lease { _ref: xxx } defined) or models
          */
         initialSelectedRecords: undefined,
 
@@ -146,7 +148,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
                     disabled: true,
                     userAction: 'clicked done in dialog',
                     handler: function() {
-                        this.fireEvent('itemschosen',this, this.getSelectedRecords());
+                        this.fireEvent('itemschosen', this.getSelectedRecords());
                         this.close();
                     }
                 },
@@ -228,14 +230,13 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         }
         var me = this;
 
-        console.log('projectTreePicker.buildGrid',me.root_filters);
-
         this.setLoading('Fetching Project Tree...');
         Ext.create('Rally.data.wsapi.ProjectTreeStoreBuilder').build({
             models: ['project'],
             autoLoad: true,
             enableHierarchy: true,
-            filters: me.root_filters
+            filters: me.root_filters,
+            sorters: [{property:'Name'}]
         }).then({
             scope: this,
             success: function(store) {
@@ -286,8 +287,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
     },
 
     _findRecordInSelectionCache: function(record){
+        var me = this;
         return _.findIndex(this.selectionCache, function(cachedRecord) {
-            return cachedRecord.get('_ref') === record.get('_ref');
+            return me._specialGet(cachedRecord,'_ref') === me._specialGet(record,'_ref');
         });
     },
 
@@ -326,16 +328,30 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         this._onGridLoad();
         this.center();
     },
+    
+    _specialGet: function(item, field) {
+        if ( Ext.isEmpty(item) ) { 
+            return null;
+        }
+        
+        if ( Ext.isFunction(item.get) ) { 
+            return item.get(field);
+        }
+        
+        return item[field];
+    },
+    
     _onGridLoad: function() {
         var store = this.grid.store;
         var records = [];
         Ext.Array.each(this.selectionCache, function(record) {
-            var foundNode = store.getRootNode().findChild('_ref', record.get('_ref'),true);
+            var ref = this._specialGet(record,'_ref');
+            var foundNode = store.getRootNode().findChild('_ref',ref,true);
 
             if (foundNode) {
                 records.push(foundNode);
             }
-        });
+        },this);
         if (records.length) {
             this.grid.getSelectionModel().select(records);
         }
