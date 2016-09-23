@@ -16,14 +16,21 @@ Ext.define("PVNApp", {
          
     description: "",
 
+    modelsNamesFromType: {
+        'HierarchicalRequirement':'Stories',
+        'UserStory':'Stories', 
+        'Defect':'Defects'
+    },
+    
     _getDescriptions: function(){
         var me = this;
-        var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
-        var model = model_names[this.getSetting('model')];
+        var model = this.modelsNamesFromType[this.getSetting('model')];
         var metric = 'number of points accepted for each item';
         if ( this.getSetting('showCount') ) {
             metric = 'number of items accepted';
         }
+        
+        this.logger.log('Settings:', this.getSettings());
         
         return  Ext.String.format("<strong>Productivity Throughput ({0})</strong><br/>" +
             "<br/>" +
@@ -266,7 +273,7 @@ Ext.define("PVNApp", {
             timebox_type = this.timebox_type;
 
         
-        if ( items.length === 0 ) { return hash; }
+        //if ( items.length === 0 ) { return hash; }
         
         var base_hash = {
             records: {
@@ -293,7 +300,8 @@ Ext.define("PVNApp", {
         var me = this;
         
         var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
-        var model_name = model_names[this.getSetting('model')];
+        var model_name = this.modelsNamesFromType[this.getSetting('model')];
+        
         var type = "Velocity";
         if ( me.getSetting('showCount') ) { type = "Throughput"; }
         
@@ -323,7 +331,10 @@ Ext.define("PVNApp", {
                 chart: {type: 'column'},
                 title: {text: title},
                 xAxis: {},
-                yAxis: {title: {text: name}},
+                yAxis: {
+                    title: {text: name},
+                    min: 0
+                },
                 plotOptions: {
                     column: {stacking: 'normal'}
                 },
@@ -340,6 +351,7 @@ Ext.define("PVNApp", {
     },
 
     _getCategories: function(artifacts_by_timebox) {
+        console.log('_getCategories', artifacts_by_timebox);
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
