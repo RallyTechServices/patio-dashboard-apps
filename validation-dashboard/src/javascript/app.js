@@ -36,6 +36,7 @@ extend: 'CA.techservices.app.ChartApp',
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [],         // a listing of the xtypes of active rules (saved for each user)
+    
     strategyProjects:[],            // array of projects that are in the strategy branch of project hierarchy
     deliveryTeamProjects:[],        // array of projects that are in the execution/delivery team branch
     
@@ -58,6 +59,17 @@ extend: 'CA.techservices.app.ChartApp',
         return state;
     },
     
+    getStrategyProjectState: function(){
+        console.log('app.getStrategyProjectState:', this.strategyProjects);
+        return {projects: this.strategyProjects};
+    },
+    
+    // restoring/reconstituting state.
+    getDeliveryTeamProjectState: function(){
+        console.log('app.getDeliveryTeamProjectState:', this.deliveryTeamProjects);
+        return {projects: this.deliveryTeamProjects};
+    },
+
     applyState: function(state) {
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
@@ -65,6 +77,22 @@ extend: 'CA.techservices.app.ChartApp',
         }
     },
     
+    // saving the state
+    applyStrategyProjectState: function(state){
+        this.callParent(arguments);
+        if (state.hasOwnProperty('strategyProjects')) {
+            this.strategyProjects = state.strategyProjects;
+        }
+    },
+
+    // saving the state
+    applyDeliveryTeamProjectState: function(state){
+        this.callParent(arguments);
+        if (state.hasOwnProperty('deliveryTeamProjects')) {
+            this.deliveryTeamProjects = state.deliveryTeamProjects;
+        }
+    },
+
     rulesByType: {
         Task: [
             {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
@@ -486,7 +514,9 @@ extend: 'CA.techservices.app.ChartApp',
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             
-            title: 'Select the Business Planning (Strategy) projects',
+            title: 'Select the Business Planning projects',
+            introText: 'Select the projects where your portfolio items should be.',
+            initialSelectedRecords: me.strategyProjects,
             root_filters:   [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -494,14 +524,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){  
-                                      
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences
+                    // can choke on an instantiated class                  
+                    me.strategyProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)) {
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log("_showBusinessPlanningSelection:", items);
+                    this.logger.log('--', this.strategyProjects);
                     this.saveState();
-
-                    console.log('_showBusinessPlanningDialog.ItemsChosen:',dialog,projects, this.strategyProjects);
 
                     this._loadData();                    
                 }    
@@ -518,6 +552,8 @@ extend: 'CA.techservices.app.ChartApp',
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             //rules: rules,
             title: 'Select the Delivery Team projects',
+            introText: 'Select the projects for the Delivery Teams',
+            initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -525,14 +561,17 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){
-                    
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences can choke on fully instantiated classes
+                    this.deliveryTeamProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)){
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log('_showDeliveryTeamsSelection: ',items);
+                    this.logger.log('--',this.deliveryTeamProjects);
                     this.saveState();
-                                        
-                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects,this.deliveryTeamProjects);
 
                     this._loadData();                    
                 }    
