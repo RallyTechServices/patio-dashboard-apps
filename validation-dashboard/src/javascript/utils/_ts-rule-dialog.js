@@ -123,11 +123,11 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
         this.add([
                 {
                     xtype: 'panel',
-                    title: '<h3>PortfolioItems</h3>',
+                    title: '<h3>Portfolio Items</h3>',
                     itemId: 'portfolioRulesPanel',
                     layout: 'auto',
                     margin: 5,
-                    height: 400,
+                    height: 450,
                     width: 250
                 },
                 {
@@ -136,7 +136,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                     itemId: 'storyRulesPanel',
                     layout: 'auto',
                     margin: 5,                    
-                    height: 400,
+                    height: 450,
                     width: 250                    
                 },
                             {
@@ -145,7 +145,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                     itemId: 'taskRulesPanel',
                     layout: 'auto',
                     margin: 5,               
-                    height: 400,
+                    height: 450,
                     width: 250                    
                 }
             ]
@@ -159,7 +159,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         boxLabel: rule.label,
                         autoScroll: true,
                         name: rule.xtype,
-                        //height: 25,
+                        height: 15,
                         padding: 10,
                         value: rule.active,  // boolean on whether the rule has been selected
                         listeners: {
@@ -174,7 +174,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         boxLabel: rule.label,
                         autoScroll: true,
                         name: rule.xtype,
-                        height: 25,
+                        height: 15,
                         padding: 10,
                         value: rule.active,
                         listeners: {
@@ -189,7 +189,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         boxLabel: rule.label,
                         autoScroll: true,
                         name: rule.xtype,
-                        height: 25,
+                        height: 15,
                         padding: 10,
                         value: rule.active,
                         listeners: {
