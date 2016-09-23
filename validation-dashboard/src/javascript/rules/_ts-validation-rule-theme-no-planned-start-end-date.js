@@ -1,6 +1,6 @@
-Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootRule',{
+Ext.define('CA.techservices.validation.ThemeNoPlannedStartEndDateRule',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias:  'widget.tsfeatureunscheduledprojectnotstrategyrootrule',
+    alias:  'widget.tsthemenoplannedstartenddaterule',
    
     config: {
         /*
@@ -15,33 +15,32 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
-        label: 'Unscheduled, Wrong Project'
+        label: 'Feature No Planned Start/End Date'
 
     },
     constructor: function(config) {
         Ext.apply(this,config);
-        this.model = this.portfolioItemTypes[0];
+        this.model = this.portfolioItemTypes[2];
         this.label = this.getLabel();
     },
     getDescription: function() {
-        console.log("getDescription: WrongProject:",this);
+        console.log("themeNoPlannedStartEndDate.getDescription: ",this);
         
         var msg = Ext.String.format(
-            "Unscheduled {0} must be saved into *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            "{0} must have both Planned Start and End Dates.",
+            /[^\/]*$/.exec(this.model)
             );
 
         return msg;
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent','Release'];
+        return ['Name','PlannedStartDate','PlannedEndDate'];
     },
 
     getLabel: function(){
         this.label = Ext.String.format(
-            "Unscheduled, Wrong Project ({0})",
+            "Planned Start/End Date Missing ({0})",
             /[^\/]*$/.exec(this.getModel())
         );
 
@@ -54,9 +53,9 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
     },
     
     applyRuleToRecord: function(record) {
-        console.log("UnScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
-        // this rule: Unscheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') == null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+        console.log("themeNoPlannedStartEndDate.applyRuleToRecord:",record);        
+        
+        if ((record.get('PlannedStartDate') == null) || ( record.get('PlannedEndDate') == null )) {
             return this.getDescription();
         } else {
             return null; // no rule violation   

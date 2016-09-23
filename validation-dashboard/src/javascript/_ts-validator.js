@@ -8,6 +8,13 @@ Ext.define('CA.techservices.validator.Validator',{
      */
     rules: [],
     
+    /**
+     * 
+     */
+    deliveryTeamProjects: [],       // listing of projects where a SCHEDULED feature might reside
+
+    businessPlanningProjects: [],   // listing of programs where an UNSCHEDULED feature might reside
+    
     recordsByModel: {},
     
     categoryField: 'Project',

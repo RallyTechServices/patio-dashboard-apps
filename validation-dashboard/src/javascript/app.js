@@ -35,9 +35,12 @@ extend: 'CA.techservices.app.ChartApp',
     
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
-    initialActiveRules: [], // a listing of the xtypes of active rules (saved for each user)
+    initialActiveRules: [],         // a listing of the xtypes of active rules (saved for each user)
+    strategyProjects:[],            // array of projects that are in the strategy branch of project hierarchy
+    deliveryTeamProjects:[],        // array of projects that are in the execution/delivery team branch
+    
     getState: function() {
-        var state = null;
+        var state = {};
         
         if (this.validator){
             var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
@@ -47,6 +50,10 @@ extend: 'CA.techservices.app.ChartApp',
                 initialActiveRules: active
             };
         }
+        state.strategyProjects = this.strategyProjects;
+        //state.deliveryTeamProjects = this.deliveryTeamProjects;
+
+        console.log('app.getState: ', state);
 
         return state;
     },
@@ -81,7 +88,9 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype: 'tsthemewithoutparentrule'},
             {xtype: 'tspi3withoutparentrule'},
             {xtype: 'tspi4withoutparentrule'},
-            {xtype: 'tsthemewithoutepmsidrule'}
+            {xtype: 'tsthemewithoutepmsidrule'},
+            {xtype: 'tsfeaturenoplannedstartenddaterule'},
+            {xtype: 'tsthemenoplannedstartenddaterule'}
         ]
     },
     
@@ -219,8 +228,39 @@ extend: 'CA.techservices.app.ChartApp',
         
         container.add({
             xtype:'rallybutton',
-            itemId:'rules_selection_button',
+            itemId:'business_project_selection_button',
             cls: 'secondary',
+            text: 'Business Planning', // USPTO calls 'Business Planning (Strategy)'
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function() {
+                    console.log('addSelectors._showBusinessPlanning: ');
+                    this._showBusinessPlanningSelection();
+                }
+            }
+        });
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId:'delivery_teams_selection_button',
+            cls: 'secondary',
+            text: 'Delivery Teams', // USPTO calls 'Delivery Teams'
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function() {
+                    console.log('addSelectors._showDeliveryTeamsSelection: ');
+                    this._showDeliveryTeamsSelection();
+                }
+            }
+        });     
+
+        container.add({
+            xtype:'rallybutton',
+            itemId:'rules_selection_button',
+            //cls: 'secondary',
+            cls: 'primary',
             text: 'Select Rules',
             disabled: false,
             listeners: {
@@ -410,7 +450,7 @@ extend: 'CA.techservices.app.ChartApp',
                         dataIndex : 'FormattedID',
                         text: "id",
                         renderer: function(value,meta,record){
-                            return Ext.String.format("<a href='{0}' target='_top'>{1}</a>",Rally.nav.Manager.getDetailUrl(record.get('_ref')),value);
+                            return Ext.String.format("<a href='{0}' target='_new'>{1}</a>",Rally.nav.Manager.getDetailUrl(record.get('_ref')),value);
                         }
                     },
                     {
@@ -435,6 +475,63 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
                 store : store
             }]
+        }).show();
+    },
+
+    _showBusinessPlanningSelection: function() {
+        var me = this;
+        //var rules = this.validator.getRules();
+
+        console.log("_showBusinessPlanningSelection:");
+
+        Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
+            
+            title: 'Select the Business Planning (Strategy) projects',
+            root_filters:   [
+                {property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                operator: '=',
+                value: this.getSetting('rootStrategyProject')}
+                ],
+            listeners: {
+                scope: this,
+                itemschosen: function(dialog,projects){  
+                                      
+                    this.strategyProjects = Ext.Array.map(projects,function(project){
+                        return project.getData();
+                    });
+                    this.saveState();
+
+                    console.log('_showBusinessPlanningDialog.ItemsChosen:',projects,dialog, this.strategyProjects);
+
+                    this._loadData();                    
+                }    
+            }
+        }).show();
+    },
+
+    _showDeliveryTeamsSelection: function() {
+        var me = this;
+        //var rules = this.validator.getRules();
+
+        console.log("showDeliveryTeam._showDeliveryTeamsSelection:");
+
+        Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
+            //rules: rules,
+            title: 'Select the Delivery Team projects',
+            root_filters: [
+                {property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                operator: '=',
+                value: this.getSetting('rootDeliveryProject')}
+                ],
+            listeners: {
+                scope: this,
+                itemschosen: function(dialog,projects){
+                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects);
+                    this.validator.deliveryTeamProjects = projects;
+                    this.saveState();
+                    this._loadData();                    
+                }    
+            }
         }).show();
     },
 
