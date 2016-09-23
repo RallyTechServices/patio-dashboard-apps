@@ -3,13 +3,13 @@
 <head>
     <title>Productivity Velocity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 21 2016 15:49:01 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Sep 22 2016 18:47:53 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 21 2016 15:49:01 GMT-0400 (EDT)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 116693538496;
+        var APP_BUILD_DATE = "Thu Sep 22 2016 18:47:53 GMT-0700 (PDT)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 120656725321;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1378,11 +1378,16 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         });
     },
     
-    setChart: function(config) {
+    removeChart: function() {
         var box = this.down('#chart_box');
         box.removeAll();
+    },
+    
+    setChart: function(config) {
+        var box = this.down('#chart_box');
         
-        
+        this.removeChart();
+
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,
@@ -1426,6 +1431,7 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
+            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -1480,6 +1486,11 @@ Ext.define("CA.techservices.app.ChartApp", {
     getChartBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
         return this.down('#main_chart_' + index);
+    },
+    
+    clearChartBox: function(index) {
+        if ( Ext.isEmpty( index ) ) { index = 0; }
+        this.down('#main_chart_' + index) && this.down('#main_chart_' + index).removeChart();
     },
     
     setChart: function(config,index) {
@@ -2062,30 +2073,41 @@ Ext.define("PVNApp", {
     config: {
         defaultSettings: {
             showPatterns: false,
-            showCount:  false
+            showCount:  false,
+            model: 'UserStory'
         }
     },
          
     description: "",
 
+    modelsNamesFromType: {
+        'HierarchicalRequirement':'Stories',
+        'UserStory':'Stories', 
+        'Defect':'Defects'
+    },
+    
     _getDescriptions: function(){
         var me = this;
-        return  me.getSetting('showCount') ? "<strong>Productivity Throughput (Stories)</strong><br/>" +
-                    "<br/>" +
-                    "This Chart displays the velocity for each timebox." + 
-                    "Click on a bar to see a table with the stories for the team in that timebox." +
-                    "<p/>" +
-                    "<strong>Notes:</strong>" +
-                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported."
-                    :"<strong>Productivity Velocity (Stories)</strong><br/>" +
-                    "<br/>" +
-                    "This Chart displays the velocity for each timebox." + 
-                    "Click on a bar to see a table with the stories for the team in that timebox." +
-                    "<p/>" +
-                    "<strong>Notes:</strong>" +
-                    "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.";
+        var model = this.modelsNamesFromType[this.getSetting('model')];
+        var metric = 'number of points accepted for each item';
+        if ( this.getSetting('showCount') ) {
+            metric = 'number of items accepted';
+        }
+        
+        this.logger.log('Settings:', this.getSettings());
+        
+        return  Ext.String.format("<strong>Productivity Throughput ({0})</strong><br/>" +
+            "<br/>" +
+            "This Chart displays the {1} item in each timebox." + 
+            "Click on a bar to see a table with the stories for the team in that timebox." +
+            "<p/>" +
+            "<strong>Notes:</strong>" +
+            "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
+            
+            model,
+            metric
+        );
     },
-
 
     launch: function() {
         this.description = this._getDescriptions();
@@ -2167,7 +2189,7 @@ Ext.define("PVNApp", {
             scope: this,
             success: function(results) {
 
-				this._sortObjectsbyTBDate(results);
+                this._sortObjectsbyTBDate(results);
 
         var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
 
@@ -2216,11 +2238,11 @@ Ext.define("PVNApp", {
     
     _sortTimeboxes: function(timeboxes) {
 
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
+            this.setLoading(false);  
+            return [];
+        }
 
         this.setLoading("Fetching timeboxes...");
         this.logger.log("_sortTimeboxes IN", timeboxes);
@@ -2233,19 +2255,20 @@ Ext.define("PVNApp", {
             return 0;
         }); 
         
+        this.timeboxes = timeboxes;
         return timeboxes;
 
     },
 
     _sortObjectsbyTBDate: function(records) {
-    	
+        
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
 
-				for (i=0; i < records.length; i++) { 
-					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
-					};
+        for (i=0; i < records.length; i++) { 
+            records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
+        };
      
-        Ext.Array.sort(records, function(a,b){      	
+        Ext.Array.sort(records, function(a,b){          
             if ( a.sort_field < b.sort_field ) { return -1; }
             if ( a.sort_field > b.sort_field ) { return  1; }
             return 0;
@@ -2273,8 +2296,10 @@ Ext.define("PVNApp", {
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
+        var model_name = this.getSetting('model');
+        
         var config = {
-            model:'HierarchicalRequirement',
+            model:model_name,
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID',
@@ -2282,12 +2307,8 @@ Ext.define("PVNApp", {
                 'StartDate','EndDate','ReleaseStartDate','ReleaseDate']
         };
         
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            }
-        ],this).then({
-            success: function(results) {            	    
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(results) {                    
                 deferred.resolve(Ext.Array.flatten(results));                             
             },
             failure: function(msg) {
@@ -2316,22 +2337,22 @@ Ext.define("PVNApp", {
             timebox_type = this.timebox_type;
 
         
-        if ( items.length === 0 ) { return hash; }
+        //if ( items.length === 0 ) { return hash; }
         
         var base_hash = {
             records: {
                 all: []
             }
         };
+        
+        // create all the hash keys
+        Ext.Array.each(this.timeboxes, function(timebox){
+            hash[timebox.get('Name')] = Ext.Object.merge({}, Ext.clone(base_hash) );
+        });
 
         Ext.Array.each(items, function(item){
             var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
             hash[timebox].records.all.push(item);
-           
         });
         
         return hash;
@@ -2339,12 +2360,23 @@ Ext.define("PVNApp", {
     },
         
     _makeChart: function(artifacts_by_timebox) {
-        //console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
+        console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
         var me = this;
-        var title = me.getSetting('showCount') ? 'Productivity Throughput (Stories)':'Productivity Velocity (Stories)';
+        
+        var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
+        var model_name = this.modelsNamesFromType[this.getSetting('model')];
+        
+        var type = "Velocity";
+        if ( me.getSetting('showCount') ) { type = "Throughput"; }
+        
+        var title = Ext.String.format('Productivity {0} ({1})',
+            type,
+            model_name
+        );
+        
         var name = me.getSetting('showCount') ? 'Counts':'Points';
         var categories = this._getCategories(artifacts_by_timebox);
-        var series = this._getSeries(artifacts_by_timebox);		
+        var series = this._getSeries(artifacts_by_timebox);        
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         
         if ( this.getSetting('showPatterns') ) {
@@ -2352,67 +2384,79 @@ Ext.define("PVNApp", {
         }
 
         this.setChart({
-		        	chartData: {
-		                        categories: categories,
-		                        series: [{
-		                        	name: name, 
-		                        	data: series
-		                         	}]
-		                     },
-		        chartConfig: { 
-		          							chart: {type: 'column'},
-		                        title: {text: title},
-		                        xAxis: {},
-		                        yAxis: {title: {text: name}},
-		                        plotOptions: {
-		                            column: {stacking: 'normal'}
-		                        },
-		                        tooltip: {
-								                formatter: function() {
-		                    					return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
-		                						} 
-		             						}
-		                     },
-					  chartColors: colors                                 
-		                       
-				});
+            chartData: {
+                categories: categories,
+                series: [{
+                    name: name, 
+                    data: series
+                }]
+            },
+            chartConfig: { 
+                chart: {type: 'column'},
+                title: {text: title},
+                xAxis: {},
+                yAxis: {
+                    title: {text: name},
+                    min: 0
+                },
+                plotOptions: {
+                    column: {stacking: 'normal'}
+                },
+                tooltip: {
+                    formatter: function() {
+                    return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
+                        } 
+                    }
+                },
+            chartColors: colors                                 
+                       
+        });
         this.setLoading(false);
-			},
+    },
 
     _getCategories: function(artifacts_by_timebox) {
+        console.log('_getCategories', artifacts_by_timebox);
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
     _getSeries: function(artifacts_by_timebox) {
-    		var me = this;
-            var name = me.getSetting('showCount') ? 'Counts':'Points';
-    		var datapoints = [];
-            Ext.Object.each(artifacts_by_timebox, function (key, value) {
-            	var records = value.records || [];
-                var value = 0;
-                if(me.getSetting('showCount')){
-                    value = records.all.length;
-                }else{
-                    Ext.Array.each(records.all,function(story){
-                        value += story.get('PlanEstimate');
-                    });
-                }
-
-            	datapoints.push({
-            		y: value,
-            		_records: records,
-    				events: {
-       					click: function () {
-       						me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
-       					}
-    				}      		
-            	});
+        var me = this;
+        var name = me.getSetting('showCount') ? 'Counts':'Points';
+        var datapoints = [];
+        Ext.Object.each(artifacts_by_timebox, function (key, value) {
+            var records = value.records || [];
+            var value = 0;
+            if(me.getSetting('showCount')){
+                value = records.all.length;
+            }else{
+                Ext.Array.each(records.all,function(story){
+                    value += story.get('PlanEstimate');
+                });
+            }
+        
+            datapoints.push({
+                y: value,
+                _records: records,
+                events: {
+                   click: function () {
+                       me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
+                   }
+                }              
             });
-        	
-       return datapoints;
+        });
+            
+        return datapoints;
     },
     
     getSettingsFields: function() {
+        var artifact_name_store = Ext.create('Ext.data.Store', {
+            fields: ['Name','Model'],
+            data : [
+                { Name: 'User Story', Model: 'HierarchicalRequirement'},
+                { Name:'Defect', Model:'Defect'}
+            ]
+        });        
+
         return [
         { 
             name: 'showPatterns',
@@ -2429,6 +2473,16 @@ Ext.define("PVNApp", {
             fieldLabel: '',
             margin: '0 0 25 25',
             boxLabel: 'Show by Count<br/><span style="color:#999999;"><i>Tick to use story count.  Otherwise, uses story points.</i></span>'
+        },
+        {
+            name: 'model',
+            xtype: 'combobox',
+            fieldLabel: 'Choose Type',
+            store: artifact_name_store,
+            queryMode: 'local',
+            displayField: 'Name',
+            valueField: 'Model',
+            margin: '0 0 25 25'
         }
         ];
     },
