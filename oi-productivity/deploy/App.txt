@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 22 2016 19:14:34 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 22 2016 19:16:41 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 22 2016 19:14:34 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 22 2016 19:16:41 GMT-0700 (PDT)";
         var STORY    = "US555";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 85141471593;
+        var CHECKSUM = 85075248952;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1633,10 +1633,6 @@ descriptions: [
                     }
                 },me);
 
-
-
-
-
                 me._makeChart(final_results);
                 me._makeGrid(final_results);
                 
@@ -2061,9 +2057,10 @@ descriptions: [
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
             fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         },
         {
             name: 'showAllWorkspaces',

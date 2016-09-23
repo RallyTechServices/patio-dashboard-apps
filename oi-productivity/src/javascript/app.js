@@ -141,10 +141,6 @@ descriptions: [
                     }
                 },me);
 
-
-
-
-
                 me._makeChart(final_results);
                 me._makeGrid(final_results);
                 
@@ -569,9 +565,10 @@ descriptions: [
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
             fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            labelWidth: 135,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         },
         {
             name: 'showAllWorkspaces',
