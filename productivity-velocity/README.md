@@ -1,9 +1,14 @@
-#Responsiveness - Time in Process (Stories P50)
+#Productivity - by Velocity
 
-Over a series of iterations, show the median value of all user stories Time in Process.
-TiP being defined as the amount of time a Story is either in "In-Progess" or "Completed" states.
 
 ![Screen Shot](images/chart.png)
+
+![Screen Shot](images/settings.png)
+
+Admin can use Edit App Settings to switch the metric from count to size, and the type from Defect to User Story.
+
+ * When metric is size: show Velocity
+ * When metric is count: show Throughput
 
 ## Development Notes
 
