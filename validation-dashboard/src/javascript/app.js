@@ -501,7 +501,7 @@ extend: 'CA.techservices.app.ChartApp',
                     });
                     this.saveState();
 
-                    console.log('_showBusinessPlanningDialog.ItemsChosen:',projects,dialog, this.strategyProjects);
+                    console.log('_showBusinessPlanningDialog.ItemsChosen:',dialog,projects, this.strategyProjects);
 
                     this._loadData();                    
                 }    
@@ -526,9 +526,14 @@ extend: 'CA.techservices.app.ChartApp',
             listeners: {
                 scope: this,
                 itemschosen: function(dialog,projects){
-                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects);
-                    this.validator.deliveryTeamProjects = projects;
+                    
+                    this.strategyProjects = Ext.Array.map(projects,function(project){
+                        return project.getData();
+                    });
                     this.saveState();
+                                        
+                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects,this.deliveryTeamProjects);
+
                     this._loadData();                    
                 }    
             }
