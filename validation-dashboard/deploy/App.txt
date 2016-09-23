@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 22 2016 19:51:28 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 23 2016 13:18:17 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 22 2016 19:51:28 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Sep 23 2016 13:18:17 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 858256668887;
+        var CHECKSUM = 877464929500;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1295,13 +1295,20 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
          * Title to give to the dialog
          */
         title: 'Choose Project(s)',
-
+        /**
+         * 
+         * @cfg {String} introText
+         * 
+         *  Informational text to include on the dialog.
+         */
+        introText: null,
+        
         /**
          * @cfg {Boolean}
          * Allow multiple selection or not
          */
         multiple: true,
-
+        
         /**
          * @cfg {Object}  || Rally.data.wsapi.Filter[]  
          * Name of top project to start building the tree down through the hierarchy.
@@ -1309,7 +1316,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         root_filters: [{
                 property: 'Parent',
                 value: ""
-            }],
+        }],
 
         /**
          * @cfg {Object}
@@ -1322,7 +1329,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
             },
             sorters: [
                 {
-                    property: 'FormattedID',
+                    property: 'Name',
                     direction: 'DESC'
                 }
             ]
@@ -1349,14 +1356,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         gridConfig: {},
 
         /**
-         * @cfg {String}|{String[]}
-         * The ref(s) of items which should be selected when the chooser loads
-         */
-        selectedRecords: undefined,
-
-        /**
-         * @cfg {Array}
-         * The records to select when the chooser loads
+         * @cfg {Object[] || Rally.data.wsapi.Model[]}  initialSelectedRecords
+         * The records to select when the chooser loads.  Provide either configuration objects
+         * (with at lease { _ref: xxx } defined) or models
          */
         initialSelectedRecords: undefined,
 
@@ -1424,7 +1426,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
                     disabled: true,
                     userAction: 'clicked done in dialog',
                     handler: function() {
-                        this.fireEvent('itemschosen',this, this.getSelectedRecords());
+                        this.fireEvent('itemschosen', this.getSelectedRecords());
                         this.close();
                     }
                 },
@@ -1506,14 +1508,13 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         }
         var me = this;
 
-        console.log('projectTreePicker.buildGrid',me.root_filters);
-
         this.setLoading('Fetching Project Tree...');
         Ext.create('Rally.data.wsapi.ProjectTreeStoreBuilder').build({
             models: ['project'],
             autoLoad: true,
             enableHierarchy: true,
-            filters: me.root_filters
+            filters: me.root_filters,
+            sorters: [{property:'Name'}]
         }).then({
             scope: this,
             success: function(store) {
@@ -1564,8 +1565,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
     },
 
     _findRecordInSelectionCache: function(record){
+        var me = this;
         return _.findIndex(this.selectionCache, function(cachedRecord) {
-            return cachedRecord.get('_ref') === record.get('_ref');
+            return me._specialGet(cachedRecord,'_ref') === me._specialGet(record,'_ref');
         });
     },
 
@@ -1604,16 +1606,30 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         this._onGridLoad();
         this.center();
     },
+    
+    _specialGet: function(item, field) {
+        if ( Ext.isEmpty(item) ) { 
+            return null;
+        }
+        
+        if ( Ext.isFunction(item.get) ) { 
+            return item.get(field);
+        }
+        
+        return item[field];
+    },
+    
     _onGridLoad: function() {
         var store = this.grid.store;
         var records = [];
         Ext.Array.each(this.selectionCache, function(record) {
-            var foundNode = store.getRootNode().findChild('_ref', record.get('_ref'),true);
+            var ref = this._specialGet(record,'_ref');
+            var foundNode = store.getRootNode().findChild('_ref',ref,true);
 
             if (foundNode) {
                 records.push(foundNode);
             }
-        });
+        },this);
         if (records.length) {
             this.grid.getSelectionModel().select(records);
         }
@@ -5737,6 +5753,7 @@ extend: 'CA.techservices.app.ChartApp',
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [],         // a listing of the xtypes of active rules (saved for each user)
+    
     strategyProjects:[],            // array of projects that are in the strategy branch of project hierarchy
     deliveryTeamProjects:[],        // array of projects that are in the execution/delivery team branch
     
@@ -5759,6 +5776,17 @@ extend: 'CA.techservices.app.ChartApp',
         return state;
     },
     
+    getStrategyProjectState: function(){
+        console.log('app.getStrategyProjectState:', this.strategyProjects);
+        return {projects: this.strategyProjects};
+    },
+    
+    // restoring/reconstituting state.
+    getDeliveryTeamProjectState: function(){
+        console.log('app.getDeliveryTeamProjectState:', this.deliveryTeamProjects);
+        return {projects: this.deliveryTeamProjects};
+    },
+
     applyState: function(state) {
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
@@ -5766,6 +5794,22 @@ extend: 'CA.techservices.app.ChartApp',
         }
     },
     
+    // saving the state
+    applyStrategyProjectState: function(state){
+        this.callParent(arguments);
+        if (state.hasOwnProperty('strategyProjects')) {
+            this.strategyProjects = state.strategyProjects;
+        }
+    },
+
+    // saving the state
+    applyDeliveryTeamProjectState: function(state){
+        this.callParent(arguments);
+        if (state.hasOwnProperty('deliveryTeamProjects')) {
+            this.deliveryTeamProjects = state.deliveryTeamProjects;
+        }
+    },
+
     rulesByType: {
         Task: [
             {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
@@ -6187,7 +6231,9 @@ extend: 'CA.techservices.app.ChartApp',
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             
-            title: 'Select the Business Planning (Strategy) projects',
+            title: 'Select the Business Planning projects',
+            introText: 'Select the projects where your portfolio items should be.',
+            initialSelectedRecords: me.strategyProjects,
             root_filters:   [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -6195,14 +6241,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){  
-                                      
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences
+                    // can choke on an instantiated class                  
+                    me.strategyProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)) {
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log("_showBusinessPlanningSelection:", items);
+                    this.logger.log('--', this.strategyProjects);
                     this.saveState();
-
-                    console.log('_showBusinessPlanningDialog.ItemsChosen:',projects,dialog, this.strategyProjects);
 
                     this._loadData();                    
                 }    
@@ -6219,6 +6269,8 @@ extend: 'CA.techservices.app.ChartApp',
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             //rules: rules,
             title: 'Select the Delivery Team projects',
+            introText: 'Select the projects for the Delivery Teams',
+            initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -6226,10 +6278,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){
-                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects);
-                    this.validator.deliveryTeamProjects = projects;
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences can choke on fully instantiated classes
+                    this.deliveryTeamProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)){
+                            item = item.getData();
+                        }
+                        return item;
+                    });
+                    this.logger.log('_showDeliveryTeamsSelection: ',items);
+                    this.logger.log('--',this.deliveryTeamProjects);
                     this.saveState();
+
                     this._loadData();                    
                 }    
             }
