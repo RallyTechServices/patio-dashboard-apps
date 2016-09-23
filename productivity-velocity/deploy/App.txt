@@ -3,13 +3,13 @@
 <head>
     <title>Productivity Velocity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 22 2016 15:42:27 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 22 2016 18:37:41 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 22 2016 15:42:27 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 22 2016 18:37:41 GMT-0700 (PDT)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 119829428308;
+        var CHECKSUM = 119828773637;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2102,7 +2102,6 @@ Ext.define("PVNApp", {
         );
     },
 
-
     launch: function() {
         this.description = this._getDescriptions();
         this.callParent();
@@ -2232,11 +2231,11 @@ Ext.define("PVNApp", {
     
     _sortTimeboxes: function(timeboxes) {
 
-                if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);                    
-                        return [];
-                }
+            this.setLoading(false);  
+            return [];
+        }
 
         this.setLoading("Fetching timeboxes...");
         this.logger.log("_sortTimeboxes IN", timeboxes);
@@ -2249,6 +2248,7 @@ Ext.define("PVNApp", {
             return 0;
         }); 
         
+        this.timeboxes = timeboxes;
         return timeboxes;
 
     },
@@ -2290,7 +2290,6 @@ Ext.define("PVNApp", {
         ];
         
         var model_name = this.getSetting('model');
-        console.log('model:', model_name);
         
         var config = {
             model:model_name,
@@ -2301,11 +2300,7 @@ Ext.define("PVNApp", {
                 'StartDate','EndDate','ReleaseStartDate','ReleaseDate']
         };
         
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            }
-        ],this).then({
+        TSUtilities.loadWsapiRecords(config).then({
             success: function(results) {                    
                 deferred.resolve(Ext.Array.flatten(results));                             
             },
@@ -2342,15 +2337,15 @@ Ext.define("PVNApp", {
                 all: []
             }
         };
+        
+        // create all the hash keys
+        Ext.Array.each(this.timeboxes, function(timebox){
+            hash[timebox.get('Name')] = Ext.Object.merge({}, Ext.clone(base_hash) );
+        });
 
         Ext.Array.each(items, function(item){
             var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
             hash[timebox].records.all.push(item);
-           
         });
         
         return hash;

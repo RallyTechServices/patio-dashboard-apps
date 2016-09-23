@@ -38,7 +38,6 @@ Ext.define("PVNApp", {
         );
     },
 
-
     launch: function() {
         this.description = this._getDescriptions();
         this.callParent();
@@ -168,11 +167,11 @@ Ext.define("PVNApp", {
     
     _sortTimeboxes: function(timeboxes) {
 
-                if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);                    
-                        return [];
-                }
+            this.setLoading(false);  
+            return [];
+        }
 
         this.setLoading("Fetching timeboxes...");
         this.logger.log("_sortTimeboxes IN", timeboxes);
@@ -185,6 +184,7 @@ Ext.define("PVNApp", {
             return 0;
         }); 
         
+        this.timeboxes = timeboxes;
         return timeboxes;
 
     },
@@ -226,7 +226,6 @@ Ext.define("PVNApp", {
         ];
         
         var model_name = this.getSetting('model');
-        console.log('model:', model_name);
         
         var config = {
             model:model_name,
@@ -237,11 +236,7 @@ Ext.define("PVNApp", {
                 'StartDate','EndDate','ReleaseStartDate','ReleaseDate']
         };
         
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            }
-        ],this).then({
+        TSUtilities.loadWsapiRecords(config).then({
             success: function(results) {                    
                 deferred.resolve(Ext.Array.flatten(results));                             
             },
@@ -278,15 +273,15 @@ Ext.define("PVNApp", {
                 all: []
             }
         };
+        
+        // create all the hash keys
+        Ext.Array.each(this.timeboxes, function(timebox){
+            hash[timebox.get('Name')] = Ext.Object.merge({}, Ext.clone(base_hash) );
+        });
 
         Ext.Array.each(items, function(item){
             var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
             hash[timebox].records.all.push(item);
-           
         });
         
         return hash;
