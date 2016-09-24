@@ -7,9 +7,6 @@ Ext.define('CA.techservices.validation.ThemeNoPlannedStartEndDateRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],

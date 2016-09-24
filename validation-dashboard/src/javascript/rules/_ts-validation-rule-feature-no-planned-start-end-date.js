@@ -7,12 +7,10 @@ Ext.define('CA.techservices.validation.FeatureNoPlannedStartEndDateRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
-        
-        // discovered in app.js, passed on crea
+
+        // discovered in app.js, passed on create
         portfolioItemTypes:[],
+        
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
         label: 'Feature No Planned Start/End Date'

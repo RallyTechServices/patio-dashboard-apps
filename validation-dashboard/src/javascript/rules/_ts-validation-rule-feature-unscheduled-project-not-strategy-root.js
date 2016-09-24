@@ -7,10 +7,7 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
-        
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -27,9 +24,8 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         console.log("getDescription: WrongProject:",this);
         
         var msg = Ext.String.format(
-            "Unscheduled {0} must be saved into *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            "Unscheduled {0} must be saved into a Business Planning project.",
+            /[^\/]*$/.exec(this.model)
             );
 
         return msg;
@@ -54,9 +50,13 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
     },
     
     applyRuleToRecord: function(record) {
-        console.log("UnScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
         // this rule: Unscheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') == null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+        var me = this;
+
+        var projectRefs = Ext.Array.map(me.strategyProjects,function(project){return project._ref});
+        console.log('UnscheduledFeatureInWrongProject.Refs:',projectRefs);
+
+        if ((record.get('Release') == null) && ( !Ext.Array.contains(projectRefs, record.get('Project')._ref )) ){
             return this.getDescription();
         } else {
             return null; // no rule violation   
