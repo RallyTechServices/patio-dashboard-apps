@@ -188,11 +188,11 @@ Ext.define("ATApp", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         

@@ -2,11 +2,11 @@ Ext.define("IntegrityApp", {
     extend: 'CA.techservices.app.ChartApp',
 
     descriptions: [
-        "<strong>Percentage of stories with Functional Test Coverage</strong><br/>" +
+        "<strong>Percentage of Stories with Functional Test Coverage</strong><br/>" +
             "<br/>" +
             "The top stacked bar chart displays your total test case coverage (by %) for user stories in the sprint (e.g., 100% indicates every testable user story had at least one testcase)" 
             ,
-        "<strong>Percentage passed</strong><br/>"+
+        "<strong>Percentage Passed</strong><br/>"+
             "<br/>" +
             "The gold line graph displays the pass rate of all the test cases completed in the sprint bytest casetype. <br/>" +
             "The green line graph displays the pass rate of stories tested in the sprint" 
@@ -16,9 +16,14 @@ Ext.define("IntegrityApp", {
         name : "IntegrityApp"
     },
     
-    config: {
+     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
-            showPatterns: false,
+           showPatterns: false,
             typeField: 'TestCase',
             typeFieldValue: 'Acceptance',
             isTestableField: 'c_IsTestable',
@@ -97,11 +102,11 @@ Ext.define("IntegrityApp", {
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
+//        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
@@ -149,17 +154,26 @@ Ext.define("IntegrityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
-        
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+    _sortTimeboxes: function(timeboxes) {
+
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+      
+        Ext.Array.sort(timeboxes, function(a,b){
+            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
+            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        });
+        }); 
         
-        return iterations;
+				this.timeboxes = timeboxes;        
+        return timeboxes;
     },
-    
+
+   
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
         if ( timeboxes.length === 0 ) { return; }
@@ -187,11 +201,11 @@ Ext.define("IntegrityApp", {
 
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date}
+            {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
         
         filters = Rally.data.wsapi.Filter.and(filters).and({property: isTestableField, operator: '=', value: true});
@@ -311,15 +325,14 @@ Ext.define("IntegrityApp", {
         var series = [],
             allowed_types = ['all','with_test_cases'];
         
-
-
         Ext.Array.each(allowed_types, function(allowed_type){
-            var name = allowed_type;
+            var name = allowed_type == 'all' ? 'All':'With Test Cases';
 
             series.push({
                 name: name,
                 color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
                 data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
+								pointPadding: allowed_type == 'all' ? 0 : 0.15,
                 type: 'column'              
             });
         },this);
@@ -327,12 +340,21 @@ Ext.define("IntegrityApp", {
         return series;
     },
 
-
     _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
         data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0,
+                _records: []
+            });
+						return;
+				}
+//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
             var y_value = 0;
 
@@ -363,7 +385,11 @@ Ext.define("IntegrityApp", {
         return {
             chart: { type:'column' },
             title: { text: 'Percentage of Stories with Functional Test Coverage' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: { 
                 min: 0,
                 title: { text: '%' },
@@ -399,6 +425,20 @@ Ext.define("IntegrityApp", {
         }
     },
 
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
 
 
     _makeBottomChart: function(artifacts_by_timebox) {
@@ -445,7 +485,16 @@ Ext.define("IntegrityApp", {
         var me = this,
             data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0
+            });
+						return;
+				}
+//        Ext.Object.each(artifacts_by_timebox, function(key, value){
             var y_value = 0;
             var all_length = value.records.all.length;
             var pass_length = 0;
@@ -474,9 +523,12 @@ Ext.define("IntegrityApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            //title: { text: 'Percentage of points affected by defects' },
+            title: { text: 'Percentage Passed' },
             xAxis: {
-                title: { }
+                title: { },
+                labels:{
+                    rotation:this._rotateLabels()
+                }
             },
             yAxis: [{ 
                 //min: 0,
@@ -610,9 +662,13 @@ Ext.define("IntegrityApp", {
 
 
     _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
-    },
+//        return Ext.Object.getKeys(artifacts_by_timebox);
+				return Ext.Array.map(this.timeboxes, function(timebox) {
 
+			return timebox.get('Name');
+
+			});
+    },
 
     getSettingsFields: function() {
         var me = this;
@@ -649,7 +705,7 @@ Ext.define("IntegrityApp", {
                         this.fireEvent('typeFieldChange',cb);
                     }
                 },                
-                readyEvent: 'ready'
+ //               readyEvent: 'ready'
             },
             {
                 name: 'typeFieldValue',
@@ -675,7 +731,7 @@ Ext.define("IntegrityApp", {
                         this.field = chk.value;
                     }
                 },
-                readyEvent: 'ready'                
+//                readyEvent: 'ready'                
             },
             {
                 name:'gridThreshold',

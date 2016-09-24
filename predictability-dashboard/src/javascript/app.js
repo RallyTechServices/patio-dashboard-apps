@@ -96,18 +96,15 @@ Ext.define("PredictabilityApp", {
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
+//        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
             success: function(results) {
-
-        this.logger.log('B4 _sortObjectsbyTBDate', results);
-								this._sortObjectsbyTBDate(results);
 
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
@@ -152,71 +149,26 @@ Ext.define("PredictabilityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
-        
-				if (iterations === 'undefined' || iterations.length === 0) { 
+
+		_sortTimeboxes: function(timeboxes) {
+
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
 						return [];
 				}
-
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+      
+        Ext.Array.sort(timeboxes, function(a,b){
+            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
+            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        });
+        }); 
         
-        return iterations;
+				this.timeboxes = timeboxes;        
+        return timeboxes;
     },
 
-/*    
-    _sortObjectsbyTBDate: function(records) {
-    	
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-
-				for (i=0; i < records.length; i++) { 
-					records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
-					};
-     
-        Ext.Array.sort(records, function(a,b){      	
-            if ( a.sort_field < b.sort_field ) { return -1; }
-            if ( a.sort_field > b.sort_field ) { return  1; }
-            return 0;
-        }); 
-
-        return records;
-
-    },
-*/
-
-    _sortObjectsbyTBDate: function(items) {
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-
-//				Sort Stories
-				for (i=0; i < items[0].length; i++) { 
-					items[0][i].sort_field = items[0][i]['data'][this.timebox_type][end_date_field];
-					};
-     
-        Ext.Array.sort(items[0], function(a,b){      	
-            if ( a.sort_field < b.sort_field ) { return -1; }
-            if ( a.sort_field > b.sort_field ) { return  1; }
-            return 0;
-        }); 
-
-//				Sort Defects
-				for (i=0; i < items[1].length; i++) { 
-					items[1][i].sort_field = items[1][i]['data'][this.timebox_type][end_date_field];
-					};
-     
-        Ext.Array.sort(items[1], function(a,b){      	
-            if ( a.sort_field < b.sort_field ) { return -1; }
-            if ( a.sort_field > b.sort_field ) { return  1; }
-            return 0;
-        }); 
-        return items;
-
-    },
-    
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
         if ( timeboxes.length === 0 ) { return; }
@@ -232,14 +184,14 @@ Ext.define("PredictabilityApp", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date}
+            {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
         
-        filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '=', value: 'Accepted'});
+        filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '>=', value: 'Accepted'});
 
         var config = {
             model:'HierarchicalRequirement',
@@ -347,14 +299,13 @@ Ext.define("PredictabilityApp", {
 
     _collectArtifactsByTimebox: function(items) {
         //console.log('items >>', items);
-        
 
         var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
 
         
-        if ( items[0].length === 0 ) { return hash; }
+        if ( items[0].length === 0 && items[1].length === 0 ) { return hash; }
         
         var base_hash = {
             records: {
@@ -436,29 +387,39 @@ Ext.define("PredictabilityApp", {
     _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
         data = [];
+                   
+				Ext.Array.each(this.timeboxes, function(tb) {
+					var timebox = tb.get('Name');
+					var value = artifacts_by_timebox[timebox];
+					if (Ext.isEmpty(value) ) {
+						  data.push({ 
+	                y:0,
+	                _records: []
+	            });
+							return;
+					}
 
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var records = value.records[allowed_type] || [];
-            var y_value = 0;
+          var records = value.records[allowed_type] || [];
+          var y_value = 0;
 
-            Ext.Array.each(records,function(story){
-                y_value += story.get('PlanEstimate')  
-            });
+          Ext.Array.each(records,function(story){
+              y_value += story.get('PlanEstimate') || 0;  
+          });
 
-            data.push({ 
-                y:y_value,
-                _records: records,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
-                    }
-                }
-            });
+          data.push({ 
+              y:y_value,
+              _records: records,
+              events: {
+                  click: function() {
+                      me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
+                  }
+              }
+          });
 
         });
 
-        return data
-    },       
+        return data;
+	    },       
 
     _getTopChartConfig: function() {
         var me = this;
@@ -541,31 +502,41 @@ Ext.define("PredictabilityApp", {
     _calculateBottomMeasure: function(artifacts_by_timebox) {
         var me = this,
         data = [];
+        
+				Ext.Array.each(this.timeboxes, function(tb) {
+					var timebox = tb.get('Name');
+					var value = artifacts_by_timebox[timebox];
 
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var av_records = value.records.av || [];
-            var pv_records = value.records.pv || [];
-            var av_value = 0;
-            var pv_value = 0;
-            var y_value = 0;
+					if (Ext.isEmpty(value) ) {
+						  data.push({ 
+          	      y:0
+            	});
+							return;
+					}
 
-            Ext.Array.each(av_records,function(story){
-                av_value += story.get('PlanEstimate')  
-            });
+          var av_records = value.records.av || [];
+          var pv_records = value.records.pv || [];
+          var av_value = 0;
+          var pv_value = 0;
+          var y_value = 0;
 
-            Ext.Array.each(pv_records,function(story){
-                pv_value += story.get('PlanEstimate')  
-            });
+          Ext.Array.each(av_records,function(story){
+              av_value += story.get('PlanEstimate')  
+          });
 
-            y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
+          Ext.Array.each(pv_records,function(story){
+              pv_value += story.get('PlanEstimate')  
+          });
 
-            data.push({ 
-                y: Math.round(y_value)
-            });
+          y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
 
-        });
+          data.push({ 
+              y: Math.round(y_value)
+          });
 
-        return data
+      });
+
+     	return data
     },    
     
     _getBottomChartConfig: function() {
@@ -718,7 +689,12 @@ Ext.define("PredictabilityApp", {
 
 
     _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+//        return Ext.Object.getKeys(artifacts_by_timebox);
+				return Ext.Array.map(this.timeboxes, function(timebox) {
+
+			return timebox.get('Name');
+
+			});
     },
 
 

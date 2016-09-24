@@ -3,11 +3,11 @@
 <head>
     <title>Acceptance Timing</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 14 2016 17:18:36 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Sep 23 2016 16:23:23 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 14 2016 17:18:36 GMT-0700 (PDT)";
-        var CHECKSUM = 136058879818;
+        var APP_BUILD_DATE = "Fri Sep 23 2016 16:23:23 GMT-0700 (PDT)";
+        var CHECKSUM = 136033398987;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2238,11 +2238,11 @@ Ext.define("ATApp", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
