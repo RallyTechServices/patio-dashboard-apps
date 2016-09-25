@@ -30,6 +30,11 @@ Ext.define("TSSplitStoryPerSprint", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false
         }
@@ -502,7 +507,11 @@ Ext.define("TSSplitStoryPerSprint", {
         return {
             chart: { type:'column' },
             title: { text: chart_title },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: { 
                 min: 0,
                 title: { text: this.metric }
@@ -515,6 +524,21 @@ Ext.define("TSSplitStoryPerSprint", {
         }
     },
     
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _makeRawGrid: function(sprint_objects) {
         var me = this;
         

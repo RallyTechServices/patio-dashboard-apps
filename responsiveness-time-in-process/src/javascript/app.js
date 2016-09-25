@@ -20,6 +20,11 @@ Ext.define("TSResponsivenessTiP", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
         }
@@ -319,7 +324,11 @@ Ext.define("TSResponsivenessTiP", {
 		          							chart: {type: 'column'},
 		                        title: {text: 'Responsiveness (Stories)'},
 		                        subtitle: {text: 'Time in Process (P50)'},
-		                        xAxis: {},
+								            xAxis: {
+								                labels:{
+								                    rotation:this._rotateLabels()
+								                }
+								            },
 		                        yAxis: {title: {text: 'Days'}},
 		                        plotOptions: {
 		                            column: {stacking: 'normal'}
@@ -335,6 +344,21 @@ Ext.define("TSResponsivenessTiP", {
 				});
         this.setLoading(false);
 			},
+
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
 
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
