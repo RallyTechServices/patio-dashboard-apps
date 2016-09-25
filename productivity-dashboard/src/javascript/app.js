@@ -14,6 +14,11 @@ Ext.define("ProductivityApp", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             targetVariability: 50
@@ -309,6 +314,21 @@ Ext.define("ProductivityApp", {
     },
 
 
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getTopSeries: function(artifacts_by_timebox) {
         var me = this;
         var allowed_types = ['Stories','Split_Stories','Defects']
@@ -374,7 +394,11 @@ Ext.define("ProductivityApp", {
         return {
             chart: { type:'column' },
             title: { text: 'Accepted Story/Defect Count and Size' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: { 
                 min: 0,
                 title: { text: 'Total Points' },

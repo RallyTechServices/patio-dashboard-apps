@@ -3,11 +3,11 @@
 <head>
     <title>Predictability</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 20 2016 13:53:53 GMT-0700 (PDT) -->
+    <!--  Build Date: Sat Sep 24 2016 18:49:30 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 20 2016 13:53:53 GMT-0700 (PDT)";
-        var CHECKSUM = 151007140321;
+        var APP_BUILD_DATE = "Sat Sep 24 2016 18:49:30 GMT-0700 (PDT)";
+        var CHECKSUM = 153636262947;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2069,6 +2069,11 @@ Ext.define("PredictabilityApp", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             targetVariability: 50
@@ -2471,13 +2476,32 @@ Ext.define("PredictabilityApp", {
         return data;
 	    },       
 
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getTopChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Predictability - Plan Variance' },
-            xAxis: {},
-            yAxis: { 
+             xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
+           yAxis: { 
                 min: 0,
                 title: { text: 'Total Points' },
                 stackLabels: {
@@ -2595,7 +2619,10 @@ Ext.define("PredictabilityApp", {
             chart: { type: 'line' },
             title: { text: 'Percentage of Difference between Planned and Actual Velocity' },
             xAxis: {
-                title: { }
+                title: { },
+                labels:{
+                    rotation:this._rotateLabels()
+                }
             },
             yAxis: [{ 
                 title: { text: 'Percentage' },
@@ -2742,9 +2769,9 @@ Ext.define("PredictabilityApp", {
 //        return Ext.Object.getKeys(artifacts_by_timebox);
 				return Ext.Array.map(this.timeboxes, function(timebox) {
 
-		return timebox.get('Name');
+			return timebox.get('Name');
 
-});
+			});
     },
 
 

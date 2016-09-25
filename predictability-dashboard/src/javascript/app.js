@@ -19,6 +19,11 @@ Ext.define("PredictabilityApp", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             targetVariability: 50
@@ -421,13 +426,32 @@ Ext.define("PredictabilityApp", {
         return data;
 	    },       
 
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getTopChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Predictability - Plan Variance' },
-            xAxis: {},
-            yAxis: { 
+             xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
+           yAxis: { 
                 min: 0,
                 title: { text: 'Total Points' },
                 stackLabels: {
@@ -545,7 +569,10 @@ Ext.define("PredictabilityApp", {
             chart: { type: 'line' },
             title: { text: 'Percentage of Difference between Planned and Actual Velocity' },
             xAxis: {
-                title: { }
+                title: { },
+                labels:{
+                    rotation:this._rotateLabels()
+                }
             },
             yAxis: [{ 
                 title: { text: 'Percentage' },
