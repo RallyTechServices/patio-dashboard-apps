@@ -2642,7 +2642,7 @@ Ext.define("IntegrityApp", {
         },
         defaultSettings: {
            showPatterns: false,
-            typeField: 'TestCase',
+            typeField: 'Type',
             typeFieldValue: 'Acceptance',
             isTestableField: 'c_IsTestable',
             gridThreshold: 2
