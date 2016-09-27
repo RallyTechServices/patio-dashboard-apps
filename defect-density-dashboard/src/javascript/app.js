@@ -6,10 +6,10 @@ Ext.define("DDApp", {
             "<br/>" +
             "The top stacked bar chart displays the total number of stories versus stories with at least one defect" 
             ,
-        "<strong>Percentage of stories with defects</strong><br/>"+
+        "<strong>Percentage of Stories with Defects</strong><br/>"+
             "<br/>" +
             "The brown line graph displays the percentage of stories that are affected by at least one defect" ,
-        "<strong>Percentage of points affected by defects</strong><br/>"+
+        "<strong>Percentage of Points Affected by Defects</strong><br/>"+
              "<br/>" +
             "The red line graph displays the percentage of points that are affected by defects in the sprint" 
 
@@ -20,6 +20,11 @@ Ext.define("DDApp", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             foundByColumn: 'c_foundBy'
@@ -36,7 +41,7 @@ Ext.define("DDApp", {
 
         this.timebox_limit = 10;
         this.addToBanner({
-            xtype: 'numberfield',
+            xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
@@ -97,11 +102,11 @@ Ext.define("DDApp", {
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
+//        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
@@ -150,18 +155,27 @@ Ext.define("DDApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(iterations) {
-        
-        Ext.Array.sort(iterations, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+    _sortTimeboxes: function(timeboxes) {
+
+				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
+            this.setLoading(false);					
+						return [];
+				}
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+      
+        Ext.Array.sort(timeboxes, function(a,b){
+            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
+            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        });
+        }); 
         
-        return iterations;
+				this.timeboxes = timeboxes;        
+        return timeboxes;
     },
-    
-    _fetchArtifactsInTimeboxes: function(timeboxes) {
+
+     _fetchArtifactsInTimeboxes: function(timeboxes) {
+        var me = this;
         if ( timeboxes.length === 0 ) { return; }
         
         var type = this.timebox_type;
@@ -175,11 +189,11 @@ Ext.define("DDApp", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date}
+            {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
         
         var config = {
@@ -216,11 +230,11 @@ Ext.define("DDApp", {
      */
 
     _collectArtifactsByTimebox: function(items) {
-
+        this.logger.log('1 _collectArtifactsByTimebox', items);
         var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
-        var foundByColumn = this.getSetting('foundByColumn');
+        var foundByColumn = me.getSetting('foundByColumn');
         var foundByValues = me.getSetting('typeFieldValue').split(',');
 
         var foundByFilter = [];
@@ -233,8 +247,8 @@ Ext.define("DDApp", {
         
         var base_hash = {
             records: {
-                all: [],
-                with_defects:[]
+                All: [],
+                With_Defects:[]
             }
         };
 
@@ -245,14 +259,14 @@ Ext.define("DDApp", {
                 
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
-            hash[timebox].records.all.push(item);
+            hash[timebox].records.All.push(item);
 
             var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
 
             console.log('defect filter ',filter.toString());
 
             if(item.get('Defects').Count > 0 ){
-                hash[timebox].records['with_defects'].push(item);
+                hash[timebox].records['With_Defects'].push(item);
             }
             
             
@@ -284,19 +298,17 @@ Ext.define("DDApp", {
 
     _getTopSeries: function(artifacts_by_timebox) {
         var series = [],
-            allowed_types = ['all','with_defects'];
+            allowed_types = ['All','With_Defects'];
         
-
-
         Ext.Array.each(allowed_types, function(allowed_type){
             var name = allowed_type;
 
             series.push({
                 name: name,
-                color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
+                color: allowed_type == 'All' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
                 data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
                 type: 'column',
-                pointPadding: allowed_type == 'all' ? 0 : 0.15,
+                pointPadding: allowed_type == 'All' ? 0 : 0.15,
                 pointPlacement: 0                
             });
         },this);
@@ -309,7 +321,18 @@ Ext.define("DDApp", {
         var me = this,
         data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0,
+                _records: []
+            });
+						return;
+				}
+
+//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
 
             data.push({ 
@@ -333,7 +356,11 @@ Ext.define("DDApp", {
         return {
             chart: { type:'column' },
             title: { text: 'Defect Density - Stories vs Stories with Defects' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
                 title: { text: 'Total Stories vs Stories w/ Defects' }
             }],
@@ -352,7 +379,22 @@ Ext.define("DDApp", {
         }
     },
 
-     _makeMiddleChart: function(artifacts_by_timebox) {
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
+      _makeMiddleChart: function(artifacts_by_timebox) {
         var me = this;
 
         var categories = this._getCategories(artifacts_by_timebox);
@@ -388,8 +430,18 @@ Ext.define("DDApp", {
         var me = this,
             data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            y_value = value.records.all.length > 0 ? Math.round((value.records.with_defects.length / value.records.all.length) * 100):0;
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0
+//                _records: []
+            });
+						return;
+				}
+//        Ext.Object.each(artifacts_by_timebox, function(key, value){
+            y_value = value.records.All.length > 0 ? Math.round((value.records.With_Defects.length / value.records.All.length) * 100):0;
             data.push({ 
                 y: y_value
             });
@@ -404,6 +456,9 @@ Ext.define("DDApp", {
             chart: { type: 'line' },
             title: { text: 'Percentage of Stories with Defects' },
             xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                },
                 title: { }
             },
             yAxis: [{ 
@@ -470,15 +525,25 @@ Ext.define("DDApp", {
         var me = this,
             data = [];
 
-        Ext.Object.each(artifacts_by_timebox, function(key, value){
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0
+//                _records: []
+            });
+						return;
+				}
+//        Ext.Object.each(artifacts_by_timebox, function(key, value){
             
             var all_points =0;
             var defect_points = 0;
-            Ext.Array.each(value.records.all,function(story){
+            Ext.Array.each(value.records.All,function(story){
                 all_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
             });
 
-            Ext.Array.each(value.records.with_defects,function(story){
+            Ext.Array.each(value.records.With_Defects,function(story){
                 defect_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
             });
 
@@ -496,12 +561,15 @@ Ext.define("DDApp", {
         var me = this;
         return {
             chart: { type: 'line' },
-            title: { text: 'Percentage of Points affected by Defects' },
+            title: { text: 'Percentage of Points Affected by Defects' },
             xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+		            },
                 title: { }
             },
             yAxis: [{ 
-                title: { text: '% of Points affected by Defects' }
+                title: { text: '% of Points Affected by Defects' }
             }],
             plotOptions: {
                 line: {
@@ -605,11 +673,11 @@ Ext.define("DDApp", {
             var size = 0;
 
             if('TotalStoryCount' == type){
-                size = value.records.all.length;
+                size = value.records.All.length;
             }else if('StoryCountInDefects' == type){
-                size = value.records.with_defects.length;
+                size = value.records.With_Defects.length;
             }else if('TotalDefectCount' == type){
-                Ext.Array.each(value.records.with_defects, function(story){
+                Ext.Array.each(value.records.With_Defects, function(story){
                     size += story.get('Defects').Count;
                 }); 
             }
@@ -617,12 +685,21 @@ Ext.define("DDApp", {
             return size;
     },
 
+    _getCategories: function(artifacts_by_timebox) {
+//        return Ext.Object.getKeys(artifacts_by_timebox);
+				return Ext.Array.map(this.timeboxes, function(timebox) {
 
+			return timebox.get('Name');
+
+			});
+    },
+
+/*
     _getCategories: function(artifacts_by_timebox) {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
 
-/*
+
 {
                 name: 'kanbanProcessField',
                 itemId:'kanbanProcessField',
@@ -709,7 +786,7 @@ Ext.define("DDApp", {
                         this.fireEvent('typeFieldChange',cb);
                     }
                 },                
-                readyEvent: 'ready'
+//                readyEvent: 'ready'
             },
             {
                 name: 'typeFieldValue',
@@ -735,7 +812,7 @@ Ext.define("DDApp", {
                         this.field = chk.value;
                     }
                 },
-                readyEvent: 'ready'                
+//                readyEvent: 'ready'                
             },        
         { 
             name: 'showPatterns',

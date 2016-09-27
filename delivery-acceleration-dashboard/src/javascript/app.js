@@ -20,6 +20,11 @@ Ext.define("TSDeliveryAcceleration", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false
         }
@@ -244,11 +249,11 @@ Ext.define("TSDeliveryAcceleration", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: timebox_property + '.' + start_field, operator: '>=', value:first_date},
-            {property: timebox_property + '.' + start_field, operator: '<=', value:last_date},
+            {property: timebox_property + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         
@@ -452,7 +457,11 @@ Ext.define("TSDeliveryAcceleration", {
         return {
             chart: { type:'column' },
             title: { text: 'Delivery Acceleration' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
                 id: "a",
                 //min: 0,
@@ -479,6 +488,21 @@ Ext.define("TSDeliveryAcceleration", {
         }
     },
     
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getRecordByRef: function(ref, fields) {
         var deferred = Ext.create('Deft.Deferred');
         
