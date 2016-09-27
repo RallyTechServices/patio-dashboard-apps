@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Sep 23 2016 20:01:12 GMT-0400 (EDT) -->
+    <!--  Build Date: Tue Sep 27 2016 16:14:59 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Sep 23 2016 20:01:12 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Tue Sep 27 2016 16:14:59 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 861891879436;
+        var CHECKSUM = 864013412993;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -5756,7 +5756,8 @@ extend: 'CA.techservices.app.ChartApp',
     getState: function() {
         // persisting state
         var state = {};
-        
+        console.log("app.getState0",this.initialActiveRules,this.validator);
+
         if (this.validator){
             var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
                 return rule.xtype;
@@ -5764,7 +5765,10 @@ extend: 'CA.techservices.app.ChartApp',
             state = {
                 initialActiveRules: active
             };
+        } else {
+            state = {initialActiveRules: this.initialActiveRules};
         }
+        
         // clear out before saving.
         state.strategyProjects = [];
         state.strategyProjects = this.strategyProjects;
@@ -5772,12 +5776,15 @@ extend: 'CA.techservices.app.ChartApp',
         state.deliveryTeamProjects = [];
         state.deliveryTeamProjects = this.deliveryTeamProjects;
 
-        console.log('app.getState: ', state);
+        console.log('app.getState1: ', state);
 
         return state;
     },
 
+
     applyState: function(state) {
+        console.log('app.applyState:',state);
+
         // rehydrating state...
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
