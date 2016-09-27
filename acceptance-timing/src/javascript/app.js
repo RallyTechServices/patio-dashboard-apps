@@ -42,13 +42,13 @@ Ext.define("ATApp", {
 
     _addSelectors: function() {
 
-        this.timebox_limit = 10;
+        this.timebox_limit = 1;
         this.addToBanner({
             xtype: 'rallynumberfield',
             name: 'timeBoxLimit',
             itemId: 'timeBoxLimit',
             fieldLabel: 'Timebox Limit',
-            value: 10,
+            value: 1,
             maxValue: 20,
             minValue: 1,            
             margin: '0 0 0 50',
@@ -332,6 +332,7 @@ Ext.define("ATApp", {
         }); 
         Ext.Array.each(fib_types, function(fib_type){
             name = fib_type;
+            if (name == "-1") {name = "Non-Fibonacci";}
             series.push({
                 name: name,
                 data: this._calculateTopMeasure(artifacts_by_timebox,fib_type)
@@ -459,8 +460,8 @@ Ext.define("ATApp", {
             chart: { type: 'area' },
             title: { text: 'Acceptance Timing of Stories' },
             xAxis: {
-                title: { text: 'Sprint Day' }
-            },
+                title: { text: 'Sprint Day' },
+			      },
             yAxis: [{ 
                 title: { text: 'Acceptance %' }
             }],
@@ -487,7 +488,11 @@ Ext.define("ATApp", {
                                     enabled: true
                                 }
                             }
-                        }
+                        },
+								        tooltip: {
+//								            pointFormat: '{series.name}: <b>{point.y}</b><br/>',
+								            valueSuffix: ' %'
+							          }
                 }
             }
         }
