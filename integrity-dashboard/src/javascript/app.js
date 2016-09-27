@@ -117,7 +117,8 @@ Ext.define("IntegrityApp", {
                 this._makeRawBottomGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
-                Ext.Msg.alert('--', msg);
+//                Ext.Msg.alert('--', msg);
+                Ext.Msg.alert('--', "Be sure you have gone to App Settings to set your configuration");
             }
         });
         
