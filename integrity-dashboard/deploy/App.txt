@@ -3,11 +3,11 @@
 <head>
     <title>Integrity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 10:45:18 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Sep 27 2016 15:09:06 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 10:45:18 GMT-0700 (PDT)";
-        var CHECKSUM = 218307024388;
+        var APP_BUILD_DATE = "Tue Sep 27 2016 15:09:06 GMT-0700 (PDT)";
+        var CHECKSUM = 219189994817;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1848,7 +1848,20 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark, this.grey7 ]; },
+    getConsistentBarColors: function() { 
+    		return [
+		    		this.grey4, 
+		    		this.blue_light, 
+		    		this.blue, 
+		    		this.blue_dark, 
+		    		this.grey7, 
+		    		this.lime, 
+		    		this.green, 
+		    		this.green_dk, 
+		    		this.orange, 
+		    		this.purple 
+  	  	]; 
+    },
     
     getConsistentBarPatterns: function() { 
         return [
@@ -2722,7 +2735,8 @@ Ext.define("IntegrityApp", {
                 this._makeRawBottomGrid(artifacts_by_timebox);
             },
             failure: function(msg) {
-                Ext.Msg.alert('--', msg);
+//                Ext.Msg.alert('--', msg);
+                Ext.Msg.alert('--', "Be sure you have gone to App Settings to set your configuration");
             }
         });
         
