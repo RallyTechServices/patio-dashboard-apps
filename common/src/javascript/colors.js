@@ -28,7 +28,20 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark, this.grey7 ]; },
+    getConsistentBarColors: function() { 
+    		return [
+		    		this.grey4, 
+		    		this.blue_light, 
+		    		this.blue, 
+		    		this.blue_dark, 
+		    		this.grey7, 
+		    		this.lime, 
+		    		this.green, 
+		    		this.green_dk, 
+		    		this.orange, 
+		    		this.purple 
+  	  	]; 
+    },
     
     getConsistentBarPatterns: function() { 
         return [
