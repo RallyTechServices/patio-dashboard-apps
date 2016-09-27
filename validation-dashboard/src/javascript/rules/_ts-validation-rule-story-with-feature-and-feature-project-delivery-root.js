@@ -2,8 +2,6 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorywithfeatureandfeatureprojectnotdeliveryroot',
     config: {
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
         label: 'Story Feature in Wrong Project(Story)'                
@@ -14,10 +12,10 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     },
 
     getDescription: function() {
-        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the {2} project.",
+        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the Delivery Team project.",
             this.label,
-            /[^\/]*$/.exec(this.portfolioItemTypes[0]), 
-            this.rootDeliveryProject);
+            /[^\/]*$/.exec(this.portfolioItemTypes[0]) 
+            );
 
         console.log('StoryFeatureWrongProject.getDescription: ',explanation);
 
@@ -92,6 +90,7 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {
+        var me = this;
 
         // check precheck rule first and exit if fails
         if ( ! this.shouldExecuteRule ) { return false; }
@@ -107,6 +106,8 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
         if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent.c_EPMSid) ) {
             return 'Has no EPMS ID';
         }
+
+        
         return false;
     },
     

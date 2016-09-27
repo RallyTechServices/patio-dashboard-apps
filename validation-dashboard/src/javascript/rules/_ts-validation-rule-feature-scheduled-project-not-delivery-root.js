@@ -7,9 +7,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
@@ -24,9 +22,8 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
-            "Scheduled {0} must be saved into *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            this.rootDeliveryProject
+            "Scheduled {0} must be saved into a Delivery Team project.",
+            /[^\/]*$/.exec(this.model)
             );
         return msg;
     },
@@ -49,9 +46,16 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record,this.rootDeliveryProject);        
         // this rule: Scheduled Feature is not in specified 'delivery' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
+        var me = this;
+
+        console.log("featureScheduledInWrongProject.applyRuleToRecord:",record,me.deliveryTeamProjects);   
+        console.log('featureScheduledInWrongProject.applyRuleToRecord2:',me.deliveryTeamProjects);     
+        
+        // slice out the project._ref from each project. Then compare on that!
+        var projectRefs = Ext.Array.map(me.deliveryTeamProjects,function(project){return project._ref});
+
+        if ((record.get('Release') != null) && ( !Ext.Array.contains(projectRefs, record.get('Project')._ref))) {
             return this.getDescription();               
         } else {
             return null; // no rule violation

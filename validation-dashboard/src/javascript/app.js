@@ -36,10 +36,12 @@ extend: 'CA.techservices.app.ChartApp',
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [],         // a listing of the xtypes of active rules (saved for each user)
+    
     strategyProjects:[],            // array of projects that are in the strategy branch of project hierarchy
     deliveryTeamProjects:[],        // array of projects that are in the execution/delivery team branch
     
     getState: function() {
+        // persisting state
         var state = {};
         
         if (this.validator){
@@ -50,21 +52,32 @@ extend: 'CA.techservices.app.ChartApp',
                 initialActiveRules: active
             };
         }
+        // clear out before saving.
+        state.strategyProjects = [];
         state.strategyProjects = this.strategyProjects;
-        //state.deliveryTeamProjects = this.deliveryTeamProjects;
+
+        state.deliveryTeamProjects = [];
+        state.deliveryTeamProjects = this.deliveryTeamProjects;
 
         console.log('app.getState: ', state);
 
         return state;
     },
-    
+
     applyState: function(state) {
+        // rehydrating state...
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
             this.initialActiveRules = state.initialActiveRules;
         }
+        if (state.hasOwnProperty('strategyProjects')) {
+            this.strategyProjects = state.strategyProjects;
+        }
+        if (state.hasOwnProperty('deliveryTeamProjects')) {
+            this.deliveryTeamProjects = state.deliveryTeamProjects;
+        }
     },
-    
+
     rulesByType: {
         Task: [
             {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
@@ -111,61 +124,12 @@ extend: 'CA.techservices.app.ChartApp',
         this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
         this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
 
-        me.logger.log('app.InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
-
         // add the array to the app.
         me.portfolioItemTypes = portfolioItemTypes;
-
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
-        // also grab appSetting for a target folder to hold high-level portfolio items
-        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-                        
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.Task, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-
-        // Get all the ruleConfigs into the array
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        
+        this.setLoading("Configuring rules ...");
+        // configure the rules
+        me._configureRules();
 
         // setup filter rule configs
         var story_base_filter = Rally.data.wsapi.Filter.or([
@@ -190,34 +154,15 @@ extend: 'CA.techservices.app.ChartApp',
         ]);
         this.task_filter = task_base_filter.or(task_ready_filter);
 
+        this.setLoading("Creating Validator ...");
         // create the validator object
         this.validator = this._instantiateValidator();
-        
+
         // add any selectors required
         this._addSelectors();
         
         // go get the data
         me._loadData();
-    },
-
-    _instantiateValidator: function() {
-        var me = this;
-                
-        var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: this.ruleConfigs,
-            fetchFields: ['FormattedID','ObjectID'],
-            baseFilters: {
-                HierarchicalRequirement: this.story_filter, 
-                Task: this.task_filter                
-            },        
-            pointEvents: {
-                click: function() {
-                    me.showDrillDown(this._records,this._name);
-                }
-            }
-        });
-        
-        return validator;
     },
 
     _addSelectors: function() {
@@ -289,8 +234,7 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     _loadData:function(){
-        this.setLoading("Performing prechecks...");
-
+       
         // remove the last chart, have to redraw anyway
         this.clearChartBox(0);
        
@@ -299,6 +243,7 @@ extend: 'CA.techservices.app.ChartApp',
         // independently.
         this.description = this.descriptions[0] + this.validator.getRuleDescriptions();
 
+        this.setLoading("Performing prechecks...");
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
             this._processPrecheckResults([]);
@@ -312,6 +257,83 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             });
         }               
+    },
+
+    _configureRules: function(){
+        var me = this;
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
+        // also grab appSetting for a target folder to hold high-level portfolio items
+        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){            
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // Get all the ruleConfigs into the array
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+
+    },
+
+    _instantiateValidator: function() {
+        var me = this;
+                
+        var validator = Ext.create('CA.techservices.validator.Validator',{
+            rules: this.ruleConfigs,
+            fetchFields: ['FormattedID','ObjectID'],
+            baseFilters: {
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
+            },        
+            pointEvents: {
+                click: function() {
+                    me.showDrillDown(this._records,this._name);
+                }
+            }
+        });
+        
+        return validator;
     },
 
     _processPrecheckResults: function(issues){
@@ -486,7 +508,9 @@ extend: 'CA.techservices.app.ChartApp',
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             
-            title: 'Select the Business Planning (Strategy) projects',
+            title: 'Select the Business Planning projects',
+            introText: 'Select the projects where your portfolio items should be.',
+            initialSelectedRecords: me.strategyProjects,
             root_filters:   [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -494,14 +518,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){  
-                                      
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences
+                    // can choke on an instantiated class                  
+                    me.strategyProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)) {
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log("_showBusinessPlanningSelection:", items);
+                    this.logger.log('--', this.strategyProjects);
                     this.saveState();
-
-                    console.log('_showBusinessPlanningDialog.ItemsChosen:',dialog,projects, this.strategyProjects);
 
                     this._loadData();                    
                 }    
@@ -518,6 +546,8 @@ extend: 'CA.techservices.app.ChartApp',
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             //rules: rules,
             title: 'Select the Delivery Team projects',
+            introText: 'Select the projects for the Delivery Teams',
+            initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -525,14 +555,17 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){
-                    
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences can choke on fully instantiated classes
+                    this.deliveryTeamProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)){
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log('_showDeliveryTeamsSelection: ',items);
+                    this.logger.log('--',this.deliveryTeamProjects);
                     this.saveState();
-                                        
-                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects,this.deliveryTeamProjects);
 
                     this._loadData();                    
                 }    

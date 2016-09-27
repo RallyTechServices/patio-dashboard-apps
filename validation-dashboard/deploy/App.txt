@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 22 2016 19:51:28 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 23 2016 20:01:12 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 22 2016 19:51:28 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Sep 23 2016 20:01:12 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 858256668887;
+        var CHECKSUM = 861891879436;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1295,13 +1295,20 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
          * Title to give to the dialog
          */
         title: 'Choose Project(s)',
-
+        /**
+         * 
+         * @cfg {String} introText
+         * 
+         *  Informational text to include on the dialog.
+         */
+        introText: null,
+        
         /**
          * @cfg {Boolean}
          * Allow multiple selection or not
          */
         multiple: true,
-
+        
         /**
          * @cfg {Object}  || Rally.data.wsapi.Filter[]  
          * Name of top project to start building the tree down through the hierarchy.
@@ -1309,7 +1316,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         root_filters: [{
                 property: 'Parent',
                 value: ""
-            }],
+        }],
 
         /**
          * @cfg {Object}
@@ -1322,7 +1329,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
             },
             sorters: [
                 {
-                    property: 'FormattedID',
+                    property: 'Name',
                     direction: 'DESC'
                 }
             ]
@@ -1349,14 +1356,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         gridConfig: {},
 
         /**
-         * @cfg {String}|{String[]}
-         * The ref(s) of items which should be selected when the chooser loads
-         */
-        selectedRecords: undefined,
-
-        /**
-         * @cfg {Array}
-         * The records to select when the chooser loads
+         * @cfg {Object[] || Rally.data.wsapi.Model[]}  initialSelectedRecords
+         * The records to select when the chooser loads.  Provide either configuration objects
+         * (with at lease { _ref: xxx } defined) or models
          */
         initialSelectedRecords: undefined,
 
@@ -1424,7 +1426,7 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
                     disabled: true,
                     userAction: 'clicked done in dialog',
                     handler: function() {
-                        this.fireEvent('itemschosen',this, this.getSelectedRecords());
+                        this.fireEvent('itemschosen', this.getSelectedRecords());
                         this.close();
                     }
                 },
@@ -1506,14 +1508,13 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         }
         var me = this;
 
-        console.log('projectTreePicker.buildGrid',me.root_filters);
-
         this.setLoading('Fetching Project Tree...');
         Ext.create('Rally.data.wsapi.ProjectTreeStoreBuilder').build({
             models: ['project'],
             autoLoad: true,
             enableHierarchy: true,
-            filters: me.root_filters
+            filters: me.root_filters,
+            sorters: [{property:'Name'}]
         }).then({
             scope: this,
             success: function(store) {
@@ -1564,8 +1565,9 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
     },
 
     _findRecordInSelectionCache: function(record){
+        var me = this;
         return _.findIndex(this.selectionCache, function(cachedRecord) {
-            return cachedRecord.get('_ref') === record.get('_ref');
+            return me._specialGet(cachedRecord,'_ref') === me._specialGet(record,'_ref');
         });
     },
 
@@ -1604,16 +1606,30 @@ Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
         this._onGridLoad();
         this.center();
     },
+    
+    _specialGet: function(item, field) {
+        if ( Ext.isEmpty(item) ) { 
+            return null;
+        }
+        
+        if ( Ext.isFunction(item.get) ) { 
+            return item.get(field);
+        }
+        
+        return item[field];
+    },
+    
     _onGridLoad: function() {
         var store = this.grid.store;
         var records = [];
         Ext.Array.each(this.selectionCache, function(record) {
-            var foundNode = store.getRootNode().findChild('_ref', record.get('_ref'),true);
+            var ref = this._specialGet(record,'_ref');
+            var foundNode = store.getRootNode().findChild('_ref',ref,true);
 
             if (foundNode) {
                 records.push(foundNode);
             }
-        });
+        },this);
         if (records.length) {
             this.grid.getSelectionModel().select(records);
         }
@@ -3216,6 +3232,16 @@ Ext.define('CA.techservices.validation.BaseRule',{
     active: false,
     
     /**
+     * @cfg {Array} of project refs for representing the strategy part of the project hierarchy 
+     */
+    strategyProjects:[],
+    
+    /**
+     * @cfg {Array} of project refs for representing the execution or delivery teams part of the project hierarchy 
+     */
+    deliveryTeamProjects:[],
+
+    /**
      * 
      * @cfg
      * {String} model The name of a record type that this rule applies to 
@@ -3289,9 +3315,7 @@ Ext.define('CA.techservices.validation.EpicWithoutParentRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -3453,12 +3477,10 @@ Ext.define('CA.techservices.validation.FeatureNoPlannedStartEndDateRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
-        
-        // discovered in app.js, passed on crea
+
+        // discovered in app.js, passed on create
         portfolioItemTypes:[],
+        
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
         label: 'Feature No Planned Start/End Date'
@@ -3525,9 +3547,7 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
@@ -3542,9 +3562,8 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
         console.log("FeatureScheduledProjectNotDelivery.getDescription:",this);
         
         var msg = Ext.String.format(
-            "Scheduled {0} must be saved into *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            this.rootDeliveryProject
+            "Scheduled {0} must be saved into a Delivery Team project.",
+            /[^\/]*$/.exec(this.model)
             );
         return msg;
     },
@@ -3567,9 +3586,16 @@ Ext.define('CA.techservices.validation.FeatureScheduledProjectNotDeliveryRootRul
     },
     
     applyRuleToRecord: function(record) {
-        console.log("FeatureScheduledInWrongProject.applyRuleToRecord:",record,this.rootDeliveryProject);        
         // this rule: Scheduled Feature is not in specified 'delivery' folder.
-        if ((record.get('Release') != null) && ( record.get('Project').Name != this.rootDeliveryProject )) {
+        var me = this;
+
+        console.log("featureScheduledInWrongProject.applyRuleToRecord:",record,me.deliveryTeamProjects);   
+        console.log('featureScheduledInWrongProject.applyRuleToRecord2:',me.deliveryTeamProjects);     
+        
+        // slice out the project._ref from each project. Then compare on that!
+        var projectRefs = Ext.Array.map(me.deliveryTeamProjects,function(project){return project._ref});
+
+        if ((record.get('Release') != null) && ( !Ext.Array.contains(projectRefs, record.get('Project')._ref))) {
             return this.getDescription();               
         } else {
             return null; // no rule violation
@@ -3593,10 +3619,7 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
-        
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -3613,9 +3636,8 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
         console.log("getDescription: WrongProject:",this);
         
         var msg = Ext.String.format(
-            "Unscheduled {0} must be saved into *{1}*.",
-            /[^\/]*$/.exec(this.model),
-            this.rootStrategyProject
+            "Unscheduled {0} must be saved into a Business Planning project.",
+            /[^\/]*$/.exec(this.model)
             );
 
         return msg;
@@ -3640,9 +3662,13 @@ Ext.define('CA.techservices.validation.FeatureUnscheduledProjectNotStrategyRootR
     },
     
     applyRuleToRecord: function(record) {
-        console.log("UnScheduledFeatureInWrongProject-applyRuleToRecord:",record);        
         // this rule: Unscheduled Feature is not in specified 'strategy' folder.
-        if ((record.get('Release') == null) && ( record.get('Project').Name != this.rootStrategyProject )) {
+        var me = this;
+
+        var projectRefs = Ext.Array.map(me.strategyProjects,function(project){return project._ref});
+        console.log('UnscheduledFeatureInWrongProject.Refs:',projectRefs);
+
+        if ((record.get('Release') == null) && ( !Ext.Array.contains(projectRefs, record.get('Project')._ref )) ){
             return this.getDescription();
         } else {
             return null; // no rule violation   
@@ -3666,9 +3692,7 @@ Ext.define('CA.techservices.validation.FeatureWithoutParentRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -3735,9 +3759,7 @@ Ext.define('CA.techservices.validation.Pi3WithoutParentRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -3805,9 +3827,7 @@ Ext.define('CA.techservices.validation.Pi4WithoutParentRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -4064,8 +4084,6 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorywithfeatureandfeatureprojectnotdeliveryroot',
     config: {
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
         label: 'Story Feature in Wrong Project(Story)'                
@@ -4076,10 +4094,10 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     },
 
     getDescription: function() {
-        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the {2} project.",
+        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the Delivery Team project.",
             this.label,
-            /[^\/]*$/.exec(this.portfolioItemTypes[0]), 
-            this.rootDeliveryProject);
+            /[^\/]*$/.exec(this.portfolioItemTypes[0]) 
+            );
 
         console.log('StoryFeatureWrongProject.getDescription: ',explanation);
 
@@ -4154,6 +4172,7 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {
+        var me = this;
 
         // check precheck rule first and exit if fails
         if ( ! this.shouldExecuteRule ) { return false; }
@@ -4169,6 +4188,8 @@ Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliv
         if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent.c_EPMSid) ) {
             return 'Has no EPMS ID';
         }
+
+        
         return false;
     },
     
@@ -4181,8 +4202,6 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorywithoutepmsid',
     config: {
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
         label: 'Missing EPMS ID (Story)'
@@ -4358,7 +4377,6 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     extend: 'CA.techservices.validation.BaseRule',
     alias:  'widget.tstaskrequiredfieldrule',
     
-   
     config: {
         model: 'Task',
         requiredFields: [],
@@ -4494,9 +4512,6 @@ Ext.define('CA.techservices.validation.ThemeNoPlannedStartEndDateRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
@@ -4566,11 +4581,10 @@ Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
+
         //model: 'PortfolioItem/Feature - types loaded in base class.',
         model: null,
         label: 'EPMS Project wo EPMS ID'
@@ -4634,9 +4648,7 @@ Ext.define('CA.techservices.validation.ThemeWithoutParentRule',{
         * [{Rally.wsapi.data.Model}] portfolioItemTypes the list of PIs available
         * we're going to use the first level ones (different workspaces name their portfolio item levels differently)
         */
-        // Set Name of the Top-Level container where teams *must* put their portfolio items
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
+
         // discovered in app.js, passed on crea
         portfolioItemTypes:[],
         //model: 'PortfolioItem/Feature - types loaded in base class.',
@@ -5737,10 +5749,12 @@ extend: 'CA.techservices.app.ChartApp',
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
     stateful: true,
     initialActiveRules: [],         // a listing of the xtypes of active rules (saved for each user)
+    
     strategyProjects:[],            // array of projects that are in the strategy branch of project hierarchy
     deliveryTeamProjects:[],        // array of projects that are in the execution/delivery team branch
     
     getState: function() {
+        // persisting state
         var state = {};
         
         if (this.validator){
@@ -5751,21 +5765,32 @@ extend: 'CA.techservices.app.ChartApp',
                 initialActiveRules: active
             };
         }
+        // clear out before saving.
+        state.strategyProjects = [];
         state.strategyProjects = this.strategyProjects;
-        //state.deliveryTeamProjects = this.deliveryTeamProjects;
+
+        state.deliveryTeamProjects = [];
+        state.deliveryTeamProjects = this.deliveryTeamProjects;
 
         console.log('app.getState: ', state);
 
         return state;
     },
-    
+
     applyState: function(state) {
+        // rehydrating state...
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
             this.initialActiveRules = state.initialActiveRules;
         }
+        if (state.hasOwnProperty('strategyProjects')) {
+            this.strategyProjects = state.strategyProjects;
+        }
+        if (state.hasOwnProperty('deliveryTeamProjects')) {
+            this.deliveryTeamProjects = state.deliveryTeamProjects;
+        }
     },
-    
+
     rulesByType: {
         Task: [
             {xtype:'tstaskrequiredfieldrule',  requiredFields: ['Owner']},
@@ -5812,61 +5837,12 @@ extend: 'CA.techservices.app.ChartApp',
         this.chartLabelRotationSettings.rotate45 = this.getSetting('rotateChartLabels45');
         this.chartLabelRotationSettings.rotate90 = this.getSetting('rotateChartLabels90');
 
-        me.logger.log('app.InitializeApp',portfolioItemTypes,me.getSetting('rootStrategyProject'));
-
         // add the array to the app.
         me.portfolioItemTypes = portfolioItemTypes;
-
-        // make rules array - visible throughout the app        
-        this.ruleConfigs = [];
-
-        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
-        // also grab appSetting for a target folder to hold high-level portfolio items
-        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-                        
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
-        Ext.Array.each(me.rulesByType.Task, function(rule){
-            // get the collection of workspace specific portfolio item names per level            
-            rule.portfolioItemTypes = portfolioItemTypes;
-  
-            // for rules that need to have a specific project folder for portfolio items
-            rule.rootStrategyProject = me.getSetting('rootStrategyProject');
-            rule.rootDeliveryProject = me.getSetting('rootDeliveryProject');
-
-            // mark each rule Active - if it matches a rule in the activeRules array.            
-            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
-                rule.active = true;
-            }
-        });
-
-        // Get all the ruleConfigs into the array
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
-        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+        
+        this.setLoading("Configuring rules ...");
+        // configure the rules
+        me._configureRules();
 
         // setup filter rule configs
         var story_base_filter = Rally.data.wsapi.Filter.or([
@@ -5891,34 +5867,15 @@ extend: 'CA.techservices.app.ChartApp',
         ]);
         this.task_filter = task_base_filter.or(task_ready_filter);
 
+        this.setLoading("Creating Validator ...");
         // create the validator object
         this.validator = this._instantiateValidator();
-        
+
         // add any selectors required
         this._addSelectors();
         
         // go get the data
         me._loadData();
-    },
-
-    _instantiateValidator: function() {
-        var me = this;
-                
-        var validator = Ext.create('CA.techservices.validator.Validator',{
-            rules: this.ruleConfigs,
-            fetchFields: ['FormattedID','ObjectID'],
-            baseFilters: {
-                HierarchicalRequirement: this.story_filter, 
-                Task: this.task_filter                
-            },        
-            pointEvents: {
-                click: function() {
-                    me.showDrillDown(this._records,this._name);
-                }
-            }
-        });
-        
-        return validator;
     },
 
     _addSelectors: function() {
@@ -5990,8 +5947,7 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     _loadData:function(){
-        this.setLoading("Performing prechecks...");
-
+       
         // remove the last chart, have to redraw anyway
         this.clearChartBox(0);
        
@@ -6000,6 +5956,7 @@ extend: 'CA.techservices.app.ChartApp',
         // independently.
         this.description = this.descriptions[0] + this.validator.getRuleDescriptions();
 
+        this.setLoading("Performing prechecks...");
         var precheckResults = this.validator.getPrecheckResults();
         if (precheckResults == null){
             this._processPrecheckResults([]);
@@ -6013,6 +5970,83 @@ extend: 'CA.techservices.app.ChartApp',
                 }
             });
         }               
+    },
+
+    _configureRules: function(){
+        var me = this;
+
+        // make rules array - visible throughout the app        
+        this.ruleConfigs = [];
+
+        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
+        // also grab appSetting for a target folder to hold high-level portfolio items
+        Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        // add the portfolio typepath names to the story rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.HierarchicalRequirement, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+        
+        // add the portfolio typepath names to the task rules, also the target project folders for strategy/delivery
+        Ext.Array.each(me.rulesByType.Task, function(rule){            
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
+  
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            // mark each rule Active - if it matches a rule in the activeRules array.            
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+
+        // Get all the ruleConfigs into the array
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
+        this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
+
+    },
+
+    _instantiateValidator: function() {
+        var me = this;
+                
+        var validator = Ext.create('CA.techservices.validator.Validator',{
+            rules: this.ruleConfigs,
+            fetchFields: ['FormattedID','ObjectID'],
+            baseFilters: {
+                HierarchicalRequirement: this.story_filter, 
+                Task: this.task_filter                
+            },        
+            pointEvents: {
+                click: function() {
+                    me.showDrillDown(this._records,this._name);
+                }
+            }
+        });
+        
+        return validator;
     },
 
     _processPrecheckResults: function(issues){
@@ -6187,7 +6221,9 @@ extend: 'CA.techservices.app.ChartApp',
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             
-            title: 'Select the Business Planning (Strategy) projects',
+            title: 'Select the Business Planning projects',
+            introText: 'Select the projects where your portfolio items should be.',
+            initialSelectedRecords: me.strategyProjects,
             root_filters:   [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -6195,14 +6231,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){  
-                                      
-                    this.strategyProjects = Ext.Array.map(projects,function(project){
-                        return project.getData();
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences
+                    // can choke on an instantiated class                  
+                    me.strategyProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)) {
+                            item = item.getData();
+                        }
+                        return item;
                     });
+                    this.logger.log("_showBusinessPlanningSelection:", items);
+                    this.logger.log('--', this.strategyProjects);
                     this.saveState();
-
-                    console.log('_showBusinessPlanningDialog.ItemsChosen:',projects,dialog, this.strategyProjects);
 
                     this._loadData();                    
                 }    
@@ -6219,6 +6259,8 @@ extend: 'CA.techservices.app.ChartApp',
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             //rules: rules,
             title: 'Select the Delivery Team projects',
+            introText: 'Select the projects for the Delivery Teams',
+            initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
@@ -6226,10 +6268,18 @@ extend: 'CA.techservices.app.ChartApp',
                 ],
             listeners: {
                 scope: this,
-                itemschosen: function(dialog,projects){
-                    console.log('_showDeliveryTeamsDialog.ItemsChosen:',dialog,projects);
-                    this.validator.deliveryTeamProjects = projects;
+                itemschosen: function(items){
+                    // save the data ref of each project - because preferences can choke on fully instantiated classes
+                    this.deliveryTeamProjects = Ext.Array.map(items,function(item){
+                        if (Ext.isFunction(item.getData)){
+                            item = item.getData();
+                        }
+                        return item;
+                    });
+                    this.logger.log('_showDeliveryTeamsSelection: ',items);
+                    this.logger.log('--',this.deliveryTeamProjects);
                     this.saveState();
+
                     this._loadData();                    
                 }    
             }

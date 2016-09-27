@@ -2,8 +2,6 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
     extend: 'CA.techservices.validation.BaseRule',
     alias: 'widget.tsstorywithoutepmsid',
     config: {
-        rootStrategyProject: null,
-        rootDeliveryProject: null,
         portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
         label: 'Missing EPMS ID (Story)'
