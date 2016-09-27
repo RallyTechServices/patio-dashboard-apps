@@ -339,12 +339,12 @@ Ext.define("ProductivityApp", {
             series.push({
                 name: allowed_type,
                 data: me._calculateTopMeasure(artifacts_by_timebox,allowed_type),
-                type: 'column'              
+                type: 'column',             
+								stacking: 'normal'
             });
 
         });
         // series for actual velocity
-
         
         return series;
     },
@@ -406,6 +406,7 @@ Ext.define("ProductivityApp", {
                     value: me.averageVelocity,
                     color: CA.apps.charts.Colors.blue_dark,
                     width: '1',
+                    zIndex: 5,
                     label: {
                         text: 'Average Velocity ' + Ext.util.Format.number(me.averageVelocity,"000.00"),
                         style: {
