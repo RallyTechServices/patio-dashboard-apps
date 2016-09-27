@@ -9,6 +9,7 @@ descriptions: [
             "Count displayed as of the end of First day of Quarter."
     ],
 
+    
     integrationHeaders : {
         name : "OIPRApp"
     },
@@ -21,20 +22,31 @@ descriptions: [
     },
         
     launch: function() {
-        var me = this;
         this.callParent();
-        TSUtilities.getWorkspaces().then({
-            scope: this,
-            success: function(workspaces) {
-                me.workspaces = workspaces;
-                me._addComponents();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('',msg);
-            }
+        
+        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                '<br/>Please use Edit App Settings... to make this configuration.');
+            return;
+        }
+        
+        this.workspaces = this.getSetting('workspaceProgramParents');
+        if ( Ext.isString(this.workspaces ) ){
+            console.log('decode string:', this.workspaces);
+            this.workspaces = Ext.JSON.decode(this.workspaces);
+        }
+        Ext.Array.each(this.workspaces, function(workspace){
+            workspace._ref = workspace.workspaceRef;
+            workspace.Name = workspace.workspaceName;
+            workspace.ObjectID = workspace.workspaceObjectID;
         });
+        
+        this.logger.log('chosen workspaces:', this.workspaces);
+        
+        this._addComponents();
     },
-      
+    
+    
     _addComponents: function(){
         var me = this;
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
@@ -42,23 +54,26 @@ descriptions: [
             this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
-                flex: 1,
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',                
+                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
                 }
             });
-        
-
         } else {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
 
+        // for pushing button over to the right
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });
+        
         this.addToBanner({
             xtype:'rallybutton',
             itemId:'export_button',
@@ -73,8 +88,8 @@ descriptions: [
             }
         });
 
-        
     },
+    
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
@@ -87,10 +102,10 @@ descriptions: [
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
         })
 
+        
         if(this.programObjectIds.length < 1){
             workspaces_of_selected_programs = me.workspaces;
         }
@@ -156,6 +171,7 @@ descriptions: [
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
+        console.log('workspace:', workspace);
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
@@ -307,7 +323,7 @@ descriptions: [
         var find = {
                         "_TypeHierarchy": "HierarchicalRequirement",
                         "_ItemHierarchy": {"$in": hierarchy_ids},
-                        "__At": date,
+                        "__At": date
                     };
 
         // if(me.programObjectIds && me.programObjectIds.length > 0){
@@ -414,7 +430,7 @@ descriptions: [
             series: [ 
                 { name: "Stories", data: stories },
                 { name: "Split Stories", data: split_stories },
-                { name: "Defects", data: defects },
+                { name: "Defects", data: defects }
             ],
             categories: categories
         };
@@ -570,15 +586,22 @@ descriptions: [
             minWidth: 200,
             margin: 10
         },
+//        {
+//            name: 'showAllWorkspaces',
+//            xtype: 'rallycheckboxfield',
+//            fieldLabel: 'Show All Workspaces',
+//            labelWidth: 135,
+//            labelAlign: 'left',
+//            minWidth: 200,
+//            margin: 10
+//        },
         {
-            name: 'showAllWorkspaces',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show All Workspaces',
-            labelWidth: 135,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10
-        }];
+            name: 'workspaceProgramParents',
+            xtype:'tsworkspacesettingsfield',
+            fieldLabel: 'Workspaces and Program Parents',
+            margin: '0 10 100 0'
+        }
+        ];
     },
     
     _launchInfo: function() {

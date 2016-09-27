@@ -114,7 +114,6 @@ Ext.define('TSUtilities', {
             return ( me._getOidFromRef(permission._ref) == project_oid );
         });
         
-        console.log(editor_permissions);
         return ( editor_permissions.length > 0 );
     },
     
@@ -266,15 +265,43 @@ Ext.define('TSUtilities', {
                 workspace: workspace._ref ? workspace._ref : workspace.get('_ref')
             };
         }
-        
-        console.log(store_config);
-        
+                
         var store = Ext.create('Rally.data.wsapi.Store', store_config );
                     
         return deferred.promise;
     },
 
 
+    getAllWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
     getWorkspaces: function() {
         var deferred = Ext.create('Deft.Deferred');
         var config = {
