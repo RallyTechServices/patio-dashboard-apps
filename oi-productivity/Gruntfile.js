@@ -23,6 +23,7 @@ module.exports = function(grunt) {
         //config.js_files = grunt.file.expand(['../common/src/javascript/*.js','src/javascript/utils/*.js','src/javascript/*.js']);
 
         config.js_files = grunt.file.expand([
+            'src/javascript/utils/*.js',
             '../common/src/javascript/colors.js',
             '../common/src/javascript/ts-grid-box.js',
             '../common/src/javascript/ts-chart-app.js',
@@ -32,7 +33,6 @@ module.exports = function(grunt) {
             '../common/src/javascript/__ts-general-utils.js',
             '../common/src/javascript/_ts-workspace-picker-field.js',
             '../common/src/javascript/_ts-workspace-program-picker-dialog.js',
-            'src/javascript/utils/*.js',
             'src/javascript/*.js'
         ]);
 
