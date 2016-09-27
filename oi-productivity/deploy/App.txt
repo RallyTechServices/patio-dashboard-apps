@@ -3,6 +3,7 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+<<<<<<< HEAD
     <!--  Build Date: Mon Sep 26 2016 17:08:21 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
@@ -10,6 +11,15 @@
         var STORY    = "US555";
         var BUILDER  = "jmartin";
         var CHECKSUM = 130509238409;
+=======
+    <!--  Build Date: Tue Sep 27 2016 10:50:06 GMT-0700 (PDT) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Sep 27 2016 10:50:06 GMT-0700 (PDT)";
+        var STORY    = "US555";
+        var BUILDER  = "cbedekovich";
+        var CHECKSUM = 84112643158;
+>>>>>>> RallyTechServices/master
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>

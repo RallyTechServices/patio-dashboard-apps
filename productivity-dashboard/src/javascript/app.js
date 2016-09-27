@@ -14,6 +14,11 @@ Ext.define("ProductivityApp", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             targetVariability: 50
@@ -91,17 +96,16 @@ Ext.define("ProductivityApp", {
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        this.timebox_type = 'Iteration';
+//        this.timebox_type = 'Iteration';
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
             success: function(results) {
-								this._sortObjectsbyTBDate(results);
-
+//								this._sortObjectsbyTBDate(results);
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeRawTopGrid(artifacts_by_timebox);
@@ -144,51 +148,25 @@ Ext.define("ProductivityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(timeboxes) {
-        
+    _sortTimeboxes: function(timeboxes) {
+
 				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
 						return [];
 				}
-
+        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
+      
         Ext.Array.sort(timeboxes, function(a,b){
-            if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-            if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
+            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        });
+        }); 
         
+				this.timeboxes = timeboxes;        
         return timeboxes;
     },
-    
-    _sortObjectsbyTBDate: function(items) {
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
 
-//				Sort Stories
-				for (i=0; i < items[0].length; i++) { 
-					items[0][i].sort_field = items[0][i]['data'][this.timebox_type][end_date_field];
-					};
-     
-        Ext.Array.sort(items[0], function(a,b){      	
-            if ( a.sort_field < b.sort_field ) { return -1; }
-            if ( a.sort_field > b.sort_field ) { return  1; }
-            return 0;
-        }); 
-
-//				Sort Defects
-				for (i=0; i < items[1].length; i++) { 
-					items[1][i].sort_field = items[1][i]['data'][this.timebox_type][end_date_field];
-					};
-     
-        Ext.Array.sort(items[1], function(a,b){      	
-            if ( a.sort_field < b.sort_field ) { return -1; }
-            if ( a.sort_field > b.sort_field ) { return  1; }
-            return 0;
-        }); 
-        return items;
-
-    },
-    
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
         if ( timeboxes.length === 0 ) { return; }
@@ -204,14 +182,14 @@ Ext.define("ProductivityApp", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date}
+            {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
         
-        filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '=', value: 'Accepted'});
+        filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '>=', value: 'Accepted'});
 
         var config1 = {
             model:'HierarchicalRequirement',
@@ -335,6 +313,21 @@ Ext.define("ProductivityApp", {
     },
 
 
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getTopSeries: function(artifacts_by_timebox) {
         var me = this;
         var allowed_types = ['Stories','Split_Stories','Defects']
@@ -345,12 +338,12 @@ Ext.define("ProductivityApp", {
             series.push({
                 name: allowed_type,
                 data: me._calculateTopMeasure(artifacts_by_timebox,allowed_type),
-                type: 'column'              
+                type: 'column',             
+								stacking: 'normal'
             });
 
         });
         // series for actual velocity
-
         
         return series;
     },
@@ -359,7 +352,20 @@ Ext.define("ProductivityApp", {
     _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
             data = [];
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+ 
+ 
+	 			Ext.Array.each(this.timeboxes, function(tb) {
+					var timebox = tb.get('Name');
+					var value = artifacts_by_timebox[timebox];
+					if (Ext.isEmpty(value) ) {
+						  data.push({ 
+	                y:0,
+	                _records: []
+	            });
+							return;
+					}
+
+///       Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
             var y_value = 0;
 
@@ -387,7 +393,11 @@ Ext.define("ProductivityApp", {
         return {
             chart: { type:'column' },
             title: { text: 'Accepted Story/Defect Count and Size' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: { 
                 min: 0,
                 title: { text: 'Total Points' },
@@ -395,6 +405,7 @@ Ext.define("ProductivityApp", {
                     value: me.averageVelocity,
                     color: CA.apps.charts.Colors.blue_dark,
                     width: '1',
+                    zIndex: 5,
                     label: {
                         text: 'Average Velocity ' + Ext.util.Format.number(me.averageVelocity,"000.00"),
                         style: {
@@ -482,7 +493,7 @@ Ext.define("ProductivityApp", {
             {Type:'AcceptedStoryPoints', Name: 'Accepted Story Points' },
             {Type:'TotalAcceptedPoints', Name: 'Total Accepted Points' },
             {Type:'StoryDefectCount', Name: 'Story/Defect Count' },
-            {Type:'AverageStorySize', Name: 'Average Story Size (Pts)' },
+            {Type:'AverageStorySize', Name: 'Average Size (Stories+Defects) (Pts)' },
             {Type:'HoursPerPoint', Name: 'Hours per Point' }
         ];
 
@@ -571,6 +582,21 @@ Ext.define("ProductivityApp", {
                 }); 
 
                 size = total_hours > 0 ? Ext.util.Format.round(total_points / total_hours,2) : 0
+            }else if('AverageStorySize' == type){
+                total_points = 0;
+                total_count = 0;
+                Ext.Array.each(value.records.Defects, function(defect){
+                    total_points += defect.get('PlanEstimate');
+                });
+                Ext.Array.each(value.records.Split_Stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                });                                  
+                Ext.Array.each(value.records.Stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                }); 
+
+                total_count = value.records.Defects.length + value.records.Split_Stories.length + value.records.Stories.length;
+                size = total_count > 0 ? Ext.util.Format.round(total_points / total_count,2) : 0
             }
 
             return size;
@@ -592,9 +618,12 @@ Ext.define("ProductivityApp", {
     },
 
     _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
-    },
+				return Ext.Array.map(this.timeboxes, function(timebox) {
 
+					return timebox.get('Name');
+
+			});
+    },
 
     getSettingsFields: function() {
         var me = this;
@@ -606,6 +635,7 @@ Ext.define("ProductivityApp", {
                 fieldLabel: '',
                 margin: '0 0 25 25',
                 boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+/*
             },
             {
                 xtype: 'rallynumberfield',
@@ -615,6 +645,7 @@ Ext.define("ProductivityApp", {
                 margin: '0 0 25 25',
                 width: 150,
                 allowBlank: false,  // requires a non-empty value
+*/
             }                 
         ];
     },
