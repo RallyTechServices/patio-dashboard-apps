@@ -3,13 +3,13 @@
 <head>
     <title>Defects By Program</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 17 2016 17:27:36 GMT-0400 (EDT) -->
+    <!--  Build Date: Thu Sep 15 2016 09:14:52 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 17 2016 17:27:36 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Thu Sep 15 2016 09:14:52 GMT-0400 (EDT)";
         var STORY    = "US556";
         var BUILDER  = "arajaraman";
-        var CHECKSUM = 82330547494;
+        var CHECKSUM = 86766520743;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -720,7 +720,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var config = {
             model: epmsModelPath,
-            fetch:['ObjectID','Project','Name'],
+            fetch:['ObjectID','Project','Name','Workspace'],
             context: { 
                 project: null,
                 workspace: '/workspace/' + workspace_oid
@@ -729,14 +729,15 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(records) {
-                var epms_id_projects = {};
+                var epms_id_projects = {}
                 Ext.Array.each(records,function(rec){
                     var project_oid = rec.get('Project').ObjectID;
                     
                     if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
                         epms_id_projects[project_oid] = {
                             program: rec.get('Project'),
-                            projects: []
+                            projects: [],
+                            workspace: workspace
                         }
                     }
                     
@@ -1193,6 +1194,29 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadLookbackRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     loadWsapiRecordsWithParallelPages: function(config, msg) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
@@ -1463,7 +1487,9 @@ Ext.define("TSDefectsByProgram", {
     descriptions: [
         "<strong>OCIO Dashboard - Quality</strong><br/>" +
             "<br/>" +
-            "Defects opened vs Defects closed vs Total Open"     
+            "Defects opened vs Defects closed vs Total Open<br/> "  +
+            "Defects that were created between Quarter start date and Quarter end date."
+
     ],
 
     integrationHeaders : {
@@ -1546,7 +1572,19 @@ Ext.define("TSDefectsByProgram", {
         var promises = [];
         if ( this.getSetting('showAllWorkspaces') ) {
         
-            promises = Ext.Array.map(this.workspaces, function(workspace){
+            //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+            //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+            var workspaces_of_selected_programs = []
+            Ext.Array.each(selectorValue.programs,function(selected){
+                workspaces_of_selected_programs.push(selectorValue.allPrograms[selected].workspace);
+            })
+
+            if(this.programs.length < 1){
+                workspaces_of_selected_programs = this.workspaces;
+            }
+
+
+            promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
                 var workspace_data = Ext.clone( workspace.getData() );
                 return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
             });
@@ -1637,7 +1675,7 @@ Ext.define("TSDefectsByProgram", {
                     
                     // TODO: another way to find out what the field on story is that gives us the feature
                     //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[1].get('TypePath');
                     Deft.Promise.all([

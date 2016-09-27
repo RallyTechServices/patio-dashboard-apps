@@ -440,7 +440,6 @@ Ext.define("IntegrityApp", {
         return rotationSetting;
     },
 
-
     _makeBottomChart: function(artifacts_by_timebox) {
         var me = this;
 

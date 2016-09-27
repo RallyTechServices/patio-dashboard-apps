@@ -2,7 +2,6 @@ Ext.define('CA.techservices.validation.TaskRequiredFieldRule',{
     extend: 'CA.techservices.validation.BaseRule',
     alias:  'widget.tstaskrequiredfieldrule',
     
-   
     config: {
         model: 'Task',
         requiredFields: [],

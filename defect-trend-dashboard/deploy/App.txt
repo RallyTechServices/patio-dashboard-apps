@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Aug 17 2016 21:07:20 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Sep 07 2016 15:20:43 GMT-0400 (EDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Aug 17 2016 21:07:20 GMT-0700 (PDT)";
-        var BUILDER = "jmartin";
-        var CHECKSUM = 374658788802;
+        var APP_BUILD_DATE = "Wed Sep 07 2016 15:20:43 GMT-0400 (EDT)";
+        var BUILDER = "srhoads";
+        var CHECKSUM = 374658787835;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -3730,7 +3730,8 @@ Ext.define("TSDefectTrendDashboard", {
         "<p/>" + 
         "This chart shows all priorities. " +
         "<p/>",
-        
+
+
         "<strong>Defect Closure Durations by Priority</strong><br/>" +
         "<br/>" +
         "How long do things stay open before closure? " +

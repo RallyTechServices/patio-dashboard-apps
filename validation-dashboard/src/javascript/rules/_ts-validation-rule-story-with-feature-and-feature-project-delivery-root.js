@@ -1,32 +1,51 @@
-Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
+Ext.define('CA.techservices.validation.StoryWithFeatureAndFeatureProjectNotDeliveryRoot',{
     extend: 'CA.techservices.validation.BaseRule',
-    alias: 'widget.tsstorywithoutepmsid',
+    alias: 'widget.tsstorywithfeatureandfeatureprojectnotdeliveryroot',
     config: {
+        portfolioItemTypes:[],
         model: 'HierarchicalRequirement',
-        label: 'Missing EPMS ID (Story)'
+        label: 'Story Feature in Wrong Project(Story)'                
     },
-    
-    _filters: Rally.data.wsapi.Filter.and([
-        {property:'Feature.Parent.c_EPMSid',operator:'=',value:''},
-        {property:'DirectChildrenCount',value: 0}
-    ]),
-    
+    constructor: function(config) {
+        Ext.apply(this,config);
+        this.label = this.getLabel();
+    },
+
     getDescription: function() {
-        return Ext.String.format("<strong>{0}</strong>: {1}",
+        var explanation = Ext.String.format("<strong>{0}</strong>: Stories must be associated with a {1}, and that {1} must be in the Delivery Team project.",
             this.label,
-            "Stories that don't trace to a EPMS Project with an EPMS ID.  This can be because the EPMS Project doesn't have" +
-            " an ID, because the Feature isn't related to an EPMS Project, or because there's no Feature for the story."
-        );
+            /[^\/]*$/.exec(this.portfolioItemTypes[0]) 
+            );
+
+        console.log('StoryFeatureWrongProject.getDescription: ',explanation);
+
+        return explanation;
     },
-    
+
     getFetchFields: function() {
-        return ['Feature','Parent','c_EPMSid'];
+        return [this.portfolioItemTypes[0],'Parent','c_EPMSid'];
     },
     
     getFilters: function() {
-        return this._filters;
+        var propertyPortfolioItemName = /[^\/]*$/.exec(this.portfolioItemTypes[0]) + '.Parent.c_EPMSid'; // Feature name in this workspace plus the Parent.c_EPMSid
+        
+        console.log('StoryFeatureWrongProject.getFilters: ',propertyPortfolioItemName );
+
+        // return Rally.data.wsapi.Filter.and([
+        //     {property: propertyPortfolioItemName, operator:'=', value:''},
+        //     {property:'DirectChildrenCount', value: 0}        
+        // ]);
+        return [];
     },
-    
+
+    getLabel: function(){
+        this.label = Ext.String.format(
+            "{0} Wrong Project (Story)",
+            /[^\/]*$/.exec(this.portfolioItemTypes[0])
+        );
+        return this.label;
+    },
+
     /* model MUST be a wsapi model, not its name */
     isValidField: function(model, field_name) {
         var field_defn = model.getField(field_name);
@@ -58,37 +77,42 @@ Ext.define('CA.techservices.validation.StoryWithoutEPMSID',{
                     text = "EPMS ID check will not be run.  PortfolioItem records do not have a c_EPMSid field ";
                     me.shouldExecuteRule = false;
                     me._filters = Rally.data.wsapi.Filter.and([{property:'ObjectID',value:0}])
-                }
-                
+                }                
                 deferred.resolve(text);
             },
             failure: function() {
                 deferred.reject("Issue prechecking Rule");
             }
-        });
-        
+        });        
         return deferred.promise;
     },
+   
     // return false if the record doesn't match
     // return string if record fails the rule
     applyRuleToRecord: function(record) {
+        var me = this;
+
+        // check precheck rule first and exit if fails
         if ( ! this.shouldExecuteRule ) { return false; }
         
-        if ( Ext.isEmpty(record.get('Feature')) ) {
-            return 'Has no EPMS ID (no Feature)';
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0])) ) {
+            return 'Has no EPMS ID (' + /[^\/]*$/.exec(this.portfolioItemTypes[0]) + ')';
         }
         
-        if ( Ext.isEmpty(record.get('Feature').Parent )) {
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent )) {
             return 'Has no EPMS ID (no EPMS Project)';
         }
         
-        if ( Ext.isEmpty(record.get('Feature').Parent.c_EPMSid) ) {
+        if ( Ext.isEmpty(record.get(this.portfolioItemTypes[0]).Parent.c_EPMSid) ) {
             return 'Has no EPMS ID';
         }
+
+        
         return false;
     },
     
     getUserFriendlyRuleLabel: function() {        
         return this.label;
-    }
+    },
+    
 });

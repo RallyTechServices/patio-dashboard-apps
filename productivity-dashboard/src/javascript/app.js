@@ -106,7 +106,6 @@ Ext.define("ProductivityApp", {
             scope: this,
             success: function(results) {
 //								this._sortObjectsbyTBDate(results);
-
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeRawTopGrid(artifacts_by_timebox);

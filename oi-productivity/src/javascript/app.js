@@ -5,8 +5,8 @@ Ext.define("OIPRApp", {
 descriptions: [
         "<strong>OCIO Dashboard - Productivity</strong><br/>" +
             "<br/>" +
-            "It is the number of work items broken down by user story and defects, grouped by program by quarter" 
-            
+            "It is the number of work broken down by user stories, split stories and defects by program by quarter<br/>" +
+            "Count displayed as of the end of First day of Quarter."
     ],
 
     integrationHeaders : {
@@ -83,8 +83,19 @@ descriptions: [
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
+        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+        var workspaces_of_selected_programs = []
+        Ext.Array.each(quarterAndPrograms.programs,function(selected){
 
-        var promises = Ext.Array.map(me.workspaces, function(workspace) {
+            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+        })
+
+        if(this.programObjectIds.length < 1){
+            workspaces_of_selected_programs = me.workspaces;
+        }
+
+        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getData( workspace ) 
             };
@@ -149,8 +160,8 @@ descriptions: [
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        var workspace_name = workspace.get('Name');
-        var workspace_oid = workspace.get('ObjectID');
+        var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
+        var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
@@ -167,7 +178,7 @@ descriptions: [
                     
                     // TODO: another way to find out what the field on story is that gives us the feature
                     //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
+                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[1].get('TypePath');
 
@@ -185,7 +196,7 @@ descriptions: [
                             var item_hierarchy_ids = [];
 
                             Ext.Array.each(results,function(res){
-                                item_hierarchy_ids.push(res.get('ObjectID'));
+                                item_hierarchy_ids.push({"ObjectID":res.get('ObjectID'),"EPMSProject":res.get('Project').Name});
                             })
                             
                             this._getStoriesFromSnapShotStore(second_day,workspace_oid,item_hierarchy_ids).then({
@@ -226,90 +237,13 @@ descriptions: [
         return deferred.promise;
     },
 
-    
-    _getEPMSProjects:function(){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-
-        var config = {
-            model: this.epmsModelPath,
-            fetch:['ObjectID','Project','Name'],
-            context: { 
-                project: null
-            }
-        };
-        
-        this._loadWsapiRecords(config).then({
-            success: function(records) {
-                var epms_id_projects = {};
-                Ext.Array.each(records,function(rec){
-                    var project_oid = rec.get('Project').ObjectID;
-                    
-                    if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
-                        epms_id_projects[project_oid] = {
-                            program: rec.get('Project'),
-                            projects: []
-                        }
-                    }
-                    
-                    epms_id_projects[project_oid].projects.push(rec.getData());
-                    
-                });
-                deferred.resolve(epms_id_projects);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-            
-        });
-        
-        return deferred.promise;
-    },
-    
-    _getStoriesForEPMSProjects: function(stories_from_lookback,workspace_oid,featureModelName) {
-        
-        if(!stories_from_lookback || !stories_from_lookback.length > 0){
-            return [];
-        }
-
-        this.logger.log('updateQuarters', this.quarterRecord);
-        var end_date = this.quarterRecord.get('endDate');
-        var start_date = this.quarterRecord.get('startDate');
-
-        var object_id_filters = [];
-
-        Ext.Array.each(stories_from_lookback, function(story){
-            object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
-        })
-
-        var filters = [
-            {property:featureModelName + ".Parent.ObjectID", operator:">",value: 0 }
-        ];
-        
-        filters = Rally.data.wsapi.Filter.or(object_id_filters).and(Rally.data.wsapi.Filter.and(filters));
-
-        var config = {
-            model: 'hierarchicalrequirement',
-            filters: filters,
-            limit: Infinity,
-            pageSize: 2000,
-            fetch: ['ObjectID','FormattedID','Defects','Name','Parent',this.featureModelName,'Project'],
-            context: { 
-                project: null,
-                workspace: '/workspace/' + workspace_oid
-            },
-            enablePostGet:true
-        };
-        
-        return this._loadWsapiRecords(config);
-    },
 
     _organizeStoriesByProgram: function(stories){
         var me = this,
             stories_by_program = {};
         
         Ext.Array.each(stories, function(story){
-            var program = story.get('Project').Name;
+            var program = story.EPMSProject;
             if ( Ext.isEmpty(stories_by_program[program]) ) {
                 stories_by_program[program] = {
                     stories: 0,
@@ -343,11 +277,12 @@ descriptions: [
         workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             "context": {"workspace": {"_ref": workspace_oid }},
-            "fetch": [ "ObjectID","PlanEstimate","Project"],
+            "fetch": [ "ObjectID","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
-             "hydrate": ["Project"]
+            "removeUnauthorizedSnapshots":true,            
+            //"useHttpPost":true,
+            "hydrate": ["Project"]
         });
 
         snapshotStore.load({
@@ -365,28 +300,45 @@ descriptions: [
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
+        var hierarchy_ids = [];
+        var empms_projects = {};
+
+        Ext.Array.each(item_hierarchy_ids,function(id){
+            hierarchy_ids.push(id.ObjectID);
+            empms_projects[id.ObjectID] = {"ObjectID":id.ObjectID,"EPMSProject":id.EPMSProject};
+        });
+
         var find = {
                         "_TypeHierarchy": "HierarchicalRequirement",
-                        "_ItemHierarchy": {"$in": item_hierarchy_ids},
+                        "_ItemHierarchy": {"$in": hierarchy_ids},
                         "__At": date,
                     };
-        if(me.programObjectIds && me.programObjectIds.length > 0){
-            find["Project"] = {"$in": me.programObjectIds};
-        }
+
+        // if(me.programObjectIds && me.programObjectIds.length > 0){
+        //     find["Project"] = {"$in": me.programObjectIds};
+        // }
 
         workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             "context": {"workspace": {"_ref": workspace_oid }},
-            "fetch": [ "ObjectID","PlanEstimate","Project","Defects","Name"],
+            "fetch": [ "ObjectID","PlanEstimate","Project","Defects","Name","_ItemHierarchy"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
-            //useHttpPost:true,
+            "removeUnauthorizedSnapshots":true,            
+            //"useHttpPost":true,
              "hydrate": ["Project","Defects"]
         });
 
         snapshotStore.load({
             callback: function(records, operation) {
                 this.logger.log('Lookback recs',records);
+                Ext.Array.each(records,function(rec){
+                    Ext.Object.each(empms_projects, function(key,val){
+                        if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
+                            rec.EPMSProject = val.EPMSProject;
+                        }
+                    });
+                });
                 deferred.resolve(records);
             },
             scope:this

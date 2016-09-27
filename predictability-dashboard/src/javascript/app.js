@@ -154,7 +154,6 @@ Ext.define("PredictabilityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-
 		_sortTimeboxes: function(timeboxes) {
 
 				if (timeboxes === 'undefined' || timeboxes.length === 0) { 

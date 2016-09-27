@@ -2,6 +2,22 @@ Ext.define('CA.techservices.validation.BaseRule',{
     extend: 'Ext.Base',
     /**
      * 
+     * @cfg {Boolean} an indicator of whether this rule has been selected for use
+     */
+    active: false,
+    
+    /**
+     * @cfg {Array} of project refs for representing the strategy part of the project hierarchy 
+     */
+    strategyProjects:[],
+    
+    /**
+     * @cfg {Array} of project refs for representing the execution or delivery teams part of the project hierarchy 
+     */
+    deliveryTeamProjects:[],
+
+    /**
+     * 
      * @cfg
      * {String} model The name of a record type that this rule applies to 
      */

@@ -8,6 +8,13 @@ Ext.define('CA.techservices.validator.Validator',{
      */
     rules: [],
     
+    /**
+     * 
+     */
+    deliveryTeamProjects: [],       // listing of projects where a SCHEDULED feature might reside
+
+    businessPlanningProjects: [],   // listing of programs where an UNSCHEDULED feature might reside
+    
     recordsByModel: {},
     
     categoryField: 'Project',
@@ -55,7 +62,7 @@ Ext.define('CA.techservices.validator.Validator',{
     getRuleDescriptions: function() {
         var text = "<ul>";
         
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var rule_description = rule.getDescription() || "";
             if ( !Ext.isEmpty(rule_description) ) {
                 text = text + "<li>" + rule_description + "</li>";
@@ -66,11 +73,21 @@ Ext.define('CA.techservices.validator.Validator',{
         return text;
     },
     
+    getRules: function(){
+        return this.rules;
+    },
+    
+    getActiveRules: function(){
+        return Ext.Array.filter(this.getRules(),function(rule){
+                return rule.active;
+            });
+    },
+
     getFiltersByModel: function() {
         var me = this,
             filters_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var filters = rule.getFilters();
 
@@ -98,7 +115,7 @@ Ext.define('CA.techservices.validator.Validator',{
         var me = this,
             fields_by_model = {};
             
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var model = rule.getModel();
             var fields = rule.getFetchFields();
 
@@ -125,9 +142,13 @@ Ext.define('CA.techservices.validator.Validator',{
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
                 
+        console.log("gatherData:");
+
         var fetch_by_model = this.getFetchFieldsByModel();
         var filters_by_model = this.getFiltersByModel();
         
+        console.log("gatherData: fetch_by_model",fetch_by_model);
+
         var promises = [];
         Ext.Object.each(fetch_by_model, function(model, fetch){
             var config = {
@@ -196,7 +217,7 @@ Ext.define('CA.techservices.validator.Validator',{
             series = [];
             
         // one series per rule, one stack per model type
-        Ext.Array.each(this.rules, function(rule){
+        Ext.Array.each(this.getActiveRules(), function(rule){
             var series_name = rule.getUserFriendlyRuleLabel();
             var model = rule.getModel();
             var records = me.recordsByModel[model];
@@ -264,7 +285,7 @@ Ext.define('CA.techservices.validator.Validator',{
     },
     
     getPrecheckResults: function() {        
-        var promises = Ext.Array.map(this.rules, function(rule){
+        var promises = Ext.Array.map(this.getActiveRules(), function(rule){
             return function() {
                 return rule.precheckRule();
             };

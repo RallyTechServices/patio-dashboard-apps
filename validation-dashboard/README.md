@@ -1,6 +1,6 @@
 #Validation App
 
-![Screen Shot](./images/screenshot.png)
+![Screen Shot](./images/chart.png)
 
 Will display a chart with results of various registered validation rules.
 
