@@ -493,7 +493,7 @@ Ext.define("ProductivityApp", {
             {Type:'AcceptedStoryPoints', Name: 'Accepted Story Points' },
             {Type:'TotalAcceptedPoints', Name: 'Total Accepted Points' },
             {Type:'StoryDefectCount', Name: 'Story/Defect Count' },
-            {Type:'AverageStorySize', Name: 'Average Story Size (Pts)' },
+            {Type:'AverageStorySize', Name: 'Average Size (Stories+Defects) (Pts)' },
             {Type:'HoursPerPoint', Name: 'Hours per Point' }
         ];
 
@@ -582,6 +582,21 @@ Ext.define("ProductivityApp", {
                 }); 
 
                 size = total_hours > 0 ? Ext.util.Format.round(total_points / total_hours,2) : 0
+            }else if('AverageStorySize' == type){
+                total_points = 0;
+                total_count = 0;
+                Ext.Array.each(value.records.Defects, function(defect){
+                    total_points += defect.get('PlanEstimate');
+                });
+                Ext.Array.each(value.records.Split_Stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                });                                  
+                Ext.Array.each(value.records.Stories, function(story){
+                    total_points += story.get('PlanEstimate');
+                }); 
+
+                total_count = value.records.Defects.length + value.records.Split_Stories.length + value.records.Stories.length;
+                size = total_count > 0 ? Ext.util.Format.round(total_points / total_count,2) : 0
             }
 
             return size;
