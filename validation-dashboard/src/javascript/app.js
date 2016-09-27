@@ -43,7 +43,8 @@ extend: 'CA.techservices.app.ChartApp',
     getState: function() {
         // persisting state
         var state = {};
-        
+        console.log("app.getState0",this.initialActiveRules,this.validator);
+
         if (this.validator){
             var active = Ext.Array.map(this.validator.getActiveRules(), function(rule){
                 return rule.xtype;
@@ -51,7 +52,10 @@ extend: 'CA.techservices.app.ChartApp',
             state = {
                 initialActiveRules: active
             };
+        } else {
+            state = {initialActiveRules: this.initialActiveRules};
         }
+        
         // clear out before saving.
         state.strategyProjects = [];
         state.strategyProjects = this.strategyProjects;
@@ -59,12 +63,15 @@ extend: 'CA.techservices.app.ChartApp',
         state.deliveryTeamProjects = [];
         state.deliveryTeamProjects = this.deliveryTeamProjects;
 
-        console.log('app.getState: ', state);
+        console.log('app.getState1: ', state);
 
         return state;
     },
 
+
     applyState: function(state) {
+        console.log('app.applyState:',state);
+
         // rehydrating state...
         this.callParent(arguments);
         if ( state.hasOwnProperty('initialActiveRules') ) {
