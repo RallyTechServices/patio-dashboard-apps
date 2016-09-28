@@ -1,5 +1,17 @@
 #OI Predictability App
 
+
+This app determines whether programs are keeping enough backlog ready for teams to pull.
+
+A program is one or more leaf node projects underneath the node chosen by the administrator on install.
+
+The app will get the each program's EPMS projects, then the stories that belong to those projects.  Those
+stories that are "Ready" count toward the number of points that are ready.
+
+Then the app will determine the execution project from the stories that are in the queue for each program,
+then it goes and gets the last three sprints for that project to determine the average velocity.
+
+
 ## Development Notes
 
 ### First Load

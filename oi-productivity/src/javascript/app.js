@@ -117,7 +117,6 @@ descriptions: [
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                this.logger.log('all_results>>>>',all_results);
                 //me._displayGrid(Ext.Array.flatten(all_results));
                 //var results = Ext.Array.flatten(all_results)
                 me.setLoading(false);
@@ -200,7 +199,6 @@ descriptions: [
                                 deferred.resolve({});
                                 return;
                             }                            
-
 
                             var item_hierarchy_ids = [];
 
@@ -324,10 +322,10 @@ descriptions: [
         });
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement",
-                        "_ItemHierarchy": {"$in": hierarchy_ids},
-                        "__At": date
-                    };
+            "_TypeHierarchy": "HierarchicalRequirement",
+            "_ItemHierarchy": {"$in": hierarchy_ids},
+            "__At": date
+        };
 
         // if(me.programObjectIds && me.programObjectIds.length > 0){
         //     find["Project"] = {"$in": me.programObjectIds};
@@ -349,7 +347,7 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('PI lookback recs',records);
+                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
