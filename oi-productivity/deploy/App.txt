@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 16:42:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Sep 28 2016 11:08:10 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 16:42:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Sep 28 2016 11:08:10 GMT-0700 (PDT)";
         var STORY    = "US555";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 132347962856;
+        var CHECKSUM = 132108209303;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2101,7 +2101,6 @@ descriptions: [
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                this.logger.log('all_results>>>>',all_results);
                 //me._displayGrid(Ext.Array.flatten(all_results));
                 //var results = Ext.Array.flatten(all_results)
                 me.setLoading(false);
@@ -2184,7 +2183,6 @@ descriptions: [
                                 deferred.resolve({});
                                 return;
                             }                            
-
 
                             var item_hierarchy_ids = [];
 
@@ -2308,10 +2306,10 @@ descriptions: [
         });
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement",
-                        "_ItemHierarchy": {"$in": hierarchy_ids},
-                        "__At": date
-                    };
+            "_TypeHierarchy": "HierarchicalRequirement",
+            "_ItemHierarchy": {"$in": hierarchy_ids},
+            "__At": date
+        };
 
         // if(me.programObjectIds && me.programObjectIds.length > 0){
         //     find["Project"] = {"$in": me.programObjectIds};
@@ -2333,7 +2331,7 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('PI lookback recs',records);
+                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){

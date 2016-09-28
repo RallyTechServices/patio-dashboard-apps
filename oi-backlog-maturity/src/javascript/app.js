@@ -236,9 +236,7 @@ Ext.define("OIBMApp", {
                                             Ext.Object.each(stories_by_program,function(key,value){
                                                 promises.push(me._getVelocity(key,workspace_oid,value));
                                             });
-                                            
-                                            console.log('stories by program', stories_by_program);
-                                            
+                                                                                        
                                             Deft.Promise.all(promises).then({
                                                 scope: this,
                                                 success: function(all_projects_velocity){
@@ -420,8 +418,6 @@ Ext.define("OIBMApp", {
                                         
                     var stories_by_program = me._organizeStoriesByProgram(Ext.Object.getValues(records_by_oid));
 
-                    console.log('stories by program', stories_by_program);
-                    
                     deferred.resolve(stories_by_program);
                 }
             }
@@ -450,12 +446,10 @@ Ext.define("OIBMApp", {
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
         
-        console.log('--', program_name);
         var project_oid = -1;
         
         Ext.Array.each(stories, function(story){
             project_oid = story.get('Project').ObjectID;
-            console.log(story.get('Project')._refObjectName, story.get('Project').ObjectID);
         });
 
         var today = new Date();
