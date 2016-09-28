@@ -2,6 +2,11 @@
 
 ## Development Notes
 
+* This gathers defects that were created during the quarter (and are
+associated with EPMS Project items that are selected).  
+
+Open and Closed are about what State the defects are in right now.
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 

@@ -24,21 +24,25 @@ Ext.define("TSDefectsByProgram", {
     
     
     launch: function() {
-        var me = this;
         this.callParent();
 
-        this._getWorkspaces().then({
-            scope: this,
-            success: function(workspaces) {
-                me.workspaces = workspaces;
-                me._addComponents();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('',msg);
-            }
+        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                '<br/>Please use Edit App Settings... to make this configuration.');
+            return;
+        }
+        
+        this.workspaces = this.getSetting('workspaceProgramParents');
+        if ( Ext.isString(this.workspaces ) ){
+            this.workspaces = Ext.JSON.decode(this.workspaces);
+        }
+        Ext.Array.each(this.workspaces, function(workspace){
+            workspace._ref = workspace.workspaceRef;
+            workspace.Name = workspace.workspaceName;
+            workspace.ObjectID = workspace.workspaceObjectID;
         });
-        
-        
+                
+        this._addComponents();
     },
       
     _addComponents: function(){
@@ -86,48 +90,31 @@ Ext.define("TSDefectsByProgram", {
                 
         this.setLoading('Loading Data...');
         
-        me.logger.log('_updateQuarterInformation', quarterRecord, this.programs);
-
         var promises = [];
-        if ( this.getSetting('showAllWorkspaces') ) {
-        
-            //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
-            //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-            var workspaces_of_selected_programs = []
-            Ext.Array.each(selectorValue.programs,function(selected){
-                workspaces_of_selected_programs.push(selectorValue.allPrograms[selected].workspace);
-            })
 
-            if(this.programs.length < 1){
-                workspaces_of_selected_programs = this.workspaces;
-            }
+        //if there are programs selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
+        var workspaces_of_selected_programs = []
+        Ext.Array.each(selectorValue.programs,function(selected){
+            workspaces_of_selected_programs.push(selectorValue.allPrograms[selected].workspace);
+        })
 
-
-            promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
-                var workspace_data = Ext.clone( workspace.getData() );
-                return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
-            });
-        } else {
-            var workspace_data = this.getContext().getWorkspace();
-            
-            promises = [ function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); } ];
+        if(this.programs.length < 1){
+            workspaces_of_selected_programs = this.workspaces;
         }
         
+        promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
+            var workspace_data = Ext.clone( workspace );
+            return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
+        });
+    
         Deft.Chain.sequence(promises,this).then({
-            success: function(results) {
-                var defects = Ext.Array.flatten(results);
-                defects = Ext.Array.filter(defects, function(defect) {
+            success: function(defects) {
+                defects = Ext.Array.filter(Ext.Array.flatten(defects), function(defect) {
                     return !Ext.isEmpty(defect);
                 });
         
-                // if ( defects.length === 0 ) {
-                    
-                //     return;
-                // }
-                
                 var defects_by_program = this._organizeDefectsByProgram(defects);
-                console.log('defects_by_program', defects_by_program);
-
 
                 //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
                 var final_results = {};
@@ -179,50 +166,28 @@ Ext.define("TSDefectsByProgram", {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
         
-        this.setLoading("Gathering Data For " + workspace._refObjectName);
-        this.logger.log("Workspace:", workspace._refObjectName);
+        this.setLoading("Gathering Data For " + workspace.Name);
+        this.logger.log("Workspace:", workspace.Name, workspace);
         
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
-                if ( types.length < 2 ) {
+                if ( types.length < 3 ) {
                     this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
                     deferred.resolve('');
                 } else {
- 
-                    var featureModelPath = types[0].get('TypePath');
-                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
+                    var epmsModelPath = types[2].get('TypePath');
                     
-                    // TODO: another way to find out what the field on story is that gives us the feature
-                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
-                    
-                    var epmsModelPath = types[1].get('TypePath');
-                    Deft.Promise.all([
-                        //me._getEPMSProjects(),
-                        me._getStoriesForEPMSProjects(featureModelName,quarterRecord,workspace)
+                    Deft.Chain.pipeline([
+                        function() {
+                            return me._getEPMSProjects(epmsModelPath,workspace);
+                        },
+                        function(epms_id_projects_by_name) {
+                            return me._getDefectsEPMSProjects(epms_id_projects_by_name,epmsModelPath,quarterRecord,workspace);
+                        }
                     ],this).then({
                         scope: this,
-                        success: function(stories){
-                            stories = Ext.Array.flatten(stories);
-                          
-                            if ( stories.length === 0 ) {
-                                deferred.resolve([]);
-                            } else {
-                                
-                                this._getDefectsForStories(stories,quarterRecord,workspace,featureModelName).then({
-                                    scope: this,
-                                    success: function(defects) {
-                                        Ext.Array.each(defects, function(defect){
-                                            
-                                            defect.set('__feature', defect.get('Requirement')[featureModelName]);
-                                        });
-                                        deferred.resolve(defects);
-                                    },
-                                    failure: function(msg){
-                                        deferred.reject(msg);
-                                    }
-                                });
-                            }
+                        success: function(possible_defects){
+                            deferred.resolve( possible_defects );
                         }, 
                         failure: function(msg) {
                             deferred.reject(msg);
@@ -239,35 +204,36 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
 
-    _getEPMSProjects:function(){
+    _getEPMSProjects:function(epmsModelPath,workspace){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
         var config = {
-            model: this.epmsModelPath,
+            model: epmsModelPath,
             fetch:['ObjectID','Project','Name'],
             context: { 
-                project: null
+                project: null,
+                workspace: workspace._ref
             }
         };
         
         this._loadWsapiRecords(config).then({
             success: function(records) {
-                var epms_id_projects_by_name = {};
+                var epms_programs_by_project_name = {};
                 Ext.Array.each(records,function(rec){
-                    var project_name = rec.get('Project').ObjectID;
+                    var project_name = rec.get('Project').Name;
                     
-                    if ( Ext.isEmpty(epms_id_projects_by_name[project_name]) ) {
-                        epms_id_projects_by_name[project_name] = {
+                    if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
+                        epms_programs_by_project_name[project_name] = {
                             program: rec.get('Project'),
-                            projects: []
+                            epms_projects: []
                         }
                     }
                     
-                    epms_id_projects_by_name[project_name].projects.push(rec.getData());
+                    epms_programs_by_project_name[project_name].epms_projects.push(rec.getData());
                     
                 });
-                deferred.resolve(epms_id_projects_by_name);
+                deferred.resolve(epms_programs_by_project_name);
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -278,37 +244,64 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
     
-    _getStoriesForEPMSProjects: function(featureModelName,quarterRecord,workspace) {
+    _getDefectsEPMSProjects: function(epms_items_by_project_name,epmsModelPath,quarterRecord,workspace) {
+        var deferred = Ext.create('Deft.Deferred');
         
         var end_date = quarterRecord.get('endDate');
         var start_date = quarterRecord.get('startDate');
 
-        var filters = Rally.data.wsapi.Filter.and([
-            {property:'Defects.CreationDate',operator:'>=',value:start_date},
-            {property:'Defects.CreationDate',operator:'<=',value:end_date},
-            {property:featureModelName + ".Parent.ObjectID", operator:">",value: 0 }
-        ]);
+        this.logger.log('_getDefectsForEPMSProjects',epms_items_by_project_name,quarterRecord);
         
-        if (this.programs.length > 0) {
-            var program_filters = Ext.Array.map(this.programs, function(program_oid){
-                return {property:featureModelName + ".Parent.Project.ObjectID", value: program_oid };
+        var filters = [
+            {property:'CreationDate',operator:'>=',value:start_date},
+            {property:'CreationDate',operator:'<=',value:end_date},
+            {property:'_TypeHierarchy',value:'Defect'},
+            {property:'__At',value: 'current' }
+        ];
+        
+        if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+            var epms_oids = [];
+            Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                var epms_projects = epms_item.epms_projects || [];
+                Ext.Array.each(epms_projects, function(epms_project){
+                    epms_oids.push(epms_project.ObjectID);
+                });
             });
-            filters = filters.and(Rally.data.wsapi.Filter.or(program_filters));
+            
+            filters.push({property:'_ItemHierarchy',operator:'in',value:epms_oids});
         }
         
         var config = {
-            model: 'hierarchicalrequirement',
             filters: filters,
-            limit: Infinity,
-            pageSize: 2000,
-            fetch: ['ObjectID','FormattedID'],
+            fetch: ['ObjectID','FormattedID','CreationDate','Project','_ItemHierarchy','State'],
             context: { 
                 project: null,
                 workspace: workspace._ref
-            }
+            },
+            hydrate: ['State']
         };
         
-        return this._loadWsapiRecords(config);
+        this._loadLookbackRecords(config).then({
+            success: function(defects) {
+                Ext.Object.each(epms_items_by_project_name, function(name,epms_item){
+                    var epms_projects = epms_item.epms_projects || [];
+                    Ext.Array.each(epms_projects, function(epms_project){
+                        var project_oid = epms_project.ObjectID;
+                        Ext.Array.each(defects, function(defect){
+                            if (Ext.Array.contains(defect.get('_ItemHierarchy'), project_oid)) {
+                                defect.EPMSProject = name;
+                            }
+                        });
+                    });
+                });
+                deferred.resolve(defects);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _getDefectsForStories: function(stories,quarterRecord,workspace,featureModelName) {
@@ -320,21 +313,13 @@ Ext.define("TSDefectsByProgram", {
             {property:'CreationDate',operator:'>=',value:start_date},
             {property:'CreationDate',operator:'<=',value:end_date}
         ]);
-
-        var story_filters = Rally.data.wsapi.Filter.or(
-            Ext.Array.map(stories, function(story){
-                return { property:'Requirement.ObjectID',value:story.get('ObjectID')};
-            })
-        );
-        
-        var filters = story_filters.and(date_filters);
         
         var config = {
             model: 'defect',
             filters: filters,
             limit: Infinity,
             pageSize: 2000,
-            fetch: ['ObjectID','FormattedID','Project','Requirement','State',featureModelName,'Parent'],
+            fetch: ['ObjectID','FormattedID','Project','Requirement','State','Parent'],
             context: { 
                 project: null,
                 workspace: workspace._ref
@@ -348,25 +333,21 @@ Ext.define("TSDefectsByProgram", {
     _organizeDefectsByProgram: function(defects){
         var me = this,
             defects_by_program = {};
-        
+
         Ext.Array.each(defects, function(defect){
-            var feature = defect.get('__feature');
-            
-            if ( feature && feature.Parent ) {
-                var program = feature.Parent.Project._refObjectName;
-                if ( Ext.isEmpty(defects_by_program[program]) ) {
-                    defects_by_program[program] = {
-                        all: [],
-                        open: [],
-                        closed:[]
-                    };
-                }
-                defects_by_program[program].all.push(defect);
-                if ( defect.get('State') == "Closed" ) {
-                    defects_by_program[program].closed.push(defect);
-                } else {
-                    defects_by_program[program].open.push(defect);
-                }
+            var program = defect.EPMSProject;
+            if ( Ext.isEmpty(defects_by_program[program]) ) {
+                defects_by_program[program] = {
+                    all: [],
+                    open: [],
+                    closed:[]
+                };
+            }
+            defects_by_program[program].all.push(defect);
+            if ( defect.get('State') == "Closed" ) {
+                defects_by_program[program].closed.push(defect);
+            } else {
+                defects_by_program[program].open.push(defect);
             }
         });
         
@@ -444,7 +425,7 @@ Ext.define("TSDefectsByProgram", {
             series: [ 
                 { name: "Defects Open", data: open_data },
                 { name: "Defects Closed", data: closed_data },
-                { name: "Total Defects", data: all_data },
+                { name: "Total Defects", data: all_data }
             ],
             categories: categories
         };
@@ -467,6 +448,33 @@ Ext.define("TSDefectsByProgram", {
                 }
             }
         };
+    },
+    
+    _loadLookbackRecords: function(config,returnOperation) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            sort: { "_ValidFrom": -1 },
+            //"useHttpPost":true,
+            removeUnauthorizedSnapshots:true
+        };
+        
+        
+        this.logger.log("_loadLookbackRecords", config);
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
     },
     
     _loadWsapiRecords: function(config){
@@ -610,24 +618,21 @@ Ext.define("TSDefectsByProgram", {
             labelAlign: 'right',
             labelCls: 'settingsLabel'
         },
+//        {
+//            name: 'showAllWorkspaces',
+//            xtype: 'rallycheckboxfield',
+//            fieldLabel: 'Show All Workspaces',
+//            labelWidth: 135,
+//            labelAlign: 'left',
+//            minWidth: 200,
+//            margin: 10
+//        },
         {
-            name: 'showAllWorkspaces',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show All Workspaces',
-            labelWidth: 135,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10
+            name: 'workspaceProgramParents',
+            xtype:'tsworkspacesettingsfield',
+            fieldLabel: 'Workspaces and Program Parents',
+            margin: '0 10 100 0'
         }];
-    },
-    
-    _launchInfo: function() {
-        if ( this.about_dialog ) { this.about_dialog.destroy(); }
-        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
-    },
-    
-    isExternal: function(){
-        return typeof(this.getAppId()) == 'undefined';
     }
     
 });

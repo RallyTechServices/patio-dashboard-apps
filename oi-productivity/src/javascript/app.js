@@ -183,12 +183,6 @@ descriptions: [
                     deferred.resolve([]);
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
-                    var featureModelPath = types[0].get('TypePath');
-                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
-                    
-                    // TODO: another way to find out what the field on story is that gives us the feature
-                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[2].get('TypePath');
 

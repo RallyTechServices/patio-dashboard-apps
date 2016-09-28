@@ -199,7 +199,10 @@ Ext.define("OIBMApp", {
                             var item_hierarchy_ids = [];
 
                             Ext.Array.each(programs,function(res){
-                                item_hierarchy_ids.push({"ObjectID":res.get('ObjectID'),"EPMSProject":res.get('Project').Name});
+                                item_hierarchy_ids.push({
+                                    "ObjectID":res.get('ObjectID'),
+                                    "EPMSProject":res.get('Project').Name
+                                });
                             })
                             
                             this._getStoriesFromSnapShotStore(second_day,workspace_oid,item_hierarchy_ids).then({
