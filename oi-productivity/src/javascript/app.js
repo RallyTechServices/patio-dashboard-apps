@@ -8,7 +8,7 @@ descriptions: [
             "It is the number of work broken down by user stories, split stories and defects by program by quarter<br/>" +
             "Count displayed as of the end of First day of Quarter."
     ],
-
+    
     integrationHeaders : {
         name : "OIPRApp"
     },
@@ -21,20 +21,30 @@ descriptions: [
     },
         
     launch: function() {
-        var me = this;
         this.callParent();
-        TSUtilities.getWorkspaces().then({
-            scope: this,
-            success: function(workspaces) {
-                me.workspaces = workspaces;
-                me._addComponents();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('',msg);
-            }
+        
+        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                '<br/>Please use Edit App Settings... to make this configuration.');
+            return;
+        }
+        
+        this.workspaces = this.getSetting('workspaceProgramParents');
+        if ( Ext.isString(this.workspaces ) ){
+            this.workspaces = Ext.JSON.decode(this.workspaces);
+        }
+        Ext.Array.each(this.workspaces, function(workspace){
+            workspace._ref = workspace.workspaceRef;
+            workspace.Name = workspace.workspaceName;
+            workspace.ObjectID = workspace.workspaceObjectID;
         });
+        
+        this.logger.log('chosen workspaces:', this.workspaces);
+        
+        this._addComponents();
     },
-      
+    
+    
     _addComponents: function(){
         var me = this;
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
@@ -42,23 +52,26 @@ descriptions: [
             this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
-                flex: 1,
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',                
+                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
                 }
             });
-        
-
         } else {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
 
+        // for pushing button over to the right
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });
+        
         this.addToBanner({
             xtype:'rallybutton',
             itemId:'export_button',
@@ -73,8 +86,8 @@ descriptions: [
             }
         });
 
-        
     },
+    
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
@@ -83,11 +96,11 @@ descriptions: [
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
-        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //if there are programs selected from drop down get the corresponding workspace and get data 
+        //otherwise get data from all workspaces.
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
         })
 
@@ -104,11 +117,9 @@ descriptions: [
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                this.logger.log('all_results>>>>',all_results);
                 //me._displayGrid(Ext.Array.flatten(all_results));
                 //var results = Ext.Array.flatten(all_results)
                 me.setLoading(false);
-
 
                 //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
                 var results = Ext.Array.flatten(all_results);
@@ -141,10 +152,6 @@ descriptions: [
                     }
                 },me);
 
-
-
-
-
                 me._makeChart(final_results);
                 me._makeGrid(final_results);
                 
@@ -160,16 +167,19 @@ descriptions: [
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('_getData:', workspace);
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
+        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
-        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
+        
+        second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
         me.setLoading('Loading..');
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
-                if ( types.length < 2 ) {
-                    this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
+                if ( types.length < 3 ) {
+                    this.logger.log("Cannot find a record type for EPMS project in workspace",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
@@ -180,18 +190,15 @@ descriptions: [
                     //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
                     //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
-                    var epmsModelPath = types[1].get('TypePath');
-
+                    var epmsModelPath = types[2].get('TypePath');
 
                     this._getDataFromSnapShotStore(second_day,workspace_oid,epmsModelPath).then({
                         scope: this,
                         success: function(results){
-                                    
                             if (!results || !results.length > 0 ) {
                                 deferred.resolve({});
                                 return;
                             }                            
-
 
                             var item_hierarchy_ids = [];
 
@@ -262,21 +269,27 @@ descriptions: [
         return stories_by_program;
     },
 
+    
     _getDataFromSnapShotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
+        this.logger.log('_getDataFromSnapShotStore',epmsModelPath,date);
+        
         var find = {
-                        "_TypeHierarchy": epmsModelPath,
-                        "__At": date
-                    };
+            "_TypeHierarchy": epmsModelPath,
+            "__At": Rally.util.DateTime.toIsoString(date)
+        };
+        
         if(me.programObjectIds && me.programObjectIds.length > 0){
             find["Project"] = {"$in": me.programObjectIds};
         }
 
         workspace_oid = '/workspace/'+workspace_oid;
+        
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": {"workspace": {"_ref": workspace_oid }},
+            //"context": {"workspace": {"_ref": workspace_oid }},
+            "context": { workspace: workspace_oid },
             "fetch": [ "ObjectID","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
@@ -309,18 +322,20 @@ descriptions: [
         });
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement",
-                        "_ItemHierarchy": {"$in": hierarchy_ids},
-                        "__At": date,
-                    };
+            "_TypeHierarchy": "HierarchicalRequirement",
+            "_ItemHierarchy": {"$in": hierarchy_ids},
+            "__At": date
+        };
 
         // if(me.programObjectIds && me.programObjectIds.length > 0){
         //     find["Project"] = {"$in": me.programObjectIds};
         // }
 
         workspace_oid = '/workspace/'+workspace_oid;
+        console.log('workspace for snapshot store', workspace_oid);
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": {"workspace": {"_ref": workspace_oid }},
+            //"context": {"workspace": {"_ref": workspace_oid }},
+            "context": {"workspace": workspace_oid },
             "fetch": [ "ObjectID","PlanEstimate","Project","Defects","Name","_ItemHierarchy"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
@@ -328,10 +343,11 @@ descriptions: [
             //"useHttpPost":true,
              "hydrate": ["Project","Defects"]
         });
+        
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
+                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -418,7 +434,7 @@ descriptions: [
             series: [ 
                 { name: "Stories", data: stories },
                 { name: "Split Stories", data: split_stories },
-                { name: "Defects", data: defects },
+                { name: "Defects", data: defects }
             ],
             categories: categories
         };
@@ -569,19 +585,27 @@ descriptions: [
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
             fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
-        },
-        {
-            name: 'showAllWorkspaces',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show All Workspaces',
             labelWidth: 135,
             labelAlign: 'left',
             minWidth: 200,
             margin: 10
-        }];
+        },
+//        {
+//            name: 'showAllWorkspaces',
+//            xtype: 'rallycheckboxfield',
+//            fieldLabel: 'Show All Workspaces',
+//            labelWidth: 135,
+//            labelAlign: 'left',
+//            minWidth: 200,
+//            margin: 10
+//        },
+        {
+            name: 'workspaceProgramParents',
+            xtype:'tsworkspacesettingsfield',
+            fieldLabel: 'Workspaces and Program Parents',
+            margin: '0 10 100 0'
+        }
+        ];
     },
     
     _launchInfo: function() {
