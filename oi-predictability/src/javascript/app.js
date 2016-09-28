@@ -27,22 +27,24 @@ Ext.define("OIPApp", {
 
     launch: function() {
         this.callParent();
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
-            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
-                '<br/>Please use Edit App Settings... to make this configuration.');
-            return;
+            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+                Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                    '<br/>Please use Edit App Settings... to make this configuration.');
+                return;
+            }
+            
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            if ( Ext.isString(this.workspaces ) ){
+                this.workspaces = Ext.JSON.decode(this.workspaces);
+            }
+            Ext.Array.each(this.workspaces, function(workspace){
+                workspace._ref = workspace.workspaceRef;
+                workspace.Name = workspace.workspaceName;
+                workspace.ObjectID = workspace.workspaceObjectID;
+            });
         }
-        
-        this.workspaces = this.getSetting('workspaceProgramParents');
-        if ( Ext.isString(this.workspaces ) ){
-            this.workspaces = Ext.JSON.decode(this.workspaces);
-        }
-        Ext.Array.each(this.workspaces, function(workspace){
-            workspace._ref = workspace.workspaceRef;
-            workspace.Name = workspace.workspaceName;
-            workspace.ObjectID = workspace.workspaceObjectID;
-        });
                 
         this._addComponents();
     },
@@ -70,6 +72,11 @@ Ext.define("OIPApp", {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
+        
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });
         
         this.addToBanner({
             xtype:'rallybutton',
@@ -362,10 +369,20 @@ Ext.define("OIPApp", {
         return [{
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            label: ' ',
+            boxLabel: 'Show Scope Selector<br/><span style="color:#999999;"> ' +
+            '<i>Tick to show the selectors and broadcast settings.</i><p/>' + 
+            '<em>If this is not checked, the app expects another app on the same page ' +
+            'to broadcast the chosen program(s) and quarter.  When <b>checked</b> the Workspaces and ' +
+            'Program Parents must be chosen.  When <b>not checked</b> the below Workspaces and Program ' +
+            'Parents are ignored.</em>' +
+            '</span>' + 
+            '<p/>' + 
+            '<span style="color:#999999;">' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         },
 //        {
 //            name: 'showAllWorkspaces',
@@ -379,8 +396,14 @@ Ext.define("OIPApp", {
         {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
-            fieldLabel: 'Workspaces and Program Parents',
-            margin: '0 10 100 0'
+            fieldLabel: ' ',
+            margin: '0 10 50 150',
+            boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
+            '<p/>' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         }];
     },
         

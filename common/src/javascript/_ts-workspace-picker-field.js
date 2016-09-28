@@ -5,8 +5,8 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
     width: '100%',
     cls: 'column-settings',
 
-    height: 200,
-    width: 400,
+    height: 150,
+    width: 500,
     
     store: undefined,
     labelAlign: 'top',
