@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Integrity</title>
-    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 15:09:06 GMT-0700 (PDT) -->
+    <title>TS Quality - Defects Found</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Tue Sep 27 2016 17:26:42 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 15:09:06 GMT-0700 (PDT)";
-        var CHECKSUM = 219189994817;
+        var APP_BUILD_DATE = "Tue Sep 27 2016 17:26:42 GMT-0400 (EDT)";
+        var STORY    = "US103";
+        var BUILDER  = "arajaraman";
+        var CHECKSUM = 114776473875;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
     <!-- our highcharts (needed so that we can add patterns) -->
     <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
-    
+
     <script type="text/javascript">
         Rally.onReady(function() {
              
@@ -1275,549 +1277,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     });
 
 }());
-Ext.define('CA.technicalservices.ProjectTreePickerDialog', {
-    extend: 'Rally.ui.dialog.Dialog',
-    alias: 'widget.projecttreepickerdialog',
-
-    minWidth: 400,
-    width: 400,
-    minHeight: 300,
-    height: 300,
-    
-    layout: 'fit',
-    closable: true,
-    draggable: true,
-
-    config: {
-        /**
-         * @cfg {String}
-         * Title to give to the dialog
-         */
-        title: 'Choose Project(s)',
-        /**
-         * 
-         * @cfg {String} introText
-         * 
-         *  Informational text to include on the dialog.
-         */
-        introText: null,
-        
-        /**
-         * @cfg {Boolean}
-         * Allow multiple selection or not
-         */
-        multiple: true,
-        
-        /**
-         * @cfg {Object}  || Rally.data.wsapi.Filter[]  
-         * Name of top project to start building the tree down through the hierarchy.
-         */
-        root_filters: [{
-                property: 'Parent',
-                value: ""
-        }],
-
-        /**
-         * @cfg {Object}
-         * An {Ext.data.Store} config object used when building the grid
-         * Handy when you need to limit the selection with store filters
-         */
-        storeConfig: {
-            context: {
-                project: null
-            },
-            sorters: [
-                {
-                    property: 'Name',
-                    direction: 'DESC'
-                }
-            ]
-        },
-
-        /**
-         * @cfg {Ext.grid.Column}
-         * List of columns that will be used in the chooser
-         */
-        columns: [
-            'Name'
-        ],
-
-        /**
-         * @cfg {String}
-         * Text to be displayed on the button when selection is complete
-         */
-        selectionButtonText: 'Done',
-
-        /**
-         * @cfg {Object}
-         * The grid configuration to be used when creative the grid of items in the dialog
-         */
-        gridConfig: {},
-
-        /**
-         * @cfg {Object[] || Rally.data.wsapi.Model[]}  initialSelectedRecords
-         * The records to select when the chooser loads.  Provide either configuration objects
-         * (with at lease { _ref: xxx } defined) or models
-         */
-        initialSelectedRecords: undefined,
-
-        /**
-         * @cfg showRadioButtons {Boolean}
-         */
-        showRadioButtons: true,
-        
-        /**
-         * @cfg showSearchBox {Boolean}
-         * 
-         * [ Experimental.  Search box might not work ]
-         */
-        showSearchBox: false
-    },
-
-    constructor: function(config) {
-        this.mergeConfig(config);
-
-        this.callParent([this.config]);
-    },
-
-    selectionCache: [],
-
-    initComponent: function() {
-        this.callParent(arguments);
-
-        this.addEvents(
-            /**
-             * @event artifactchosen
-             * Fires when user clicks done after choosing an artifact
-             * @param {Rally.ui.dialog.ArtifactChooserDialog} source the dialog
-             * @param {Rally.data.wsapi.Model}| {Rally.data.wsapi.Model[]} selection selected record or an array of selected records if multiple is true
-             */
-            'itemschosen'
-        );
-
-        this.addCls(['chooserDialog', 'chooser-dialog']);
-    },
-
-    destroy: function() {
-        //      this._destroyTooltip();
-        this.callParent(arguments);
-    },
-
-    beforeRender: function() {
-        this.callParent(arguments);
-
-        this.addDocked({
-            xtype: 'toolbar',
-            dock: 'bottom',
-            padding: '0 0 10 0',
-            layout: {
-                type: 'hbox',
-                pack: 'center'
-            },
-            ui: 'footer',
-            items: [
-                {
-                    xtype: 'rallybutton',
-                    itemId: 'doneButton',
-                    text: this.selectionButtonText,
-                    cls: 'primary rly-small',
-                    scope: this,
-                    disabled: true,
-                    userAction: 'clicked done in dialog',
-                    handler: function() {
-                        this.fireEvent('itemschosen', this.getSelectedRecords());
-                        this.close();
-                    }
-                },
-                {
-                    xtype: 'rallybutton',
-                    text: 'Cancel',
-                    cls: 'secondary rly-small',
-                    handler: this.close,
-                    scope: this,
-                    ui: 'link'
-                }
-            ]
-        });
-
-        if (this.introText) {
-            this.addDocked({
-                xtype: 'component',
-                componentCls: 'intro-panel',
-                html: this.introText
-            });
-        }
-
-        if ( this.showSearchBox ) {
-            this.addDocked({
-                xtype: 'toolbar',
-                itemId: 'searchBar',
-                dock: 'top',
-                border: false,
-                padding: '0 0 10px 0',
-                items: this.getSearchBarItems()
-            });
-        }
-
-        this.buildGrid();
-
-        this.selectionCache = this.getInitialSelectedRecords() || [];
-    },
-
-    /**
-     * Get the records currently selected in the dialog
-     * {Rally.data.Model}|{Rally.data.Model[]}
-     */
-    getSelectedRecords: function() {
-        return this.multiple ? this.selectionCache : this.selectionCache[0];
-    },
-
-    getSearchBarItems: function() {
-        
-        return [
-            {
-                xtype: 'triggerfield',
-                cls: 'rui-triggerfield chooser-search-terms',
-                emptyText: 'Search Keyword or ID',
-                enableKeyEvents: true,
-                flex: 1,
-                itemId: 'searchTerms',
-                listeners: {
-                    keyup: function (textField, event) {
-                        if (event.getKey() === Ext.EventObject.ENTER) {
-                            this._search();
-                        }
-                    },
-                    afterrender: function (field) {
-                        field.focus();
-                    },
-                    scope: this
-                },
-                triggerBaseCls: 'icon-search chooser-search-icon'
-            }
-        ];
-    },
-    getStoreFilters: function() {
-        return [];
-    },
-
-    buildGrid: function() {
-        if (this.grid) {
-            this.grid.destroy();
-        }
-        var me = this;
-
-        this.setLoading('Fetching Project Tree...');
-        Ext.create('Rally.data.wsapi.ProjectTreeStoreBuilder').build({
-            models: ['project'],
-            autoLoad: true,
-            enableHierarchy: true,
-            filters: me.root_filters,
-            sorters: [{property:'Name'}]
-        }).then({
-            scope: this,
-            success: function(store) {
-
-                var mode = this.multiple ? 'MULTI' : 'SINGLE';
-
-                var checkbox_model = Ext.create('Rally.ui.selection.CheckboxModel', {
-                    mode: mode,
-                    enableKeyNav: false,
-                    allowDeselect: true
-                });
-
-                this.grid = this.add({
-                    xtype: 'rallytreegrid',
-                    treeColumnDataIndex: 'Name',
-                    treeColumnHeader: 'Name',
-                    viewConfig: {
-                        cls: 'grid-view-bulk-edit'
-                    },
-                    enableRanking: false,
-                    enableEditing: false,
-                    enableBulkEdit: false,
-                    shouldShowRowActionsColumn: false,
-
-                    selModel: checkbox_model,
-                    _defaultTreeColumnRenderer: function (value, metaData, record, rowIdx, colIdx, store) {
-                        store = store.treeStore || store;
-                        return Rally.ui.renderer.RendererFactory.getRenderTemplate(store.model.getField('Name')).apply(record.data);
-                    },
-                    columnCfgs: [],
-                    store: store
-                });
-
-                this.mon(this.grid, {
-                    beforeselect: this._onGridSelect,
-                    beforedeselect: this._onGridDeselect,
-                    load: this._onGridLoad,
-                    scope: this
-                });
-                this.add(this.grid);
-                this._onGridReady();
-            }
-        }).always(function() { me.setLoading(false);} );
-    },
-
-    _enableDoneButton: function() {
-        this.down('#doneButton').setDisabled(this.selectionCache.length ? false : true);
-    },
-
-    _findRecordInSelectionCache: function(record){
-        var me = this;
-        return _.findIndex(this.selectionCache, function(cachedRecord) {
-            return me._specialGet(cachedRecord,'_ref') === me._specialGet(record,'_ref');
-        });
-    },
-
-    _onGridSelect: function(selectionModel, record) {
-        var index = this._findRecordInSelectionCache(record);
-
-        if (index === -1) {
-            if (!this.multiple) {
-                this.selectionCache = [];
-            }
-            this.selectionCache.push(record);
-        }
-
-        this._enableDoneButton();
-    },
-
-    _onGridDeselect: function(selectionModel, record) {
-        var index = this._findRecordInSelectionCache(record);
-        if (index !== -1) {
-            this.selectionCache.splice(index, 1);
-        }
-        this._enableDoneButton();
-    },
-
-    _onGridReady: function() {
-        if (!this.grid.rendered) {
-            this.mon(this.grid, 'afterrender', this._onGridReady, this, {single: true});
-            return;
-        }
-
-        if (this.grid.getStore().isLoading()) {
-            this.mon(this.grid, 'load', this._onGridReady, this, {single: true});
-            return;
-        }
-
-        this._onGridLoad();
-        this.center();
-    },
-    
-    _specialGet: function(item, field) {
-        if ( Ext.isEmpty(item) ) { 
-            return null;
-        }
-        
-        if ( Ext.isFunction(item.get) ) { 
-            return item.get(field);
-        }
-        
-        return item[field];
-    },
-    
-    _onGridLoad: function() {
-        var store = this.grid.store;
-        var records = [];
-        Ext.Array.each(this.selectionCache, function(record) {
-            var ref = this._specialGet(record,'_ref');
-            var foundNode = store.getRootNode().findChild('_ref',ref,true);
-
-            if (foundNode) {
-                records.push(foundNode);
-            }
-        },this);
-        if (records.length) {
-            this.grid.getSelectionModel().select(records);
-        }
-    },
-    _search: function() {
-        var terms = this._getSearchTerms();
-        var store = this.grid.getStore();
-        //Filter functions call store load so we don't need to refresh the selections becuaes the
-        //onGridLoad function will
-        if (terms) {
-            store.filter([
-                Ext.create('Rally.data.wsapi.Filter',{
-                    property: 'Name',
-                    operator: 'contains',
-                    value: terms
-                })
-            ]);
-        } else {
-            store.clearFilter();
-        }
-
-    },
-    _getSearchTerms: function() {
-        var textBox = this.down('#searchTerms');
-        return textBox && textBox.getValue();
-    }
-});
-
-Ext.override(Rally.data.wsapi.ParentChildMapper, {
-    constructor: function() {
-        this.parentChildTypeMap = {
-            project: [{
-                typePath: 'project', collectionName: 'Children', parentField: 'Parent'
-            }],
-            hierarchicalrequirement: [
-                {typePath: 'defect', collectionName: 'Defects', parentField: 'Requirement'},
-                {typePath: 'task', collectionName: 'Tasks', parentField: 'WorkProduct'},
-                {typePath: 'testcase', collectionName: 'TestCases', parentField: 'WorkProduct'},
-                {typePath: 'hierarchicalrequirement', collectionName: 'Children', parentField: 'Parent'}
-            ],
-            defect: [
-                {typePath: 'task', collectionName: 'Tasks', parentField: 'WorkProduct'},
-                {typePath: 'testcase', collectionName: 'TestCases', parentField: 'WorkProduct'}
-            ],
-            defectsuite: [
-                {typePath: 'defect', collectionName: 'Defects', parentField: 'DefectSuites'},
-                {typePath: 'task', collectionName: 'Tasks', parentField: 'WorkProduct'},
-                {typePath: 'testcase', collectionName: 'TestCases', parentField: 'WorkProduct'}
-            ],
-            testset: [
-                {typePath: 'task', collectionName: 'Tasks', parentField: 'WorkProduct'},
-                {typePath: 'testcase', collectionName: 'TestCases', parentField: 'TestSets'}
-            ]
-        };
-    }
-});
-
-
-Ext.define('Rally.data.wsapi.ProjectTreeStore', {
-
-    extend: 'Rally.data.wsapi.TreeStore',
-    alias: 'store.rallyprojectwsapitreestore',
-    
-    /**
-     * The type definition typePaths to render as root items (required)
-     * @cfg {String[]} parentTypes
-     */
-    parentTypes: ['project'],
-    
-    /**
-     * @property
-     * @private
-     */
-    childLevelSorters: [{
-        property: 'Name',
-        direction: 'ASC'
-    }],
-        
-    getParentFieldNamesByChildType: function(childType, parentType) {
-        return ['Parent'];
-    },
-
-    _getChildNodeFilters: function(node) {
-        var parentType = node.self.typePath,
-            childTypes = this._getChildTypePaths([parentType]),
-            parentFieldNames = this._getParentFieldNames(childTypes, parentType);
-
-        var filter = [];
-        if (parentFieldNames.length) {
-            filter =  [
-                Rally.data.wsapi.Filter.or(_.map(parentFieldNames, function(parentFieldName) {
-                    return {
-                        property: parentFieldName,
-                        operator: '=',
-                        value: node.get('_ref')
-                    };
-                }))
-            ];
-        }
-
-        return filter;
-    },
-
-    filter: function(filters) {
-        console.log('--');
-        this.fireEvent('beforefilter', this);
-        //We need to clear the filters to remove the Parent filter
-        this.filters.clear();
-        this.filters.addAll(filters);
-        this._resetCurrentPage();
-        this.load();
-    },
-    
-    load: function(options) {
-        this.recordLoadBegin({description: 'tree store load', component: this.requester});
-
-        this._hasErrors = false;
-
-        this.on('beforeload', function(store, operation) {
-            delete operation.id;
-        }, this, { single: true });
-
-        options = this._configureLoad(options);
-        options.originalCallback = options.callback;
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
-
-        options.callback = function (records, operation, success) {
-            me.dataLoaded = true;
-
-            if (me._pageIsEmpty(operation)) {
-                me._reloadEmptyPage(options).then({
-                    success: function (records) {
-                        // this gives a maximum callstack exceeded error.  don't know why
-                        //me._resolveLoadingRecords(deferred, records, options, operation, success);
-                    },
-                    failure: function() {
-                        me._rejectLoadingRecord(deferred, options, operation);
-                    }
-                });
-            } else {
-                //me._resolveLoadingRecords(deferred, records, options, operation, success);
-            }
-        };
-
-        if (this._isViewReady()) {
-            this._beforeInitialLoad(options);
-        }
-
-        this.callParent([options]);
-
-        return deferred.promise;
-    },
-
-    clearFilter: function(suppressEvent) {
-        this._resetCurrentPage();
-        this.filters.clear();
-        //We need to add the parent filter back in
-        this.filters.addAll(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'Parent',
-            value: ''
-        }));
-
-        if (!suppressEvent) {
-            this.load();
-        }
-    }
-});
-
-Ext.define('Rally.data.wsapi.ProjectTreeStoreBuilder', {
-    extend: 'Rally.data.wsapi.TreeStoreBuilder',
-
-    build: function(config) {
-        config = _.clone(config || {});
-        config.storeType = 'Rally.data.wsapi.ProjectTreeStore';
-
-        return this.loadModels(config).then({
-            success: function(models) {
-                models = _.values(models);
-                return this._buildStoreWithModels(models, config);
-            },
-            scope: this
-        });
-    },
-
-    _useCompositeArtifacts: function (models, config) {
-        return false;
-    }
-});
 Ext.define("CA.apps.charts.Colors", {
     
     singleton: true, 
@@ -1848,20 +1307,7 @@ Ext.define("CA.apps.charts.Colors", {
     burnLineColor : function (){ return this.blue; },
     burnColumnColor : function() { return this.lime; },
     
-    getConsistentBarColors: function() { 
-    		return [
-		    		this.grey4, 
-		    		this.blue_light, 
-		    		this.blue, 
-		    		this.blue_dark, 
-		    		this.grey7, 
-		    		this.lime, 
-		    		this.green, 
-		    		this.green_dk, 
-		    		this.orange, 
-		    		this.purple 
-  	  	]; 
-    },
+    getConsistentBarColors: function() { return [this.grey4, this.blue_light, this.blue, this.blue_dark, this.grey7 ]; },
     
     getConsistentBarPatterns: function() { 
         return [
@@ -1932,16 +1378,11 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
         });
     },
     
-    removeChart: function() {
-        var box = this.down('#chart_box');
-        box.removeAll();
-    },
-    
     setChart: function(config) {
         var box = this.down('#chart_box');
+        box.removeAll();
         
-        this.removeChart();
-
+        
         var chart_config = Ext.apply({
             xtype:'rallychart',
             loadMask: false,
@@ -1985,7 +1426,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
-            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -2040,11 +1480,6 @@ Ext.define("CA.techservices.app.ChartApp", {
     getChartBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
         return this.down('#main_chart_' + index);
-    },
-    
-    clearChartBox: function(index) {
-        if ( Ext.isEmpty( index ) ) { index = 0; }
-        this.down('#main_chart_' + index) && this.down('#main_chart_' + index).removeChart();
     },
     
     setChart: function(config,index) {
@@ -2616,420 +2051,386 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     },
 
 });
-Ext.define("IntegrityApp", {
-    extend: 'CA.techservices.app.ChartApp',
+/**
+ * A link that pops up a version dialog box
+ */
 
-    descriptions: [
-        "<strong>Percentage of Stories with Functional Test Coverage</strong><br/>" +
-            "<br/>" +
-            "The top stacked bar chart displays your total test case coverage (by %) for user stories in the sprint (e.g., 100% indicates every testable user story had at least one testcase)" 
-            ,
-        "<strong>Percentage Passed</strong><br/>"+
-            "<br/>" +
-            "The gold line graph displays the pass rate of all the test cases completed in the sprint bytest casetype. <br/>" +
-            "The green line graph displays the pass rate of stories tested in the sprint" 
-    ],
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
     
-    integrationHeaders : {
-        name : "IntegrityApp"
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
     },
     
-     config: {
-        chartLabelRotationSettings:{
-            rotateNone: 0,
-            rotate45: 10,
-            rotate90: 15 
-        },
-        defaultSettings: {
-           showPatterns: false,
-            typeField: 'Type',
-            typeFieldValue: 'Acceptance',
-            isTestableField: 'c_IsTestable',
-            gridThreshold: 2
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER  = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
         }
+   
+        return chk;
     },
-                        
-    launch: function() {
-        this.callParent();
-        this._addSelectors();
-        this._updateData();
-    },
-
-    _addSelectors: function() {
-
-        this.timebox_limit = 10;
-        this.addToBanner({
-            xtype: 'rallynumberfield',
-            name: 'timeBoxLimit',
-            itemId: 'timeBoxLimit',
-            fieldLabel: 'Timebox Limit',
-            value: 10,
-            maxValue: 20,
-            minValue: 1,            
-            margin: '0 0 0 50',
-            width: 150,
-            allowBlank: false,  // requires a non-empty value
-            listeners:{
-                change:function(nf){
-                    this.timebox_limit = nf.value;
-                    this._updateData();
-                },
-                scope:this
-            }
-        }
-        );
-
-        this.timebox_type = 'Iteration';
-        this.addToBanner(
-        {
-            xtype      : 'radiogroup',
-            fieldLabel : 'Timebox Type',
-            margin: '0 0 0 50',
-            width: 300,
-            defaults: {
-                flex: 1
-            },
-            layout: 'hbox',
-            items: [
-                {
-                    boxLabel  : 'Iteration',
-                    name      : 'timeBoxType',
-                    inputValue: 'Iteration',
-                    id        : 'radio1',
-                    checked   : true                    
-                }, {
-                    boxLabel  : 'Release',
-                    name      : 'timeBoxType',
-                    inputValue: 'Release',
-                    id        : 'radio2'
-                }
-            ],
-            listeners:{
-                change:function(rb){
-                    this.timebox_type = rb.lastValue.timeBoxType;
-                    this._updateData();
-                },
-                scope:this
-            }
-        }
-        );
-
-
-    },    
     
-    _updateData: function() {
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        this.metric = "size";
-//        this.timebox_type = 'Iteration';
         
-        Deft.Chain.pipeline([
-            this._fetchTimeboxes,
-            this._sortTimeboxes,
-            this._fetchArtifactsInTimeboxes
-        ],this).then({
-            scope: this,
-            success: function(results) {
-                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
-                this._makeTopChart(artifacts_by_timebox);
-                this._makeBottomChart(artifacts_by_timebox);
-                this._makeRawBottomGrid(artifacts_by_timebox);
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
             },
-            failure: function(msg) {
-//                Ext.Msg.alert('--', msg);
-                Ext.Msg.alert('--', "Be sure you have gone to App Settings to set your configuration");
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
             }
         });
         
+        return deferred.promise;
     },
     
-    _fetchTimeboxes: function() {
-        var me = this,
-            deferred = Ext.create('Deft.Deferred'),
-            type = this.timebox_type;
-                
-        var start_field = "StartDate";
-        var end_field = "EndDate";
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
+        
+        container.add(config);
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
+        }
+        
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
 
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            end_field   = "ReleaseDate";
-        }   
-
-        this.setLoading("Fetching timeboxes...");
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            var build_html = Ext.String.format("Built on: {0} <br/>Built by: {1}",
+                APP_BUILD_DATE,
+                BUILDER);
                 
-        var config = {
-            model: type,
-            limit: this.timebox_limit,
-            pageSize: this.timebox_limit,
-            fetch: ['Name',start_field,end_field],
-            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-            sorters: [{property:end_field, direction:'DESC'}],
-            context: {
-                projectScopeUp: false,
-                projectScopeDown: false
+            if ( STORY ) {
+                build_html = build_html + "<br/>Source story: " + STORY;
             }
+                
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: build_html
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define("TSQualityDefectsFound", {
+    extend: 'CA.techservices.app.ChartApp',
+
+    description: "<strong>Quality - Defect Density</strong><br/>" +
+    "<br/>" +
+    "Quality-Defect Density is the representation of the number of defects found in production or test, per workday  " + 
+    "<br/>" + 
+    "This number is for the project(s) in scope only." + 
+    "<br/>" + 
+    "The test environement can be set on app settings.",
+    
+    integrationHeaders : {
+        name : "TSQualityDefectsFound"
+    },
+    
+    config: {
+        defaultSettings: {
+            showPatterns: false,
+            envFieldValue:""
+        }
+    },
+
+    getSettingsFields: function() {
+        return [
+        { 
+            name: 'showPatterns',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 25',
+            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+        },
+        {
+            name: 'envFieldValue',
+            itemId:'envFieldValue',
+            xtype: 'rallyfieldvaluecombobox',
+            fieldLabel: 'Environment',
+            labelWidth: 125,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: '10 10 10 10',
+            autoExpand: true,
+            alwaysExpanded: true,                
+            model: 'Defect',
+            field: 'Environment'
+        }
+        ];        
+    },
+         
+
+    launch: function() {
+        this.callParent();
+        
+        TSUtilities.getPortfolioItemTypes().then({
+            scope: this,
+            success: function(types) {
+                this._piTypes = types;
+                this._updateData();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem Loading PI Types', msg);
+            }
+        });
+    },
+    
+    _updateData: function() {
+        var me = this;
+        
+        this.setLoading("Gathering Defects...");
+        this._getCreatedDefects().then({
+            scope: this,
+            success: function(defects) {
+                this._makeChart(defects);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem Loading defects',msg);
+            }
+        }).always(function() { me.setLoading(false); });
+    },
+    
+    _getMonthStartLastYear: function() {
+        var today = new Date();
+        var last_year = Rally.util.DateTime.add(today,'month',-12);
+        
+        last_year.setHours(0,0,0,0);
+        last_year.setDate(1);
+        
+        return last_year;
+    },
+    
+    _getYearOfBuckets: function() {
+        var initial = this._getMonthStartLastYear();
+        
+        return Ext.Array.map( _.range(12), function(i) {
+            start = Rally.util.DateTime.add(initial,'month',i);
+            end = start;
+            end = new Date(start.getFullYear(),end.getMonth()+1,0);
+            differnce = Rally.technicalservices.util.Utilities.daysBetween(start,end,true);
+            return {"Start":start,"End":end,"Difference":differnce};
+        });
+    },
+    
+    _getCreatedDefects: function() {
+        var start_date = this._getMonthStartLastYear();
+        var start_date_iso = Rally.util.DateTime.toIsoString(start_date);
+        
+        this.logger.log('Start Date', start_date, start_date_iso);
+        var filters = [{property:'CreationDate',operator:'>=',value:start_date_iso},{property:'Environment',value:this.getSetting('envFieldValue')}];
+        
+        config = {
+            model: 'Defect',
+            filters: filters,
+            fetch: ['FormattedID','Name','State','Project','CreationDate']
         };
         
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortTimeboxes: function(timeboxes) {
-
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
-            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-      
-        Ext.Array.sort(timeboxes, function(a,b){
-            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
-            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
-            return 0;
-        }); 
-        
-				this.timeboxes = timeboxes;        
-        return timeboxes;
-    },
-
-   
-    _fetchArtifactsInTimeboxes: function(timeboxes) {
-        var me = this;
-        if ( timeboxes.length === 0 ) { return; }
-        
-        var type = this.timebox_type;
-        
-        var isTestableField = me.getSetting('isTestableField');
-
-        var start_field = "StartDate";
-        var end_field = "EndDate";
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            end_field   = "ReleaseDate";
-        }
-        
-        var foundByColumn = this.getSetting('typeField');
-        var foundByValues = me.getSetting('typeFieldValue').split(',');
-
-        var foundByFilter = [];
-
-        Ext.Array.each(foundByValues, function(val){
-            foundByFilter.push({property: 'TestCases.'+foundByColumn, value:val});
-        });
-
-
-        var deferred = Ext.create('Deft.Deferred');
-        var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
-
-        var filters = [
-            {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + end_field, operator: '<=', value:last_date}
-        ];
-        
-        filters = Rally.data.wsapi.Filter.and(filters).and({property: isTestableField, operator: '=', value: true});
-
-        foundByFilter = filters.and(Rally.data.wsapi.Filter.or(foundByFilter));
-
-        var config = {
-            model:'HierarchicalRequirement',
-            limit: Infinity,
-            filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',foundByColumn, start_field,end_field]
-        };
-
-        var config1 = {
-            model:'HierarchicalRequirement',
-            limit: Infinity,
-            filters: foundByFilter,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate','TestCaseCount','PassingTestCaseCount','TestCaseStatus',foundByColumn, start_field,end_field]
-        };
-        // make two calls to get the ones with test cases of specific type.
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            },
-            function() { 
-                return TSUtilities.loadWsapiRecords(config1);
-            }
-        ],this).then({
-            success: function(results) {
-                //deferred.resolve(Ext.Array.flatten(results));
-                deferred.resolve(results);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    /* 
-     * returns a hash of hashes -- key is iteration name value is
-     * another hash where the records key holds a hash
-     *    the records hash has a key for each allowed value 
-     *    which then provides an array of items that match the allowed value 
-     *    and timebox
-     * as in
-     * { "iteration 1": { "records": { "all": [o,o,o], "with_test_cases": [o,o] } } }
-     */
-
-    _collectArtifactsByTimebox: function(items) {
-        //console.log('items >>', items);
-        
-        var test_cases_object_ids = [];
-
-        Ext.Array.each(items[1],function(item){
-            test_cases_object_ids.push(item.get('ObjectID'));
-        });
-
-
-        var me = this;
-        var hash = {},
-            timebox_type = this.timebox_type;
-
-        
-        if ( items[0].length === 0 ) { return hash; }
-        
-        var base_hash = {
-            records: {
-                all: [],
-                with_test_cases:[]
-            }
-        };
-
-        Ext.Array.each(items[0], function(item){
-            var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
-            hash[timebox].records.all.push(item);
-
-            //var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
-            if(Ext.Array.contains(test_cases_object_ids,item.get('ObjectID'))){
-                hash[timebox].records['with_test_cases'].push(item);
-            }
-           
-        });
-        
-        return hash;
-    },
-
-   
-    _makeTopChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getTopSeries(artifacts_by_timebox);
+    _makeChart: function(defects) {
+        var categories = this._getCategories();
+        var series = [ this._getQualitySeries(defects) ];
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getTopChartConfig(),
+            chartConfig: this._getChartConfig(),
             chartColors: colors
         },0);
-        this.setLoading(false);
     },
-
-
-    _getTopSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = ['all','with_test_cases'];
-        
-        Ext.Array.each(allowed_types, function(allowed_type){
-            var name = allowed_type == 'all' ? 'All':'With Test Cases';
-
-            series.push({
-                name: name,
-                color: allowed_type == 'all' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
-                data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
-								pointPadding: allowed_type == 'all' ? 0 : 0.15,
-                type: 'column'              
-            });
-        },this);
-        
-        return series;
+    
+    _getCategories: function() {
+        return Ext.Array.map(this._getYearOfBuckets(), function(start_of_month){
+            return Ext.util.Format.date(start_of_month.Start,'Y-m');
+        });
     },
-
-    _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
+    
+    //
+    _getQualitySeries: function(defects) {
         var me = this,
-        data = [];
-
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0,
-                _records: []
-            });
-						return;
-				}
-//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var records = value.records[allowed_type] || [];
-            var y_value = 0;
-
-            if('all' == allowed_type){
-                y_value = 100;
-            } else if ('with_test_cases' == allowed_type){
-                y_value = (records.length / value.records['all'].length) * 100;
+            defects_by_bucket = {};
+        var buckets = this._getYearOfBuckets();
+        
+        Ext.Array.each(buckets, function(bucket){
+            defects_by_bucket[Ext.util.Format.date(bucket.Start, 'Y-m')] = {"Difference":bucket.Difference,all:[]};
+        });
+        
+        Ext.Array.each(defects, function(defect){
+            var accepted_date = defect.get('CreationDate');
+            var bucket = Ext.util.Format.date(accepted_date,'Y-m');
+            if ( defects_by_bucket[bucket] ) {
+                defects_by_bucket[bucket].all.push(defect);
             }
-
-            data.push({ 
-                y:y_value,
-                _records: records,
+        });
+        
+        var data = Ext.Array.map(Ext.Object.getKeys(defects_by_bucket), function(bucket){
+            var value = defects_by_bucket[bucket].all.length/defects_by_bucket[bucket].Difference;
+            return {
+                y: value,
+                _records: defects_by_bucket[bucket].all,
                 events: {
                     click: function() {
-                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
+                        me.showDrillDown(this._records,  bucket+": "+Ext.util.Format.number(value, '0.##')+" Points");
                     }
                 }
-            });
-
-
+            };
+                
         });
-
-        return data
-    },       
-
-    _getTopChartConfig: function() {
+        return {
+            name: 'Project',
+            data: data,
+            type:'column'
+        };
+    },
+    
+    _getChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Percentage of Stories with Functional Test Coverage' },
-            xAxis: {
-                labels:{
-                    rotation:this._rotateLabels()
-                }
-            },
-            yAxis: { 
-                min: 0,
-                title: { text: '%' },
-                stackLabels: {
-                    enabled: true,
-                    style: {
-                        fontWeight: 'bold',
-                        color: 'gray'
-                    }
-                }   
-            },
+            title: { text: 'Defect Density' },
+            subtitle: {text: 'Environment: ' + me.getSetting('envFieldValue') },
+            xAxis: {},
+            yAxis: [{ 
+                title: { text: 'Count' }
+            }],
             plotOptions: {
-                stacking: 'normal',
-                dataLabels: {
-                    enabled: true,
-                    color:'gray',
-                    style: {
-                        textShadow: '0 0 3px black'
-                    },
-                    format: '{y} %',
-                },                
                 column: {
                     grouping: false,
                     shadow: false,
@@ -3038,440 +2439,50 @@ Ext.define("IntegrityApp", {
             },
             tooltip: {
                 formatter: function() {
-                    return '<b>'+ this.series.name +'</b>: '+ Math.round(this.point.y) + ' %';
+                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
                 }
             }
         }
     },
-
-    _rotateLabels: function(){
-        
-        var rotationSetting = 0;
-
-        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
-            rotationSetting = 0;
-        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
-            rotationSetting =  45;
-        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
-            rotationSetting =  90;
-        }
-        
-        return rotationSetting;
-    },
-
-    _makeBottomChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getBottomSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
-        }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getBottomChartConfig(),
-            chartColors: colors
-        },1);
-        this.setLoading(false);
-    },
-    
-
-    
-    _getBottomSeries: function(artifacts_by_timebox) {
-        var series = [];
-            
-        series.push({
-            name: 'Pass Rate of Stories',
-            data: this._calculateBottomMeasure(artifacts_by_timebox,'Stories'),
-            color: 'green'
-        });
-
-        series.push({
-            name: 'Pass Rate of Test Cases',
-            data: this._calculateBottomMeasure(artifacts_by_timebox,'TestCase'),
-            color: '#FFD700' // Gold.
-        });
-
-        return series;
-    },
-
-
-    _calculateBottomMeasure: function(artifacts_by_timebox,graph_type) {
-        var me = this,
-            data = [];
-
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-            });
-						return;
-				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            var y_value = 0;
-            var all_length = value.records.all.length;
-            var pass_length = 0;
-            var test_case_length = value.records.with_test_cases.length;
-            Ext.Array.each(value.records.with_test_cases,function(story){
-                if("ALL_RUN_ALL_PASSING" == story.get('TestCaseStatus')){
-                    pass_length += 1;
-                }                
-            });
-
-            if("Stories" == graph_type){
-                y_value = all_length > 0 ? Math.round((pass_length / all_length) * 100):0;
-            } else  if("TestCase" == graph_type){
-                y_value = test_case_length > 0 ? Math.round((pass_length / test_case_length) * 100):0;
-            }
-
-            data.push({ 
-                y: y_value
-            });
-        });
-
-        return data;
-    },    
-    
-    _getBottomChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type: 'line' },
-            title: { text: 'Percentage Passed' },
-            xAxis: {
-                title: { },
-                labels:{
-                    rotation:this._rotateLabels()
-                }
-            },
-            yAxis: [{ 
-                //min: 0,
-                title: { text: '% Passed' }
-            }],
-            plotOptions: {
-                line: {
-                    // color: 'red',
-                    dataLabels: {
-                        enabled: true,
-                        format: '{y} %',
-                    },                    
-                    pointStart: 0,
-                    marker: {
-                        enabled: true,
-                        symbol: 'circle',
-                        radius: 2,
-                        states: {
-                            hover: {
-                                enabled: true
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    },
-
-    _makeRawBottomGrid: function(artifacts_by_timebox) {
-        var me = this;
-        
-        this.logger.log('_makeRawGrid', artifacts_by_timebox);
-       
-        var columns = [{dataIndex:'Name',text:'Counts',flex:2}];
-        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field, 
-                            align: 'center',
-                            flex:1,
-                            renderer: function(value,metaData){
-                                if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
-                                     metaData.style = 'text-align:center;background-color:#ff9999';    
-                                }
-                                return value;
-                            }
-                        });
-        });
-        
-        this.logger.log('about to get Raw Rows');
-        var rows = this._getRawBottomRows(artifacts_by_timebox);
-        
-        this.logger.log('about to create store', rows);
-        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
-        
-        this.logger.log('about to add', store, columns);
-
-        this.setGrid({
-            xtype:'rallygrid',
-            padding: 5,
-            showPagingToolbar: false,
-            enableEditing: false,
-            showRowActionsColumn: false,     
-            store: store,
-            columnCfgs: columns
-        },1);
-
-    },
-    
-    _getRawBottomRows: function(artifacts_by_timebox) {
-        var me = this;
-        // sprint objects have key = name of sprint
-        
-        var row_fields = this._getCategories(artifacts_by_timebox);
-         
-        this.logger.log('row_fields', row_fields);
-        
-        var rows = [
-            {Type:'TotalStoryCount', Name: 'Testable Stories'},
-            {Type:'TotalTCStoryCount',  Name: 'Stories w/ Test Cases' },
-            {Type:'TotalTCPassStoryCount', Name: 'Stories w/ All Test Cases Pass' }
-        ];
-
-        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-        //     rows.push({Type:rowname.name,Name:rowname.name});
-        // })
-        // set up fields
-        
-        Ext.Array.each(rows, function(row) {
-            Ext.Array.each(row_fields, function(field){
-                field = me._getSafeIterationName(field);
-                row[field] = [];
-                row[field + "_number"] = 0;
-            });
-        });
-        
-        this.logger.log('rows >>',rows);
-
-        Ext.Array.each(rows, function(row){
-            var type = row.Type;
-            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
-                sprint_name = me._getSafeIterationName(sprint_name);
-
-              
-                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
-                
-            });
-        });
-        
-        return rows;
-    },
-
-
-    _getBottomSize:function(value,type){
-
-            var size = 0;
-
-            if('TotalStoryCount' == type){
-                size = value.records.all.length;
-            }else if('TotalTCStoryCount' == type){
-                size = value.records.with_test_cases.length;
-            }else if('TotalTCPassStoryCount' == type){
-                Ext.Array.each(value.records.with_test_cases, function(story){
-                    if("ALL_RUN_ALL_PASSING" == story.get('TestCaseStatus')){
-                        size += 1;
-                    }    
-                }); 
-            }
-
-            return size;
-    },
-
-
-    _getCategories: function(artifacts_by_timebox) {
-//        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
-
-			return timebox.get('Name');
-
-			});
-    },
-
-    getSettingsFields: function() {
-        var me = this;
-        return [
-        {
-                name: 'isTestableField',
-                xtype: 'rallyfieldcombobox',
-                itemId: 'isTestableField',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,            
-                fieldLabel: 'Is Testable Field',
-                model: 'HierarchicalRequirement',
-                margin: '10 10 10 10'
+ 
+    getDrillDownColumns: function(title) {
+        var columns = [{
+            dataIndex : 'FormattedID',
+            text: "id"
         },
         {
-                name: 'typeField',
-                itemId:'typeField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Test Type Field',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'TestCase',
-                bubbleEvents: ['typeFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
-                    },
-                    change: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
-                    }
-                },                
- //               readyEvent: 'ready'
-            },
-            {
-                name: 'typeFieldValue',
-                itemId:'typeFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Test Type Field Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'TestCase',
-                field: 'Type',
-                multiSelect: true,
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('typeFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    typeFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-//                readyEvent: 'ready'                
-            },
-            {
-                name:'gridThreshold',
-                xtype:'textfield',
-                fieldLabel: 'Grid Threshold',
-                itemId: 'gridThreshold',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10'
-            },        
-            { 
-                name: 'showPatterns',
-                xtype: 'rallycheckboxfield',
-                boxLabelAlign: 'after',
-                fieldLabel: '',
-                margin: '0 0 25 25',
-                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-            }      
-        
-        ];
-    },
-    
-    getDrillDownColumns: function(title) {
-        var columns = [
-            {
-                dataIndex : 'FormattedID',
-                text: "id"
-            },
-            {
-                dataIndex : 'Name',
-                text: "Name",
-                flex: 2
-            },
-            {
-                dataIndex: 'AcceptedDate',
-                text: 'Accepted Date',
-                flex:1
-            },
-            {
-                dataIndex: 'PlanEstimate',
-                text: 'Plan Estimate'
-            },
-            {
-                dataIndex: 'Iteration',
-                text: 'Iteration',
-                renderer:function(Iteration){
-                        return Iteration.Name;
-                }                
-            },
-            {
-                dataIndex: 'Project',
-                text: 'Project',
-                renderer:function(Project){
-                        return Project.Name;
-                },
-                flex: 1
-            },
-            {
-                dataIndex: 'TestCaseCount',
-                text: 'Test Case Count',
-                flex: 1
-            },
-            {
-                dataIndex: 'TestCaseStatus',
-                text: 'Test Case Status',
-                flex: 1
-            }
-        ];
-        
-        if ( /\(multiple\)/.test(title)) {
-            columns.push({
-                dataIndex: 'Name',
-                text: 'Count of Moves',
-                renderer: function(value, meta, record) {
-                    
-                    return value.split('[Continued]').length;
+            dataIndex: 'Name',
+            text: 'Name',
+            flex: 1
+        },
+        {
+            dataIndex: 'State',
+            text: 'State'
+        },
+        {
+            dataIndex: 'CreationDate',
+            text:'Creation Date'
+        },
+        {
+            dataIndex: 'Project',
+            text: 'Project',
+            flex: 1,
+            renderer: function(value,meta,record){
+                if ( Ext.isEmpty(value) ) {
+                    return "";
                 }
-            });
-        }
-        
+                return value._refObjectName;
+            }
+        }];
         
         return columns;
-    },
-    /*
-     * having a dot in the name for the key of a hash causes problems
-     */
-    _getSafeIterationName: function(name) {
-        return name.replace(/\./,'&#46;'); 
-    },
-    
-    _getUnsafeIterationName: function(name) {
-        return name.replace(/&#46;/,'.');
-    },
-
-    fetchWsapiCount: function(model, query_filters){
-        var deferred = Ext.create('Deft.Deferred');
-
-        Ext.create('Rally.data.wsapi.Store',{
-            model: model,
-            fetch: ['ObjectID'],
-            enablePostGet: true,
-            filters: query_filters,
-            limit: 1,
-            pageSize: 1
-        }).load({
-            callback: function(records, operation, success){
-                if (success){
-                    deferred.resolve(operation.resultSet.totalRecords);
-                } else {
-                    deferred.reject(Ext.String.format("Error getting {0} count for {1}: {2}", model, query_filters.toString(), operation.error.errors.join(',')));
-                }
-            }
-        });
-        return deferred;
-    },
+    }
     
 });
 
             
-               Rally.launchApp('IntegrityApp', {
-                   name: 'Integrity'
+               Rally.launchApp('TSQualityDefectsFound', {
+                   name: 'TS Quality - Defects Found'
                });
         });
     </script>
