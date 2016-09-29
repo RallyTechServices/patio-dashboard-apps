@@ -3,11 +3,11 @@
 <head>
     <title>OI Backlog Maturity App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 22:05:46 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Sep 28 2016 16:24:43 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 22:05:46 GMT-0700 (PDT)";
-        var CHECKSUM = 155228142941;
+        var APP_BUILD_DATE = "Wed Sep 28 2016 16:24:43 GMT-0700 (PDT)";
+        var CHECKSUM = 154888289763;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1455,7 +1455,9 @@ Ext.define('TSUtilities', {
         var me = this;
                 
         var default_config = {
-            fetch: ['ObjectID']
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
@@ -2184,21 +2186,24 @@ Ext.define("OIBMApp", {
     launch: function() {
         this.callParent();
 
-        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
-            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
-                '<br/>Please use Edit App Settings... to make this configuration.');
-            return;
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
+
+            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+                Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                    '<br/>Please use Edit App Settings... to make this configuration.');
+                return;
+            }
+            
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            if ( Ext.isString(this.workspaces ) ){
+                this.workspaces = Ext.JSON.decode(this.workspaces);
+            }
+            Ext.Array.each(this.workspaces, function(workspace){
+                workspace._ref = workspace.workspaceRef;
+                workspace.Name = workspace.workspaceName;
+                workspace.ObjectID = workspace.workspaceObjectID;
+            });
         }
-        
-        this.workspaces = this.getSetting('workspaceProgramParents');
-        if ( Ext.isString(this.workspaces ) ){
-            this.workspaces = Ext.JSON.decode(this.workspaces);
-        }
-        Ext.Array.each(this.workspaces, function(workspace){
-            workspace._ref = workspace.workspaceRef;
-            workspace.Name = workspace.workspaceName;
-            workspace.ObjectID = workspace.workspaceObjectID;
-        });
                 
         this._addComponents();
     },
@@ -2358,7 +2363,10 @@ Ext.define("OIBMApp", {
                             var item_hierarchy_ids = [];
 
                             Ext.Array.each(programs,function(res){
-                                item_hierarchy_ids.push({"ObjectID":res.get('ObjectID'),"EPMSProject":res.get('Project').Name});
+                                item_hierarchy_ids.push({
+                                    "ObjectID":res.get('ObjectID'),
+                                    "EPMSProject":res.get('Project').Name
+                                });
                             })
                             
                             this._getStoriesFromSnapShotStore(second_day,workspace_oid,item_hierarchy_ids).then({
@@ -2395,9 +2403,7 @@ Ext.define("OIBMApp", {
                                             Ext.Object.each(stories_by_program,function(key,value){
                                                 promises.push(me._getVelocity(key,workspace_oid,value));
                                             });
-                                            
-                                            console.log('stories by program', stories_by_program);
-                                            
+                                                                                        
                                             Deft.Promise.all(promises).then({
                                                 scope: this,
                                                 success: function(all_projects_velocity){
@@ -2579,8 +2585,6 @@ Ext.define("OIBMApp", {
                                         
                     var stories_by_program = me._organizeStoriesByProgram(Ext.Object.getValues(records_by_oid));
 
-                    console.log('stories by program', stories_by_program);
-                    
                     deferred.resolve(stories_by_program);
                 }
             }
@@ -2609,12 +2613,10 @@ Ext.define("OIBMApp", {
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
         
-        console.log('--', program_name);
         var project_oid = -1;
         
         Ext.Array.each(stories, function(story){
             project_oid = story.get('Project').ObjectID;
-            console.log(story.get('Project')._refObjectName, story.get('Project').ObjectID);
         });
 
         var today = new Date();

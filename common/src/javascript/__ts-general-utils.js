@@ -30,7 +30,9 @@ Ext.define('TSUtilities', {
         var me = this;
                 
         var default_config = {
-            fetch: ['ObjectID']
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {

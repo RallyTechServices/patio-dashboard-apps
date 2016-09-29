@@ -25,21 +25,24 @@ Ext.define("OIBMApp", {
     launch: function() {
         this.callParent();
 
-        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
-            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
-                '<br/>Please use Edit App Settings... to make this configuration.');
-            return;
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
+
+            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+                Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                    '<br/>Please use Edit App Settings... to make this configuration.');
+                return;
+            }
+            
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            if ( Ext.isString(this.workspaces ) ){
+                this.workspaces = Ext.JSON.decode(this.workspaces);
+            }
+            Ext.Array.each(this.workspaces, function(workspace){
+                workspace._ref = workspace.workspaceRef;
+                workspace.Name = workspace.workspaceName;
+                workspace.ObjectID = workspace.workspaceObjectID;
+            });
         }
-        
-        this.workspaces = this.getSetting('workspaceProgramParents');
-        if ( Ext.isString(this.workspaces ) ){
-            this.workspaces = Ext.JSON.decode(this.workspaces);
-        }
-        Ext.Array.each(this.workspaces, function(workspace){
-            workspace._ref = workspace.workspaceRef;
-            workspace.Name = workspace.workspaceName;
-            workspace.ObjectID = workspace.workspaceObjectID;
-        });
                 
         this._addComponents();
     },
@@ -199,7 +202,10 @@ Ext.define("OIBMApp", {
                             var item_hierarchy_ids = [];
 
                             Ext.Array.each(programs,function(res){
-                                item_hierarchy_ids.push({"ObjectID":res.get('ObjectID'),"EPMSProject":res.get('Project').Name});
+                                item_hierarchy_ids.push({
+                                    "ObjectID":res.get('ObjectID'),
+                                    "EPMSProject":res.get('Project').Name
+                                });
                             })
                             
                             this._getStoriesFromSnapShotStore(second_day,workspace_oid,item_hierarchy_ids).then({
@@ -236,9 +242,7 @@ Ext.define("OIBMApp", {
                                             Ext.Object.each(stories_by_program,function(key,value){
                                                 promises.push(me._getVelocity(key,workspace_oid,value));
                                             });
-                                            
-                                            console.log('stories by program', stories_by_program);
-                                            
+                                                                                        
                                             Deft.Promise.all(promises).then({
                                                 scope: this,
                                                 success: function(all_projects_velocity){
@@ -420,8 +424,6 @@ Ext.define("OIBMApp", {
                                         
                     var stories_by_program = me._organizeStoriesByProgram(Ext.Object.getValues(records_by_oid));
 
-                    console.log('stories by program', stories_by_program);
-                    
                     deferred.resolve(stories_by_program);
                 }
             }
@@ -450,12 +452,10 @@ Ext.define("OIBMApp", {
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
         
-        console.log('--', program_name);
         var project_oid = -1;
         
         Ext.Array.each(stories, function(story){
             project_oid = story.get('Project').ObjectID;
-            console.log(story.get('Project')._refObjectName, story.get('Project').ObjectID);
         });
 
         var today = new Date();
@@ -621,10 +621,20 @@ Ext.define("OIBMApp", {
         return [{
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            label: ' ',
+            boxLabel: 'Show Scope Selector<br/><span style="color:#999999;"> ' +
+            '<i>Tick to show the selectors and broadcast settings.</i><p/>' + 
+            '<em>If this is not checked, the app expects another app on the same page ' +
+            'to broadcast the chosen program(s) and quarter.  When <b>checked</b> the Workspaces and ' +
+            'Program Parents must be chosen.  When <b>not checked</b> the below Workspaces and Program ' +
+            'Parents are ignored.</em>' +
+            '</span>' + 
+            '<p/>' + 
+            '<span style="color:#999999;">' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         },
 //        {
 //            name: 'showAllWorkspaces',
@@ -638,8 +648,14 @@ Ext.define("OIBMApp", {
         {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
-            fieldLabel: 'Workspaces and Program Parents',
-            margin: '0 10 100 0'
+            fieldLabel: ' ',
+            margin: '0 10 50 150',
+            boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
+            '<p/>' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         }];
     }
 });

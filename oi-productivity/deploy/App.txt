@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 16:42:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Sep 28 2016 16:58:43 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 16:42:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Sep 28 2016 16:58:43 GMT-0700 (PDT)";
         var STORY    = "US555";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 132347962856;
+        var CHECKSUM = 134987360125;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1280,7 +1280,9 @@ Ext.define('TSUtilities', {
         var me = this;
                 
         var default_config = {
-            fetch: ['ObjectID']
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
@@ -1594,8 +1596,8 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
     width: '100%',
     cls: 'column-settings',
 
-    height: 200,
-    width: 400,
+    height: 150,
+    width: 500,
     
     store: undefined,
     labelAlign: 'top',
@@ -2007,24 +2009,25 @@ descriptions: [
     launch: function() {
         this.callParent();
         
-        if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
-            Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
-                '<br/>Please use Edit App Settings... to make this configuration.');
-            return;
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
+
+            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+                Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                    '<br/>Please use Edit App Settings... to make this configuration.');
+                return;
+            }
+            
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            if ( Ext.isString(this.workspaces ) ){
+                this.workspaces = Ext.JSON.decode(this.workspaces);
+            }
+            Ext.Array.each(this.workspaces, function(workspace){
+                workspace._ref = workspace.workspaceRef;
+                workspace.Name = workspace.workspaceName;
+                workspace.ObjectID = workspace.workspaceObjectID;
+            });
+        
         }
-        
-        this.workspaces = this.getSetting('workspaceProgramParents');
-        if ( Ext.isString(this.workspaces ) ){
-            this.workspaces = Ext.JSON.decode(this.workspaces);
-        }
-        Ext.Array.each(this.workspaces, function(workspace){
-            workspace._ref = workspace.workspaceRef;
-            workspace.Name = workspace.workspaceName;
-            workspace.ObjectID = workspace.workspaceObjectID;
-        });
-        
-        this.logger.log('chosen workspaces:', this.workspaces);
-        
         this._addComponents();
     },
     
@@ -2101,7 +2104,6 @@ descriptions: [
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                this.logger.log('all_results>>>>',all_results);
                 //me._displayGrid(Ext.Array.flatten(all_results));
                 //var results = Ext.Array.flatten(all_results)
                 me.setLoading(false);
@@ -2168,12 +2170,6 @@ descriptions: [
                     deferred.resolve([]);
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
-                    var featureModelPath = types[0].get('TypePath');
-                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
-                    
-                    // TODO: another way to find out what the field on story is that gives us the feature
-                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    //if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
                     
                     var epmsModelPath = types[2].get('TypePath');
 
@@ -2184,7 +2180,6 @@ descriptions: [
                                 deferred.resolve({});
                                 return;
                             }                            
-
 
                             var item_hierarchy_ids = [];
 
@@ -2308,10 +2303,10 @@ descriptions: [
         });
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement",
-                        "_ItemHierarchy": {"$in": hierarchy_ids},
-                        "__At": date
-                    };
+            "_TypeHierarchy": "HierarchicalRequirement",
+            "_ItemHierarchy": {"$in": hierarchy_ids},
+            "__At": date
+        };
 
         // if(me.programObjectIds && me.programObjectIds.length > 0){
         //     find["Project"] = {"$in": me.programObjectIds};
@@ -2333,7 +2328,7 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('PI lookback recs',records);
+                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -2570,11 +2565,20 @@ descriptions: [
         return [{
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            labelWidth: 135,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10
+            label: ' ',
+            boxLabel: 'Show Scope Selector<br/><span style="color:#999999;"> ' +
+            '<i>Tick to show the selectors and broadcast settings.</i><p/>' + 
+            '<em>If this is not checked, the app expects another app on the same page ' +
+            'to broadcast the chosen program(s) and quarter.  When <b>checked</b> the Workspaces and ' +
+            'Program Parents must be chosen.  When <b>not checked</b> the below Workspaces and Program ' +
+            'Parents are ignored.</em>' +
+            '</span>' + 
+            '<p/>' + 
+            '<span style="color:#999999;">' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         },
 //        {
 //            name: 'showAllWorkspaces',
@@ -2588,10 +2592,15 @@ descriptions: [
         {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
-            fieldLabel: 'Workspaces and Program Parents',
-            margin: '0 10 100 0'
-        }
-        ];
+            fieldLabel: ' ',
+            margin: '0 10 50 150',
+            boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
+            '<p/>' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
+        }];
     },
     
     _launchInfo: function() {

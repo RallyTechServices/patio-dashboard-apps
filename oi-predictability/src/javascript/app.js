@@ -4,13 +4,13 @@ Ext.define("OIPApp", {
 
     descriptions: [
         "<strong>OCIO Dashboard - Predictability</strong><br/>" +
-            "<br/>" +
-            "Predictability is measured as a percentage by dividing the amount of committed story points by the amount of earned story points." +
-            "Committed Points: Total points as of the end of first day of the quarter <br>" +
-            "Earned Points: Total points as of today <br>" +
-            "Commitment Variance (%): (Committed Points / Earned Points) * 100 <br>"
+        "<br/>" +
+        "Predictability is measured as a percentage by dividing the amount of committed story " +
+        "points by the amount of earned story points." +
+        "Committed Points: Total points as of the end of first day of the quarter <br>" +
+        "Earned Points: Total points as of today <br>" +
+        "Commitment Variance (%): (Committed Points / Earned Points) * 100 <br>"
     ],
-
 
     defaults: { margin: 10 },
    
@@ -26,32 +26,33 @@ Ext.define("OIPApp", {
     },
 
     launch: function() {
-        var me = this;
         this.callParent();
-        me.setLoading('Loading workspace(s) and its programs..');
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
-        TSUtilities.getWorkspaces().then({
-            scope: this,
-            success: function(workspaces) {
-                me.workspaces = workspaces;
-                me._addComponents();
-                me.setLoading(false);
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('',msg);
+            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+                Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
+                    '<br/>Please use Edit App Settings... to make this configuration.');
+                return;
             }
-        });
-
+            
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            if ( Ext.isString(this.workspaces ) ){
+                this.workspaces = Ext.JSON.decode(this.workspaces);
+            }
+            Ext.Array.each(this.workspaces, function(workspace){
+                workspace._ref = workspace.workspaceRef;
+                workspace.Name = workspace.workspaceName;
+                workspace.ObjectID = workspace.workspaceObjectID;
+            });
+        }
+                
+        this._addComponents();
     },
       
-
-
-
     _addComponents: function(){
-            var me = this;
+        var me = this;
             
-
-            if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
+        if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
             this.addToBanner({
                 xtype: 'quarteritemselector',
@@ -60,43 +61,47 @@ Ext.define("OIPApp", {
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                //width: '75%',                
+                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
                 }
             });
 
-
         } else {
             this.subscribe(this, 'quarterSelected', this.updateQuarters, this);
             this.publish('requestQuarter', this);
         }
-            this.addToBanner({
-                xtype:'rallybutton',
-                itemId:'export_button',
-                cls: 'secondary',
-                text: '<span class="icon-export"> </span>',
-                disabled: false,
-                listeners: {
-                    scope: this,
-                    click: function(button) {
-                        this._export(button);
-                    }
+        
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });
+        
+        this.addToBanner({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function(button) {
+                    this._export(button);
                 }
-            });
+            }
+        });
         
     },
 
-
     updateQuarters: function(quarterAndPrograms){
-        //var deferred = Ext.create('Deft.Deferred');
         this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
 
-        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //if there are programs selected from drop down get the corresponding workspace and get data otherwise 
+        // get data from all workspaces.
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
@@ -116,10 +121,8 @@ Ext.define("OIPApp", {
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                this.logger.log('all_results>>>>',all_results);
                 this.setLoading(false);
                 me._displayGrid(Ext.Array.flatten(all_results));
-                
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem gathering data', msg);
@@ -129,33 +132,25 @@ Ext.define("OIPApp", {
         
     },
 
-
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
+        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
-        second_day.setDate(second_day.getDate() + 1) // add a day to start date to get the end of the day.        
-
-        
+        second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
 
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
-                if ( types.length < 2 ) {
+                if ( types.length < 3 ) {
                     this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
-                    var featureModelPath = types[0].get('TypePath');
-                    var featureModelName = types[0].get('Name').replace(/\s/g,'');
-                    
-                    // TODO: another way to find out what the field on story is that gives us the feature
-                    //if ( featureModelName == "Features" ) { featureModelName = "Feature"; }
-                    if (workspace._refObjectName == "LoriTest4") { featureModelName = "Feature"; }
-                    
-                    var epmsModelPath = types[1].get('TypePath');
+                                        
+                    var epmsModelPath = types[2].get('TypePath');
 
                     Deft.Promise.all([
                         me._getEPMSProjects(workspace_oid,epmsModelPath),
@@ -163,9 +158,7 @@ Ext.define("OIPApp", {
                     ],me).then({
                         scope: me,
                         success: function(records){
-                            me.logger.log('updateQuarters',records);
                             var merged_results = Ext.Object.merge(records[0],records[1]);
-                            me.logger.log('updateQuarters-merged',Ext.Object.merge(records[0],records[1]));
 
                             predict_data = []
                             Ext.Object.each(merged_results,function(key,val){
@@ -190,8 +183,6 @@ Ext.define("OIPApp", {
             scope: this
         });
 
-
-
         return deferred.promise;
     },
 
@@ -199,12 +190,10 @@ Ext.define("OIPApp", {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
-        //var model_name = me.epmsModelPath;
-
         var config = {
             model: epmsModelPath,
             enablePostGet:true,
-            fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name'],
+            fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name','AcceptedLeafStoryPlanEstimateTotal'],
             context: { 
                 project: null,
                 workspace: '/workspace/' + workspace_oid
@@ -221,26 +210,25 @@ Ext.define("OIPApp", {
 
             model_filters = Rally.data.wsapi.Filter.or(model_filters);
                         
-            config["filters"] =  model_filters;
+            config.filters =  model_filters;
 
         }
 
-
         Ext.create('Rally.data.wsapi.Store', config).load({
-            callback : function(records, operation, successful) {
-                me.logger.log('records>>',records, operation, successful);
-                var epms_id_projects = {};
-                Ext.Array.each(records,function(rec){
-                    if(epms_id_projects[rec.get('Project').ObjectID]){
-                        epms_id_projects[rec.get('Project').ObjectID].EarnedPoints += rec.get('LeafStoryPlanEstimateTotal');
+            callback : function(epmsprojects, operation, successful) {
+                var programs_by_project_oid = {};
+                Ext.Array.each(epmsprojects,function(rec){
+                    if(programs_by_project_oid[rec.get('Project').ObjectID]){
+                        programs_by_project_oid[rec.get('Project').ObjectID].EarnedPoints += rec.get('AcceptedLeafStoryPlanEstimateTotal');
                     }else{
-                        epms_id_projects[rec.get('Project').ObjectID] = {'EarnedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
-                        epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
-
+                        programs_by_project_oid[rec.get('Project').ObjectID] = {
+                            EarnedPoints : rec.get('AcceptedLeafStoryPlanEstimateTotal'),
+                            Name         : rec.get('Project').Name
+                        };
                     }
                 });
-                me.logger.log('epms_id_projects',epms_id_projects);
-                deferred.resolve(epms_id_projects);
+                me.logger.log('epms_projects_by_oid',programs_by_project_oid);
+                deferred.resolve(programs_by_project_oid);
             }
         });
         
@@ -253,17 +241,16 @@ Ext.define("OIPApp", {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
 
-
         var find = {
-                        "_TypeHierarchy": epmsModelPath,
-                        "__At": date
-                    };
+            "_TypeHierarchy": epmsModelPath,
+            "__At": date
+        };
         if(me.programObjectIds && me.programObjectIds.length > 0){
             find["Project"] = {"$in": me.programObjectIds};
         }
         workspace_oid = '/workspace/'+workspace_oid;
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": {"workspace": {"_ref": workspace_oid }},
+            "context": {"workspace": workspace_oid},
             "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
             "find": find,
             "sort": { "_ValidFrom": -1 },
@@ -274,17 +261,16 @@ Ext.define("OIPApp", {
 
         snapshotStore.load({
             callback: function(records, operation) {
-               this.logger.log('Lookback Data>>>',records,operation);
-               var epms_id_projects = {};
+               var programs_by_project_oid = {};
                 Ext.Array.each(records,function(rec){
-                    if(epms_id_projects[rec.get('Project').ObjectID]){
-                        epms_id_projects[rec.get('Project').ObjectID].CommittedPoints += rec.get('LeafStoryPlanEstimateTotal');
+                    if(programs_by_project_oid[rec.get('Project').ObjectID]){
+                        programs_by_project_oid[rec.get('Project').ObjectID].CommittedPoints += rec.get('LeafStoryPlanEstimateTotal');
                     }else{
-                        epms_id_projects[rec.get('Project').ObjectID] = {'CommittedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
-                        epms_id_projects[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
+                        programs_by_project_oid[rec.get('Project').ObjectID] = {'CommittedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
+                        programs_by_project_oid[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
                     }                
                 });
-                deferred.resolve(epms_id_projects);
+                deferred.resolve(programs_by_project_oid);
             },
             scope:this
         });
@@ -383,19 +369,41 @@ Ext.define("OIPApp", {
         return [{
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            label: ' ',
+            boxLabel: 'Show Scope Selector<br/><span style="color:#999999;"> ' +
+            '<i>Tick to show the selectors and broadcast settings.</i><p/>' + 
+            '<em>If this is not checked, the app expects another app on the same page ' +
+            'to broadcast the chosen program(s) and quarter.  When <b>checked</b> the Workspaces and ' +
+            'Program Parents must be chosen.  When <b>not checked</b> the below Workspaces and Program ' +
+            'Parents are ignored.</em>' +
+            '</span>' + 
+            '<p/>' + 
+            '<span style="color:#999999;">' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         },
+//        {
+//            name: 'showAllWorkspaces',
+//            xtype: 'rallycheckboxfield',
+//            fieldLabel: 'Show All Workspaces',
+//            labelWidth: 135,
+//            labelAlign: 'left',
+//            minWidth: 200,
+//            margin: 10
+//        },
         {
-            name: 'showAllWorkspaces',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show All Workspaces',
-            labelWidth: 135,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10
+            name: 'workspaceProgramParents',
+            xtype:'tsworkspacesettingsfield',
+            fieldLabel: ' ',
+            margin: '0 10 50 150',
+            boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
+            '<p/>' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         }];
     },
         
@@ -423,31 +431,5 @@ Ext.define("OIPApp", {
                 
             }
         }).always(function() { me.setLoading(false); });
-    },
-
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
-    
-    _launchInfo: function() {
-        if ( this.about_dialog ) { this.about_dialog.destroy(); }
-        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
-    },
-    
-    isExternal: function(){
-        return typeof(this.getAppId()) == 'undefined';
-    },
-    
-    //onSettingsUpdate:  Override
-    onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
-        // Ext.apply(this, settings);
-        this.launch();
     }
 });
