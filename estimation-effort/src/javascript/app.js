@@ -153,7 +153,7 @@ Ext.define("TSEstimationEffort", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -165,6 +165,7 @@ Ext.define("TSEstimationEffort", {
     },
     
     _sortIterations: function(timeboxes) {
+        this.logger.log("_sortIterations", timeboxes);
         
         Ext.Array.sort(timeboxes, function(a,b){
             if ( Ext.isFunction(a.get) ) { a = a.getData(); }
@@ -216,11 +217,11 @@ Ext.define("TSEstimationEffort", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + start_field, operator: '<=', value:last_date},
+            {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
         

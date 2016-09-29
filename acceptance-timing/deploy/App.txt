@@ -3,11 +3,11 @@
 <head>
     <title>Acceptance Timing</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Sep 27 2016 13:30:54 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 15:18:13 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Sep 27 2016 13:30:54 GMT-0700 (PDT)";
-        var CHECKSUM = 195300379737;
+        var APP_BUILD_DATE = "Thu Sep 29 2016 15:18:13 GMT-0700 (PDT)";
+        var CHECKSUM = 234747363036;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -49,7 +49,9 @@ Ext.define('TSUtilities', {
         var me = this;
                 
         var default_config = {
-            fetch: ['ObjectID']
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
@@ -133,7 +135,6 @@ Ext.define('TSUtilities', {
             return ( me._getOidFromRef(permission._ref) == project_oid );
         });
         
-        console.log(editor_permissions);
         return ( editor_permissions.length > 0 );
     },
     
@@ -285,15 +286,43 @@ Ext.define('TSUtilities', {
                 workspace: workspace._ref ? workspace._ref : workspace.get('_ref')
             };
         }
-        
-        console.log(store_config);
-        
+                
         var store = Ext.create('Rally.data.wsapi.Store', store_config );
                     
         return deferred.promise;
     },
 
 
+    getAllWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
     getWorkspaces: function() {
         var deferred = Ext.create('Deft.Deferred');
         var config = {
@@ -1818,6 +1847,210 @@ Ext.define('Rally.data.wsapi.ProjectTreeStoreBuilder', {
         return false;
     }
 });
+Ext.define('CA.technicalservices.WorkspaceSettingsField',{
+    extend: 'Ext.form.field.Base',
+    alias: 'widget.tsworkspacesettingsfield',
+    fieldSubTpl: '<div id="{id}" class="settings-grid"></div>',
+    width: '100%',
+    cls: 'column-settings',
+
+    height: 150,
+    width: 500,
+    
+    store: undefined,
+    labelAlign: 'top',
+    
+    onDestroy: function() {
+        if (this._grid) {
+            this._grid.destroy();
+            delete this._grid;
+        }
+        this.callParent(arguments);
+    },
+    
+    initComponent: function(){
+        this.callParent();
+
+        var me = this;
+        this.addEvents('ready');
+
+        this.setLoading("Fetching Information...");
+        TSUtilities.getAllWorkspaces().then({
+            scope: this,
+            success: me._buildWorkspaceGrid,
+            failure: function(msg) {
+                Ext.Msg.alert('Problem Loading Workspaces', msg);
+            }
+        });
+    },
+
+    onRender: function() {
+        this.callParent(arguments);
+        this.setLoading('Loading...');
+    },
+        
+    _buildWorkspaceGrid: function(workspaces){
+        this.setLoading(false);
+        
+        var container = Ext.create('Ext.container.Container',{
+            layout: { type:'hbox' },
+            renderTo: this.inputEl,
+            minWidth: 50
+        });
+        
+        var decodedValue = [];
+        
+        if (this.initialConfig && this.initialConfig.value && !_.isEmpty(this.initialConfig.value)){
+            if (!Ext.isObject(this.initialConfig.value)){
+                decodedValue = Ext.JSON.decode(this.initialConfig.value);
+            } else {
+                decodedValue = this.initialConfig.value;
+            }
+        }
+        
+        console.log('decodedValue', decodedValue);
+        
+        var data = [],
+            empty_text = "No selections";
+            
+        if ( Ext.isArray(decodedValue) ) {
+            
+            data = decodedValue;
+            
+        } 
+        
+        var custom_store = Ext.create('Ext.data.Store', {
+            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName','workspaceProjectRef','workspaceProjectObjectID'],
+            data: data
+        });
+        
+        
+        var gridWidth = Math.min(this.width-125, 500);
+        this._grid = container.add(  {
+            xtype:'rallygrid',
+            autoWidth: true,
+            columnCfgs: this._getColumnCfgs(workspaces),
+            showRowActionsColumn:false,
+            showPagingToolbar: false,
+            store: custom_store,
+            width: gridWidth,
+            emptyText: empty_text,
+            editingConfig: {
+                publishMessages: false
+            }
+        });
+        
+        container.add({
+            xtype: 'rallybutton',
+            text: 'Add Row',
+            margin: '0 0 0 10',
+            listeners: {
+                scope: this,
+                click: function(){
+                    var store = this._grid.getStore();
+                    Ext.create('CA.technicalservices.WorkspaceProgramPickerDialog',{
+                        workspaces: workspaces,
+                        listeners: {
+                            scope: this,
+                            select: function(dialog,value) {
+                                if ( Ext.isEmpty(value) ) { return; }
+                              
+                                var workspace = value.workspace;
+                                var project = value.project;
+                                
+                                store.add({
+                                    workspaceName: workspace.get('Name'),
+                                    workspaceRef: workspace.get('_ref'),
+                                    workspaceObjectID: workspace.get('ObjectID'),
+                                    workspaceProjectName: project.get('Name'),
+                                    workspaceProjectObjectID: project.get('ObjectID'),
+                                    workspaceProjectRef: project.get('_ref')
+                                });                                
+                            }
+                        }
+                    });
+
+                    
+                }
+            }
+        });
+
+       this.fireEvent('ready', true);
+    },
+    _removeProject: function(){
+        this.grid.getStore().remove(this.record);
+    },
+    
+    _getColumnCfgs: function(workspaces) {
+        var me = this;
+
+        var columns = [{
+            xtype: 'rallyrowactioncolumn',
+            scope: this,
+            rowActionsFn: function(record){
+                return  [
+                    {text: 'Remove', record: record, handler: me._removeProject, grid: me._grid }
+                ];
+            }
+        },
+        {
+            text: 'Workspace',
+            dataIndex: 'workspaceName',
+            flex: 1,
+            editor: null
+        },
+        {
+            text: 'Program Parent',
+            dataIndex: 'workspaceProjectName',
+            flex: 1,
+            editor: false
+        }];
+        return columns;
+    },
+    /**
+     * When a form asks for the data this field represents,
+     * give it the name of this field and the ref of the selected project (or an empty string).
+     * Used when persisting the value of this field.
+     * @return {Object}
+     */
+    getSubmitData: function() {
+        var data = {};
+        data[this.name] = Ext.JSON.encode(this._buildSettingValue());
+        console.log('getSubmitData', data);
+        return data;
+    },
+    
+    _buildSettingValue: function() {
+        var mappings = [];
+        var store = this._grid.getStore();
+
+        store.each(function(record) {
+            if (record.get('workspaceRef') && record.get('workspaceProjectRef')) {
+                mappings.push({
+                    workspaceName: record.get('workspaceName'),
+                    workspaceRef: record.get('workspaceRef'),
+                    workspaceObjectID: record.get('workspaceObjectID'),
+                    workspaceProjectName: record.get('workspaceProjectName'),
+                    workspaceProjectObjectID: record.get('workspaceProjectObjectID'),
+                    workspaceProjectRef: record.get('workspaceProjectRef')
+                });
+            }
+        }, this);
+        
+        return mappings;
+    },
+
+    getErrors: function() {
+        var errors = [];
+        //Add validation here
+        return errors;
+    },
+    setValue: function(value) {
+        console.log('setValue', value);
+        this.callParent(arguments);
+        this._value = value;
+    }
+});
 Ext.define("CA.apps.charts.Colors", {
     
     singleton: true, 
@@ -2389,21 +2622,27 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         this.callParent(arguments);
     },
 
-    initComponent : function()
-    {
-        var me = this;
+    initComponent : function(){
         this.callParent(arguments);
+
+        var me = this;
         this.removeAll();
+        
+        
         var promises = Ext.Array.map(me.workspaces, function(workspace) {
             return function() { 
                 return me._getPrograms( workspace ) 
             };
         });
         
+        console.log('promises', promises);
+        
+        this.setLoading('loading program information');
+        
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                //console.log('all_results>>>>',all_results);
+                console.log('all_results>>>>',all_results);
                 var results = {};
                 Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
                 me.programs = results;
@@ -2412,7 +2651,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             failure: function(msg) {
                 Ext.Msg.alert('Problem gathering data', msg);
             }
-        });
+        }).always(function() { me.setLoading(false); });
 
         // configured to allow others to ask what the current selection is,
         // in case they missed the initial message
@@ -2421,41 +2660,92 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     },
 
     _getPrograms:function(workspace){
-
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
         
-        var workspace_name = workspace.get('Name');
-        var workspace_oid = workspace.get('ObjectID');
-
-        TSUtilities.getPortfolioItemTypes(workspace).then({
-            success: function(types) {
-                if ( types.length < 2 ) {
-                    deferred.resolve({});
-                    //Ext.Msg.alert('',"Cannot find a record type for EPMS project");
-                    return;
-                }
-
-                var epmsModelPath = types[1].get('TypePath');
-
-                this._getEPMSProjects(workspace, epmsModelPath).then({
-                    scope:me,
-                    success:function(store){
-                        deferred.resolve(store);
-                    },
-                    failure:function(error){
-                        //me.setLoading(false);
-                        //Ext.Msg.alert('',msg);
-                    }
+        console.log("_getPrograms", workspace);
+        
+        var workspace_name = workspace.Name || workspace.workspaceName || workspace.get('_refObjectName');
+        var workspace_ref  = workspace.workspaceRef || workspace._ref || workspace.get('_ref');
+        var program_parent_oid = workspace.workspaceProjectObjectID;
+        
+        // programs are the projects that are at the bottom of the tree
+        var parent_filters = Rally.data.wsapi.Filter.or([
+            { property:'ObjectID', value: program_parent_oid },
+            { property:'Parent.ObjectID', value: program_parent_oid },
+            { property:'Parent.Parent.ObjectID', value: program_parent_oid },
+            { property:'Parent.Parent.Parent.ObjectID', value: program_parent_oid },
+            { property:'Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid },
+            { property:'Parent.Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid },
+            { property:'Parent.Parent.Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid }
+        ]);
+        
+        var leaf_node_filters = Rally.data.wsapi.Filter.and([
+            { property:'Children.ObjectID',value: "" }
+        ]);
+        
+        var config = {
+            model:'Project',
+            filters: leaf_node_filters.and(parent_filters),
+            enablePostGet: true,
+            limit:Infinity,
+            pageSize: 2000,
+            fetch:['ObjectID','Project','Name','Workspace'],
+            context: { 
+                project: null,
+                workspace: workspace_ref
+            }
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(projects) {
+                console.log("Found projects:", projects);
+                var epms_id_projects = {}
+                Ext.Array.each(projects,function(project){
+                    var project_oid = project.get('ObjectID');
+                    
+                    epms_id_projects[project_oid] = {
+                        program: project.getData(),
+                        projects: [],
+                        workspace: workspace
+                    };
+                    
                 });
-
-
+                deferred.resolve(epms_id_projects);
             },
-            failure: function(msg){
-                Ext.Msg.alert('',msg);
-            },
-            scope: this
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+            
         });
+//        TSUtilities.getPortfolioItemTypes(workspace).then({
+//            success: function(types) {
+//                if ( types.length < 2 ) {
+//                    deferred.resolve({});
+//                    //Ext.Msg.alert('',"Cannot find a record type for EPMS project");
+//                    return;
+//                }
+//
+//                var epmsModelPath = types[1].get('TypePath');
+//
+//                this._getEPMSProjects(workspace, epmsModelPath).then({
+//                    scope:me,
+//                    success:function(store){
+//                        deferred.resolve(store);
+//                    },
+//                    failure:function(error){
+//                        //me.setLoading(false);
+//                        //Ext.Msg.alert('',msg);
+//                    }
+//                });
+//
+//
+//            },
+//            failure: function(msg){
+//                Ext.Msg.alert('',msg);
+//            },
+//            scope: this
+//        });
 
 
         return deferred.promise;
@@ -2499,7 +2789,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             queryMode: 'local',
             displayField: 'name',
             valueField: 'abbr',
-            margin: 2,
+            margin: 5,
             listeners:{
                 change: this._updateGoButton,
                 scope: this,
@@ -2516,7 +2806,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ObjectID',
-            margin: 2
+            margin: 5
         });
 
         this.add({
@@ -2525,7 +2815,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
                 itemId: 'cb-go-button',
                 cls: 'rly-small primary',
                 disabled: true,
-                margin: 2,
+                margin: 5,
                 listeners: {
                     scope: this,
                     click: this._updateQuarter
@@ -2557,7 +2847,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     _getEPMSProjects:function(workspace,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        var workspace_oid = workspace.get('ObjectID');
+        var workspace_oid = workspace.ObjectID || workspace.get('ObjectID');
 
         var config = {
             model: epmsModelPath,
@@ -2764,7 +3054,7 @@ Ext.define("ATApp", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -2776,7 +3066,6 @@ Ext.define("ATApp", {
     },
     
     _sortIterations: function(timeboxes) {
-        
 				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
@@ -2813,6 +3102,7 @@ Ext.define("ATApp", {
             {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
+        this.logger.log('IN_fetchArtifactsInTimeboxes', filters); 
         
         var config = {
             model:'HierarchicalRequirement',

@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Defect Density</title>
+    <title>TSRelease Burnup</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 29 2016 15:48:05 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 14:06:20 GMT-0700 (PDT) -->
+    
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 29 2016 15:48:05 GMT-0700 (PDT)";
-        var CHECKSUM = 264557159246;
+        var APP_BUILD_DATE = "Thu Sep 29 2016 14:06:20 GMT-0700 (PDT)";
+        var BUILDER = "cbedekovich";
+        var CHECKSUM = 350413754116;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
     <!-- our highcharts (needed so that we can add patterns) -->
     <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
-    
+
     <script type="text/javascript">
         Rally.onReady(function() {
              
@@ -2906,932 +2908,1245 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     },
 
 });
-Ext.define("DDApp", {
-    extend: 'CA.techservices.app.ChartApp',
+/**
+ * A link that pops up a version dialog box
+ */
 
-    descriptions: [
-        "<strong>Defect Density per Timebox</strong><br/>" +
-            "<br/>" +
-            "The top stacked bar chart displays the total number of stories versus stories with at least one defect" 
-            ,
-        "<strong>Percentage of Stories with Defects</strong><br/>"+
-            "<br/>" +
-            "The brown line graph displays the percentage of stories that are affected by at least one defect" ,
-        "<strong>Percentage of Points Affected by Defects</strong><br/>"+
-             "<br/>" +
-            "The red line graph displays the percentage of points that are affected by defects in the sprint" 
-
-    ],
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
     
-    integrationHeaders : {
-        name : "DDApp"
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350,
+    
+    informationalConfig: null,
+    
+    items: [{xtype:'container', itemId:'information' }],
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
     },
     
-    config: {
-        chartLabelRotationSettings:{
-            rotateNone: 0,
-            rotate45: 10,
-            rotate90: 15 
-        },
-        defaultSettings: {
-            showPatterns: false,
-            foundByColumn: 'c_foundBy',
-            typeFieldValue: 'UAT'
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+       
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
         }
-    },
-                        
-    launch: function() {
-        this.callParent();
-        this._addSelectors();
-        this._updateData();
-    },
-
-    _addSelectors: function() {
-
-        this.timebox_limit = 10;
-        this.addToBanner({
-            xtype: 'rallynumberfield',
-            name: 'timeBoxLimit',
-            itemId: 'timeBoxLimit',
-            fieldLabel: 'Timebox Limit',
-            value: 10,
-            maxValue: 20,
-            minValue: 1,            
-            margin: '0 0 0 50',
-            width: 150,
-            allowBlank: false,  // requires a non-empty value
-            listeners:{
-                change:function(nf){
-                    this.timebox_limit = nf.value;
-                    this._updateData();
-                },
-                scope:this
-            }
-        }
-        );
-
-        this.timebox_type = 'Iteration';
-        this.addToBanner(
-        {
-            xtype      : 'radiogroup',
-            fieldLabel : 'Timebox Type',
-            margin: '0 0 0 50',
-            width: 300,
-            defaults: {
-                flex: 1
-            },
-            layout: 'hbox',
-            items: [
-                {
-                    boxLabel  : 'Iteration',
-                    name      : 'timeBoxType',
-                    inputValue: 'Iteration',
-                    id        : 'radio1',
-                    checked   : true                    
-                }, {
-                    boxLabel  : 'Release',
-                    name      : 'timeBoxType',
-                    inputValue: 'Release',
-                    id        : 'radio2'
-                }
-            ],
-            listeners:{
-                change:function(rb){
-                    this.timebox_type = rb.lastValue.timeBoxType;
-                    this._updateData();
-                },
-                scope:this
-            }
-        }
-        );
-
-
-    },    
-    
-    _updateData: function() {
-        var me = this;
-        this.metric = "size";
-//        this.timebox_type = 'Iteration';
-        
-        Deft.Chain.pipeline([
-            this._fetchTimeboxes,
-            this._sortTimeboxes,
-            this._fetchArtifactsInTimeboxes
-        ],this).then({
-            scope: this,
-            success: function(results) {
-                var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
-                this._makeTopChart(artifacts_by_timebox);
-                this._makeMiddleChart(artifacts_by_timebox);
-                this._makeBottomChart(artifacts_by_timebox);
-                this._makeRawBottomGrid(artifacts_by_timebox);
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('--', msg);
-            }
-        });
-        
+   
+        return chk;
     },
     
-    _fetchTimeboxes: function() {
-        var me = this,
-            deferred = Ext.create('Deft.Deferred'),
-            type = this.timebox_type;
-                
-        var start_field = "StartDate";
-        var end_field = "EndDate";
-
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            end_field   = "ReleaseDate";
-        }   
-
-        this.setLoading("Fetching timeboxes...");
-                
-        var config = {
-            model: type,
-            limit: this.timebox_limit,
-            pageSize: this.timebox_limit,
-            fetch: ['Name',start_field,end_field],
-            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
-            sorters: [{property:end_field, direction:'DESC'}],
-            context: {
-                projectScopeUp: false,
-                projectScopeDown: false
-            }
-        };
-        
-        return TSUtilities.loadWsapiRecords(config);
-    },
-    
-    _sortTimeboxes: function(timeboxes) {
-
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
-            Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
-        var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-      
-        Ext.Array.sort(timeboxes, function(a,b){
-            if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
-            if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
-            return 0;
-        }); 
-        
-				this.timeboxes = timeboxes;        
-        return timeboxes;
-    },
-
-     _fetchArtifactsInTimeboxes: function(timeboxes) {
-        var me = this;
-        if ( timeboxes.length === 0 ) { return; }
-        
-        var type = this.timebox_type;
-        
-        var start_field = "StartDate";
-        var end_field = "EndDate";
-        if ( type == "Release" ) {
-            start_field = "ReleaseStartDate";
-            end_field   = "ReleaseDate";
-        }
-        
+    _checkChecksum: function(container) {
         var deferred = Ext.create('Deft.Deferred');
-        var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
-
-        var filters = [
-            {property: type + '.' + start_field, operator: '>=', value:first_date},
-            {property: type + '.' + end_field, operator: '<=', value:last_date}
-        ];
+        var me = this;
         
-        var config = {
-            model:'HierarchicalRequirement',
-            limit: Infinity,
-            filters: filters,
-            fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
-                'PlanEstimate','Project','Release','AcceptedDate',start_field,end_field]
-        };
-        
-        Deft.Chain.sequence([
-            function() { 
-                return TSUtilities.loadWsapiRecords(config);
-            }
-        ],this).then({
-            success: function(results) {
-                deferred.resolve(Ext.Array.flatten(results));
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
             },
-            failure: function(msg) {
-                deferred.reject(msg);
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    var stored_checksum = me._generateChecksum(text);
+                    if ( CHECKSUM !== stored_checksum ) {
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
             }
         });
+        
         return deferred.promise;
     },
     
-    /* 
-     * returns a hash of hashes -- key is iteration name value is
-     * another hash where the records key holds a hash
-     *    the records hash has a key for each allowed value 
-     *    which then provides an array of items that match the allowed value 
-     *    and timebox
-     * as in
-     * { "iteration 1": { "records": { "all": [o,o,o], "with_defects": [o,o] } } }
-     */
-
-    _collectArtifactsByTimebox: function(items) {
-        this.logger.log('1 _collectArtifactsByTimebox', items);
-        var me = this;
-        var hash = {},
-            timebox_type = this.timebox_type;
-        var foundByColumn = me.getSetting('foundByColumn');
-        var foundByValues = me.getSetting('typeFieldValue').split(',');
-
-        var foundByFilter = [];
-
-        Ext.Array.each(foundByValues, function(val){
-            foundByFilter.push({property: foundByColumn, value:val});
-        });
+    _addToContainer: function(container){
+        var config = Ext.apply({
+            xtype:'container',
+            height: 200,
+            overflowY: true
+        }, this.informationalConfig);
         
-        if ( items.length === 0 ) { return hash; }
-        
-        var base_hash = {
-            records: {
-                All: [],
-                With_Defects:[]
-            }
-        };
-
-        Ext.Array.each(items, function(item){
-            var timebox = item.get(timebox_type).Name;
-            
-            if ( Ext.isEmpty(hash[timebox])){
-                
-                hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
-            }
-            hash[timebox].records.All.push(item);
-
-            var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
-
-            console.log('defect filter ',filter.toString());
-
-            if(item.get('Defects').Count > 0 ){
-                hash[timebox].records['With_Defects'].push(item);
-            }
-            
-            
-        });
-        
-        return hash;
+        container.add(config);
     },
-
-   
-    _makeTopChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getTopSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
+    
+    afterRender: function() {
+        var app = Rally.getApp();
         
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        if ( !Ext.isEmpty( this.informationalConfig ) ) {
+            var container = this.down('#information');
+            this._addToContainer(container);
+            
         }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getTopChartConfig(),
-            chartColors: colors
-        },0);
-        this.setLoading(false);
-    },
-
-
-    _getTopSeries: function(artifacts_by_timebox) {
-        var series = [],
-            allowed_types = ['All','With_Defects'];
         
-        Ext.Array.each(allowed_types, function(allowed_type){
-            var name = allowed_type;
-
-            series.push({
-                name: name,
-                color: allowed_type == 'All' ? CA.apps.charts.Colors.blue_dark:CA.apps.charts.Colors.blue,
-                data: this._calculateTopMeasure(artifacts_by_timebox,allowed_type),
-                type: 'column',
-                pointPadding: allowed_type == 'All' ? 0 : 0.15,
-                pointPlacement: 0                
-            });
-        },this);
-        
-        return series;
-    },
-
-
-    _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
-        var me = this,
-        data = [];
-
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0,
-                _records: []
-            });
-						return;
-				}
-
-//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
-            var records = value.records[allowed_type] || [];
-
-            data.push({ 
-                y:records.length,
-                _records: records,
-                events: {
-                    click: function() {
-                        me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
+        if (! app.isExternal() ) {
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            dock: 'bottom',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
                     }
-                }
-            });
-
-
-        });
-
-        return data
-    },       
-
-    _getTopChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type:'column' },
-            title: { text: 'Defect Density - Stories vs Stories with Defects' },
-            xAxis: {
-                labels:{
-                    rotation:this._rotateLabels()
-                }
-            },
-            yAxis: [{ 
-                title: { text: 'Total Stories vs Stories w/ Defects' }
-            }],
-            plotOptions: {
-                column: {
-                    grouping: false,
-                    shadow: false,
-                    borderWidth: 0
-                }
-            },
-            tooltip: {
-                formatter: function() {
-                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
-                }
-            }
-        }
-    },
-
-    _rotateLabels: function(){
-        
-        var rotationSetting = 0;
-
-        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
-            rotationSetting = 0;
-        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
-            rotationSetting =  45;
-        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
-            rotationSetting =  90;
-        }
-        
-        return rotationSetting;
-    },
-
-      _makeMiddleChart: function(artifacts_by_timebox) {
-        var me = this;
-
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getMiddleSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
-        }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getMiddleChartConfig(),
-            chartColors: colors
-        },1);
-        this.setLoading(false);
-    },
-
-    _getMiddleSeries: function(artifacts_by_timebox) {
-        var series = [];
-        
-        var name = "Percentage";
-        series.push({
-            name: name,
-            data: this._calculateMiddleMeasure(artifacts_by_timebox)
-        });
-
-        return series;
-    },
-
-
-    _calculateMiddleMeasure: function(artifacts_by_timebox) {
-        var me = this,
-            data = [];
-
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
-            });
-						return;
-				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            y_value = value.records.All.length > 0 ? Math.round((value.records.With_Defects.length / value.records.All.length) * 100):0;
-            data.push({ 
-                y: y_value
-            });
-        });
-        return data;
-    },       
-
-
-    _getMiddleChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type: 'line' },
-            title: { text: 'Percentage of Stories with Defects' },
-            xAxis: {
-                labels:{
-                    rotation:this._rotateLabels()
                 },
-                title: { }
-            },
-            yAxis: [{ 
-                title: { text: '% of Stories w/ Defects' }
-            }],
-            plotOptions: {
-                line: {
-                        color: '#808080',
-                        dataLabels: {
-                            enabled: true,
-                            format: '{y} %',
-                        },                    
-                        pointStart: 0,
-                        marker: {
-                            enabled: true,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
-                                }
-                            }
-                        }
+                failure: function(msg){
+                    console.log("oops:",msg);
                 }
-            }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html:'... Running externally'
+            });
         }
+        this.callParent(arguments);
     },
-
-    _makeBottomChart: function(artifacts_by_timebox) {
+    
+    beforeRender: function() {
         var me = this;
+        this.callParent(arguments);
 
-        var categories = this._getCategories(artifacts_by_timebox);
-
-        var series = this._getBottomSeries(artifacts_by_timebox);
-        var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
-        if ( this.getSetting('showPatterns') ) {
-            colors = CA.apps.charts.Colors.getConsistentBarPatterns();
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml,
+                doc: 'top'
+            });
         }
-        this.setChart({
-            chartData: { series: series, categories: categories },
-            chartConfig: this._getBottomChartConfig(),
-            chartColors: colors
-        },2);
-        this.setLoading(false);
-    },
-    
-
-    
-    _getBottomSeries: function(artifacts_by_timebox) {
-        var series = [];
-            
-        var name = "Percentage";
-        series.push({
-            name: name,
-            data: this._calculateBottomMeasure(artifacts_by_timebox),
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            dock:'bottom',
+            html:"This app was created by the CA AC Technical Services Team."
         });
-
-        return series;
-    },
-
-
-    _calculateBottomMeasure: function(artifacts_by_timebox) {
-        var me = this,
-            data = [];
-
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                dock: 'bottom',
+                html: Ext.String.format("Build date/time: {0} ({1})",
+                    APP_BUILD_DATE,
+                    BUILDER)
             });
-						return;
-				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
-            
-            var all_points =0;
-            var defect_points = 0;
-            Ext.Array.each(value.records.All,function(story){
-                all_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
-            });
-
-            Ext.Array.each(value.records.With_Defects,function(story){
-                defect_points += story.get('PlanEstimate') > 0 ? story.get('PlanEstimate') : 0;
-            });
-
-            y_value = all_points > 0 ? Math.round((defect_points / all_points) * 100):0;
-
-            data.push({ 
-                y: y_value
-            });
-        });
-
-        return data;
-    },    
-    
-    _getBottomChartConfig: function() {
-        var me = this;
-        return {
-            chart: { type: 'line' },
-            title: { text: 'Percentage of Points Affected by Defects' },
-            xAxis: {
-                labels:{
-                    rotation:this._rotateLabels()
-		            },
-                title: { }
-            },
-            yAxis: [{ 
-                title: { text: '% of Points Affected by Defects' }
-            }],
-            plotOptions: {
-                line: {
-                        color: 'red',
-                        dataLabels: {
-                            enabled: true,
-                            format: '{y} %',
-                        },                    
-                        pointStart: 0,
-                        marker: {
-                            enabled: true,
-                            symbol: 'circle',
-                            radius: 2,
-                            states: {
-                                hover: {
-                                    enabled: true
-                                }
-                            }
-                        }
-                }
-            }
         }
-    },
-
-    _makeRawBottomGrid: function(artifacts_by_timebox) {
-        var me = this;
-        
-        this.logger.log('_makeRawGrid', artifacts_by_timebox);
-       
-        var columns = [{dataIndex:'Name',text:'Counts'}];
-        Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", text: field, align: 'center',flex:1});
-        });
-        
-        this.logger.log('about to get Raw Rows');
-        var rows = this._getRawBottomRows(artifacts_by_timebox);
-        
-        this.logger.log('about to create store', rows);
-        var store = Ext.create('Rally.data.custom.Store',{ data: rows });
-        
-        this.logger.log('about to add', store, columns);
-
-        this.setGrid({
-            xtype:'rallygrid',
-            padding: 5,
-            showPagingToolbar: false,
-            enableEditing: false,
-            showRowActionsColumn: false,     
-            store: store,
-            columnCfgs: columns
-        },2);
-
-    },
-    
-    _getRawBottomRows: function(artifacts_by_timebox) {
-        var me = this;
-        // sprint objects have key = name of sprint
-        
-        var row_fields = this._getCategories(artifacts_by_timebox);
-         
-        this.logger.log('row_fields', row_fields);
-        
-        var rows = [
-            {Type:'TotalStoryCount', Name: 'Total Story Count'},
-            {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
-            {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
-        ];
-
-        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-        //     rows.push({Type:rowname.name,Name:rowname.name});
-        // })
-        // set up fields
-        
-        Ext.Array.each(rows, function(row) {
-            Ext.Array.each(row_fields, function(field){
-                field = me._getSafeIterationName(field);
-                row[field] = [];
-                row[field + "_number"] = 0;
-            });
-        });
-        
-        this.logger.log('rows >>',rows);
-
-        Ext.Array.each(rows, function(row){
-            var type = row.Type;
-            Ext.Object.each(artifacts_by_timebox, function(sprint_name,value){
-                sprint_name = me._getSafeIterationName(sprint_name);
-
-              
-                row[sprint_name + "_number"] = me._getBottomSize(value,type); 
-                
-            });
-        });
-        
-        return rows;
-    },
-
-
-    _getBottomSize:function(value,type){
-
-            var size = 0;
-
-            if('TotalStoryCount' == type){
-                size = value.records.All.length;
-            }else if('StoryCountInDefects' == type){
-                size = value.records.With_Defects.length;
-            }else if('TotalDefectCount' == type){
-                Ext.Array.each(value.records.With_Defects, function(story){
-                    size += story.get('Defects').Count;
-                }); 
-            }
-
-            return size;
-    },
-
-    _getCategories: function(artifacts_by_timebox) {
-//        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
-
-			return timebox.get('Name');
-
-			});
-    },
+    }
+});
 
 /*
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
     },
-
-
-{
-                name: 'kanbanProcessField',
-                itemId:'kanbanProcessField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Kanban Process',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'UserStory',
-                hiddenName:'Kanban',
-                bubbleEvents: ['kanbanProcessFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        // console.log('CB-Kanban',cb);
-                        me._filterOutWthString(cb.getStore(),'Kanban');
-                    },
-                    change: function(cb) {
-                        this.fireEvent('kanbanProcessFieldChange',cb);
-                    }
-                },                
-                readyEvent: 'ready'
-            },
-            {
-                name: 'kanbanProcessFieldValue',
-                itemId:'kanbanProcessFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Kanban Process Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'UserStory',
-                field: 'ScheduleState',
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('kanbanProcessFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    kanbanProcessFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-                readyEvent: 'ready'                
-            },
-
-*/
-
-
-
-
-    getSettingsFields: function() {
-        var me = this;
-        return [
-        // {
-        //     name: 'typeField',
-        //     xtype: 'rallyfieldcombobox',
-        //     model: 'Defect',
-        //     margin: '0 0 25 25'
-        // },
-        {
-                name: 'typeField',
-                itemId:'typeField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Found By Field',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'Defect',
-                bubbleEvents: ['typeFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
-                    },
-                    change: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
-                    }
-                },                
-//                readyEvent: 'ready'
-            },
-            {
-                name: 'typeFieldValue',
-                itemId:'typeFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Found By Field Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'Defect',
-                field: 'c_foundBy',
-                multiSelect: true,
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('typeFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    typeFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-//                readyEvent: 'ready'                
-            },        
-        { 
-            name: 'showPatterns',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 25',
-            boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
-        }       
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
         
-        ];
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.CustomStoreDropdown',{
+    extend: 'Rally.ui.combobox.ComboBox',
+    alias: 'widget.tscustomcombobox',
+
+    constructor: function(config) {
+        if (!config.valueField){
+            config.valueField = 'value';
+        }
+        if (!config.displayField){
+            config.displayField = config.valueField;
+        }
+
+        var storeData = config.allowedValues || [];
+        if (storeData.length > 0 && Ext.isString(storeData[0])){
+            storeData = _.map(storeData, function(item){
+                var obj = {};
+                obj[config.valueField] = item;
+                return obj;
+            });
+        }
+        console.log ('cfg',config, storeData);
+        config.store = Ext.create('Ext.data.Store', {
+            fields: [config.valueField],
+            data: storeData
+        });
+        console.log ('cfg',config);
+        return this.callParent([config]);
+    }
+});
+
+Ext.define('Rally.technicalservices.ReleaseBurnupCalculator',{
+    extend: 'Rally.data.lookback.calculator.TimeSeriesCalculator',
+    config: {
+        completedScheduleStateNames: ['Accepted'],
+        usePoints: true,
+        plannedPredictionLineName: "Prediction (Planned Points)",
+        acceptedPredictionLineName: "Prediction (Accepted Points)"
     },
-    
-    getDrillDownColumns: function(title) {
-        var columns = [
+
+    constructor: function(config) {
+        this.initConfig(config);
+        this.callParent(arguments);
+    },
+    runCalculation: function (snapshots) {
+        var calculatorConfig = this._prepareCalculatorConfig(),
+            seriesConfig = this._buildSeriesConfig(calculatorConfig);
+
+        var calculator = this.prepareCalculator(calculatorConfig);
+        calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
+
+        this.snapshots = snapshots;
+
+        return this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
+    },
+    _getTypes: function(){
+        var typeHierarchy = [];
+        if (this.showStories){
+            typeHierarchy.push('HierarchicalRequirement');
+        }
+        if (this.showDefects){
+            typeHierarchy.push('Defect');
+        }
+        return typeHierarchy;
+    },
+    getDerivedFieldsOnInput: function() {
+        var completedScheduleStateNames = this.getCompletedScheduleStateNames(),
+            usePoints = this.usePoints;
+
+        var fields = [
             {
-                dataIndex : 'FormattedID',
-                text: "id"
-            },
-            {
-                dataIndex : 'Name',
-                text: "Name",
-                flex: 2
-            },
-            {
-                dataIndex: 'AcceptedDate',
-                text: 'Accepted Date',
-                flex:1
-            },
-            {
-                dataIndex: 'PlanEstimate',
-                text: 'Plan Estimate'
-            },
-            {
-                dataIndex: 'Iteration',
-                text: 'Iteration',
-                renderer:function(Iteration){
-                        return Iteration.Name;
-                }                
-            },
-            {
-                dataIndex: 'Project',
-                text: 'Project',
-                renderer:function(Project){
-                        return Project.Name;
-                },
-                flex: 1
-            },
-            {
-                dataIndex: 'Defects',
-                text: 'Defect Count',
-                renderer:function(Defects){
-                        return Defects.Count;
-                },
-                flex: 1
+                "as": "Planned",
+                "f": function(snapshot) {
+                    if (snapshot.ScheduleState){ //We've added this to weed out the portfolio items for the count
+                        if (usePoints){
+                            return snapshot.PlanEstimate || 0;
+                        } else {
+                            return 1;
+                        }
+                    }
+                    return 0;
+                }
+            }];
+
+        var typeHierarchy = this._getTypes();
+
+        Ext.Array.each(completedScheduleStateNames, function(ss){
+            Ext.Array.each(typeHierarchy, function(t){
+                fields.push({
+                    "as": ss + t,
+                    "f": function(snapshot) {
+                        if (Ext.Array.contains(snapshot._TypeHierarchy, t) && snapshot.ScheduleState === ss) {
+                            if (usePoints){
+                                return snapshot.PlanEstimate || 0;
+                            } else {
+                                return 1;
+                            }
+                        }
+                        return 0;
+                    }
+                });
+            });
+        });
+
+        return fields;
+    },
+    getMetrics: function() {
+        var completedScheduleStateNames = this.getCompletedScheduleStateNames(),
+            metrics = [],
+            typeHierarchy = this._getTypes();
+
+        Ext.Array.each(completedScheduleStateNames, function(ss){
+            Ext.Array.each(typeHierarchy, function(t){
+                metrics.push({
+                    "field": ss+t,
+                    "f": "sum"
+                });
+            });
+        });
+
+        metrics = metrics.concat([{
+            "field": "Planned",
+            "f": "sum"
+        }]);
+
+        return metrics;
+    },
+    _getSummedData: function(seriesData, metricNames, types){
+        if (!Ext.isArray(metricNames)){
+            metricNames = [metricNames];
+        }
+        types = types || [];
+
+        var sum_xy = 0;
+        var sum_x = 0;
+        var sum_y = 0;
+        var sum_x_squared = 0;
+        var n = 0;
+        var current_date = new Date();
+
+        for (var i=0; i<seriesData.length; i++){
+            var val = 0;
+
+            Ext.Array.each(metricNames, function(m){
+                if (types.length > 0){
+                    Ext.Array.each(types, function(t){
+
+                        val += (seriesData[i][m + t + "_sum"] || 0);
+                    });
+                } else {
+                    val += (seriesData[i][m + "_sum"] || 0);
+                }
+
+            });
+
+            if (val){
+                sum_xy += val * i;
+                sum_x += i;
+                sum_y += val;
+                sum_x_squared += i * i;
+                n++;
             }
-        ];
-        
-        if ( /\(multiple\)/.test(title)) {
-            columns.push({
-                dataIndex: 'Name',
-                text: 'Count of Moves',
-                renderer: function(value, meta, record) {
-                    
-                    return value.split('[Continued]').length;
+
+            if (i + 1 < seriesData.length){
+                var point_date = Rally.util.DateTime.fromIsoString(seriesData[i+1].tick);
+                if (point_date > current_date) {
+                    i = seriesData.length;
+                }
+            }
+        }
+        return {
+            sumXY: sum_xy,
+            sumX: sum_x,
+            sumY: sum_y,
+            sumXSquared: sum_x_squared,
+            n: n
+        };
+    },
+    _getSlope: function(summedData){
+        if ((summedData.n * summedData.sumXSquared - summedData.sumX * summedData.sumX) !== 0){
+            return (summedData.n*summedData.sumXY - summedData.sumX * summedData.sumY)/(summedData.n*summedData.sumXSquared - summedData.sumX * summedData.sumX);
+        }
+        return 0;
+    },
+    _getIntercept: function(summedData){
+        var slope = this._getSlope(summedData);
+        if (summedData.n === 0){
+            return 0;
+        }
+        return (summedData.sumY - slope * summedData.sumX)/summedData.n;
+    },
+    getSummaryMetricsConfig: function () {
+        var me = this,
+            completedScheduleStates = this.completedScheduleStateNames,
+            summaryMetrics = [],
+            types = this._getTypes();
+
+        if (this.showPlannedPredictionLine){
+            summaryMetrics = summaryMetrics.concat({
+                "as": "planned_slope",
+                "f": function(seriesData, metrics) {
+                    var summedData = me._getSummedData(seriesData, "Planned");
+                    return me._getSlope(summedData);
+                }
+            },{
+                "as": "planned_intercept",
+                "f": function(seriesData, metrics) {
+                    var summedData = me._getSummedData(seriesData, "Planned");
+                    return me._getIntercept(summedData);
                 }
             });
         }
-        
-        
-        return columns;
-    },
-    /*
-     * having a dot in the name for the key of a hash causes problems
-     */
-    _getSafeIterationName: function(name) {
-        return name.replace(/\./,'&#46;'); 
-    },
-    
-    _getUnsafeIterationName: function(name) {
-        return name.replace(/&#46;/,'.');
-    },
 
-    fetchWsapiCount: function(model, query_filters){
+        if (this.showAcceptedPredictionLine){
+            summaryMetrics = summaryMetrics.concat({
+                "as": "accepted_slope",
+                "f": function(seriesData, metrics) {
+                    var summedData = me._getSummedData(seriesData, completedScheduleStates, types);
+                    return me._getSlope(summedData);
+                }
+            },{
+                "as": "accepted_intercept",
+                "f": function(seriesData, metrics) {
+                    var summedData = me._getSummedData(seriesData, completedScheduleStates, types);
+                    return me._getIntercept(summedData);
+                }
+            });
+        }
+        return summaryMetrics;
+    },
+    getDerivedFieldsAfterSummary: function () {
+
+        var metrics = [],
+            completedScheduleStateNames = this.getCompletedScheduleStateNames(),
+            typeHierarchy = this._getTypes();
+
+        var now = new Date(),
+            endOfDayToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23,59,59,999);
+
+        Ext.Array.each(completedScheduleStateNames, function(ss){
+            Ext.Array.each(typeHierarchy, function(t){
+                var fieldDisplayName = Ext.String.format("{0} ({1})",ss,t.replace('HierarchicalRequirement','User Story'));
+                metrics.push({
+                    "as": fieldDisplayName,
+                    "f": function(snapshot, index, metrics, seriesData){
+                        var point_date = Rally.util.DateTime.fromIsoString(snapshot.tick);
+                       // console.log('point_date', point_date, endOfDayToday)
+                        if (point_date > endOfDayToday){
+                            return null;
+                        }
+                        return snapshot[ss + t + "_sum"];
+                    },
+                    "display": "column"
+                });
+            });
+        });
+
+        if (this.showPlannedPredictionLine){
+            metrics.push({
+                "as": "Planned",
+                "f": function(snapshot, index, metrics, seriesData){
+                    var point_date = Rally.util.DateTime.fromIsoString(snapshot.tick);
+                    if (point_date > new Date()){
+                        return null;
+                    }
+                    return snapshot.Planned_sum;
+                },
+                "display": "line"
+            });
+
+           metrics.push({
+               "as": this.plannedPredictionLineName ,
+               "f": function(snapshot, index, metrics, seriesData) {
+                   return Math.round(metrics.planned_intercept + metrics.planned_slope * index);
+               },
+               "display": "line",
+               "dashStyle": "ShortDash"
+           });
+        } else {
+            metrics.push({
+                "as": "Planned",
+                "f": function(snapshot, index, metrics, seriesData){
+                    return snapshot.Planned_sum;
+                },
+                "display": "line"
+            });
+        }
+
+        if (this.showAcceptedPredictionLine){
+            metrics.push({
+                "as": this.acceptedPredictionLineName,
+                "f": function(snapshot, index, metrics, seriesData) {
+                    return Math.round(metrics.accepted_intercept + metrics.accepted_slope * index);
+                },
+                "display": "line",
+                "dashStyle": "ShortDash"
+            });
+        }
+
+        return metrics;
+    },
+    prepareChartData: function (stores) {
+        var snapshots = [], ids = [];
+
+        Ext.Array.each(stores, function (store) {
+            store.each(function(record){
+                var data = record.raw;
+                //We need to make sure the snapshots are unique so we are filtering them here.
+                //The alternative is making a single store config that can filter both.
+                //This approach may not be faster, but it makes the configuration code easier to read.
+                if (!Ext.Array.contains(ids, data._id)){
+                    ids.push(data._id);
+                    snapshots.push(data);
+                }
+            });
+        });
+        return this.runCalculation(snapshots);
+    },
+    _buildSeriesConfig: function (calculatorConfig) {
+        var aggregationConfig = [],
+            derivedFieldsAfterSummary = calculatorConfig.deriveFieldsAfterSummary;
+
+        for (var j = 0, jlength = derivedFieldsAfterSummary.length; j < jlength; j += 1) {
+            var derivedField = derivedFieldsAfterSummary[j];
+            aggregationConfig.push({
+                name: derivedField.as,
+                type: derivedField.display,
+                dashStyle: derivedField.dashStyle || "Solid"
+            });
+        }
+
+        return aggregationConfig;
+    }
+});
+
+Ext.define('Rally.technicalservices.Toolbox',{
+    singleton: true,
+
+    fetchData: function(config){
         var deferred = Ext.create('Deft.Deferred');
 
-        Ext.create('Rally.data.wsapi.Store',{
-            model: model,
-            fetch: ['ObjectID'],
-            enablePostGet: true,
-            filters: query_filters,
-            limit: 1,
-            pageSize: 1
-        }).load({
-            callback: function(records, operation, success){
-                if (success){
-                    deferred.resolve(operation.resultSet.totalRecords);
+        config.limit = Infinity;
+        Ext.create('Rally.data.wsapi.Store',config).load({
+            callback: function(records, operation){
+                if (operation.wasSuccessful()){
+                    deferred.resolve(records);
                 } else {
-                    deferred.reject(Ext.String.format("Error getting {0} count for {1}: {2}", model, query_filters.toString(), operation.error.errors.join(',')));
+                    deferred.reject(operation);
                 }
             }
         });
         return deferred;
     },
+
+    fetchPortfolioItemTypes: function(){
+        var deferred = Ext.create('Deft.Deferred');
+
+        var typeStore = Ext.create('Rally.data.wsapi.Store', {
+            autoLoad: false,
+            model: 'TypeDefinition',
+            sorters: [{
+                property: 'Ordinal',
+                direction: 'ASC'
+            }],
+            filters: [{
+                property: 'Parent.Name',
+                operator: '=',
+                value: 'Portfolio Item'
+            }, {
+                property: 'Creatable',
+                operator: '=',
+                value: true
+            }]
+        });
+
+        typeStore.load({
+            scope: this,
+            callback: function (records, operation, success) {
+                console.log('callback', operation, success);
+                if (success){
+                    deferred.resolve(records);
+
+                } else {
+                    deferred.reject("Error loading Portfolio Item Types:  " + operation.error.errors.join(','));
+                }
+            }
+        });
+        return deferred;
+    },
+
+    fetchScheduleStates: function(){
+        var deferred = Ext.create('Deft.Deferred');
+        Rally.data.ModelFactory.getModel({
+            type: 'HierarchicalRequirement',
+            success: function(model) {
+                var field = model.getField('ScheduleState');
+                field.getAllowedValueStore().load({
+                    callback: function(records, operation, success) {
+                        if (success){
+                            var values = [];
+                            for (var i=0; i < records.length ; i++){
+                                values.push(records[i].get('StringValue'));
+                            }
+                            deferred.resolve(values);
+                        } else {
+                            deferred.reject('Error loading ScheduleState values for User Story:  ' + operation.error.errors.join(','));
+                        }
+                    },
+                    scope: this
+                });
+            },
+            failure: function() {
+                var error = "Could not load schedule states";
+                deferred.reject(error);
+            }
+        });
+        return deferred.promise;
+    },
+
+    fetchPreliminaryEstimateValues: function(){
+        return this.fetchData({
+            model: 'PreliminaryEstimate',
+            fetch: ['ObjectID','Name','Value']
+        });
+    }
+});
+
+Ext.override(Rally.sdk.Bootstrapper,{
+    _isExternal: function() {
+        return this.app.isExternal();
+        //return !!Rally.environment.externalContext;
+    }
+});
+Ext.define("release-burnup", {
+    extend: 'CA.techservices.app.ChartApp',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    items: [
+        {xtype:'container', width:'98%', items:[
+        {xtype:'container',itemId:'headerBox', layout: 'hbox', padding: 10, flex: 1},
+        {xtype:'container',itemId:'displayBox', flex: 1},
+            {xtype:'container',itemId:'banner_box', layout:'hbox', padding: 10},
+            {xtype:'container',itemId:'main_display_box'},
+            {xtype:'container',itemId:'additional_display_box'},
+        		{xtype:'container', itemId:'description_box'}
+        ]}
+    ],
+
+    integrationHeaders : {
+        name : "ts-release-burnup"
+    },
+   
+    descriptions: [
+        "<strong>Release Burn Up Chari</strong><br/>" +
+            "<br/>" +
+            "The Release Burnup app displays work delivered so far in the " +
+            "release to proactively anticipate whether the release scope will be delivered. " +
+            "<p/>" +
+						"By default, the chart burns up all points or counts from all user " + 
+						"stories and defects within the current project scope that meet one  " +
+						"of the following criteria: " +
+            "<p/> " +
+            "<ol/>" +
+            "<li>Are descendants of ANY lowest level portfolio item CURRENTLY associated " +
+            "with the selected Release (note that the Portfolio Item may be outside of " +
+            "the current project scope. Stories associated with Portfolio Items " +
+            "outside of the current project scope will be included IF they are within " +
+            "the currently selected project scope).</li>" +
+            "<li>Are directly associated with the release.</li>" +
+            "<li>Defects not directly associated with the release will be included " +
+            "if they are associated with a User Story that falls within the " +
+            "dataset for (1) or (2).</li>" +
+            "</ol>" +
+            "<p/>" +
+        "<strong>App settings for this release include:</strong><br/>" +
+            "<ol/>" +
+						"<li>Show Defects (default: true): When unchecked, then no defects will " +
+						"be included in the burnup calculations on the chart.</li>" +
+						"<li>Show Prediction Lines (default: true): When unchecked, no prediction " +
+						"lines for Planned or Accepted points will be calculated or shown on the chart.</li>" +
+						"<li>Show User Stories (default: true): When unchecked, will only show " +
+						"defects. Note that if both 'Show Defects and Show User Stories' settings " +
+						"are unchecked, the chart will ignore this setting and default to showing " +
+						"User Stories only.</li>" +
+            "</ol>" +
+            "<p/> " +
+        "<strong>Notes:</strong><br/>" +
+            "<ol/>" +
+            "<li>Only leaf stories (stories with no children) or defects are included in " +
+            "the dataset.</li>" +
+            "<li>This chart uses the lookback API to retrieve historical data for the user stories and defects.</li>" +
+            "<li>When retrieving user stories for the Portfolio Items associated with " +
+            "the release, the app will only look for user stories associated with the " +
+            "Portfolio Items that are in the release as of today. If a Portfolio Item " +
+            "was removed from the release yesterday, then any stories associated with " +
+            "that Portfolio Item not associated directly with the release will not be " +
+            "included in the historical dataset.</li>" +
+            "</ol>"
+    ],
     
+    config: {
+        defaultSettings: {
+            showPlannedPredictionLine: false,
+            showAcceptedPredictionLine: true,
+            showDefects: true,
+            showStories: true,
+            showExportButton: false
+        }
+    },
+
+    chartUnits: ['Points','Count'],  //Default is first in the list
+    portfolioItemTypes: ['PortfolioItem/Feature'],
+    completedStates: ['Accepted', 'Released'],
+    preliminaryEstimateValueHashByObjectID: {},
+
+    timeboxStartDateField: 'ReleaseStartDate',
+    timeboxEndDateField: 'ReleaseDate',
+    timeboxType: 'release',
+    timeboxTypePicker: 'rallyreleasecombobox',
+
+    launch: function() {
+        this.callParent();
+
+        Deft.Promise.all([
+            Rally.technicalservices.Toolbox.fetchPortfolioItemTypes(),
+            Rally.technicalservices.Toolbox.fetchScheduleStates()
+        //    Rally.technicalservices.Toolbox.fetchPreliminaryEstimateValues()
+        ]).then({
+            success: this._initializeApp,
+            failure: this._showError,
+            scope: this
+        });
+
+
+
+    },
+    _initializeApp: function(results){
+        this.portfolioItemTypes = _.map(results[0], function(r){ return r.get('TypePath'); });
+        this.completedStates = results[1].slice(_.indexOf(results[1],"Accepted"));
+        this.preliminaryEstimateValueHashByObjectID = _.reduce(results[2],function(hash, record){
+            hash[record.get('ObjectID')] = record.get('Value');
+            return hash;
+        },{});
+        this.logger.log('_initializeApp', this.portfolioItemTypes, this.completedStates, this.preliminaryEstimateValueHashByObjectID);
+
+        this._addComponents();
+    },
+    isOnScopedDashboard: function(){
+        if (this.getContext().getTimeboxScope() && this.getContext().getTimeboxScope().type === this.timeboxType){
+            return true;
+        }
+        return false;
+    },
+    _addComponents: function(){
+        var headerBox = this.down('#headerBox');
+        headerBox.removeAll();
+        if (!this.isOnScopedDashboard()){
+            var rcb = headerBox.add({
+                xtype: this.timeboxTypePicker
+            });
+            rcb.on('select', this.updateTimebox, this);
+            rcb.on('ready', this.updateTimebox, this);
+        }
+        var cb = headerBox.add({
+            xtype: 'tscustomcombobox',
+            itemId: 'cbUnit',
+            allowedValues: this.chartUnits
+        });
+        cb.on('select',this._updateBurnup, this);
+        if (this.isOnScopedDashboard()){
+            this.updateTimebox();
+        }
+
+        if (this.getShowExport()){
+            var btn = headerBox.add({
+                xtype: 'rallybutton',
+                iconCls: 'icon-export secondary rly-small',
+                margin: '0 0 0 25'
+            });
+            btn.on('click', this._export, this);
+        }
+
+        headerBox.add({
+            xtype: 'container',
+            itemId: 'etlDate',
+            padding: 10,
+            tpl: '<tpl><div class="etlDate">Data current as of {etlDate}</div></tpl>'
+        });
+    },
+    _export: function(){
+        var chart = this.down('rallychart'),
+            snapshots = chart && chart.calculator && chart.calculator.snapshots,
+            chartEndDate = chart.calculator.endDate,
+            chartStartDate = chart.calculator.startDate;
+        this.logger.log('_Export', chart.calculator ,chartStartDate, chartEndDate);
+        if (snapshots){
+            var csv = [];
+            var headers = ['FormattedID','PlanEstimate','ScheduleState','_ValidFrom','_ValidTo'];
+            csv.push(headers.join(','));
+            Ext.Array.each(snapshots, function(s){
+                var validFrom = Rally.util.DateTime.fromIsoString(s._ValidFrom),
+                    validTo = Rally.util.DateTime.fromIsoString(s._ValidTo);
+
+                if (validFrom < chartEndDate && validTo >= chartStartDate){
+                    var row = [s.FormattedID, s.PlanEstimate, s.ScheduleState, s._ValidFrom, s._ValidTo];
+                    csv.push(row.join(','));
+                }
+            });
+            csv = csv.join("\r\n");
+
+            CArABU.technicalservices.Exporter.saveCSVToFile(csv, Ext.String.format('export-{0}.csv', Rally.util.DateTime.format(new Date(), 'Y-m-d')));
+        }
+    },
+    _updateETLDate: function(store, records, success){
+        this.logger.log('_updateETLDate', store, records, success);
+        var etlDate = store && store.proxy && store.proxy._etlDate;
+        if (etlDate){
+            this.down('#etlDate').update({etlDate: Rally.util.DateTime.fromIsoString(etlDate)});
+        }
+    },
+    getUnit: function(){
+        return this.down('#cbUnit') && this.down('#cbUnit').getValue() || this.chartUnits[0];
+    },
+    getTimeboxStartDate: function(){
+        var record = this.getTimeboxRecord();
+        return record.get(this.timeboxStartDateField);
+    },
+    getTimeboxEndDate: function(){
+        var record = this.getTimeboxRecord();
+        return record.get(this.timeboxEndDateField);
+    },
+    getTimeboxRecord: function(){
+        var record = null;
+        this.logger.log('getTimeboxRecord', this.isOnScopedDashboard(), this.down(this.timeboxTypePicker) && this.down(this.timeboxTypePicker).getRecord())
+        if (this.isOnScopedDashboard()){
+            record = this.getContext().getTimeboxScope().getRecord();
+        } else {
+            record = this.down(this.timeboxTypePicker) && this.down(this.timeboxTypePicker).getRecord();
+        }
+        return record;
+    },
+    getTimeboxFilter: function(isForTimebox){
+        var record = this.getTimeboxRecord();
+
+        var prefix = isForTimebox ? "" : Ext.String.capitalize(this.timeboxType) + ".";
+
+        if (record){
+            return Rally.data.wsapi.Filter.and([
+                {
+                    property: prefix + 'Name',
+                    value: record.get('Name')
+                },
+                {
+                    property: prefix + this.timeboxStartDateField,
+                    value: Rally.util.DateTime.toUtcIsoString(this.getTimeboxStartDate())
+                },
+                {
+                    property: prefix + this.timeboxEndDateField,
+                    value: Rally.util.DateTime.toUtcIsoString(this.getTimeboxEndDate())
+                }
+            ]);
+        }
+        return [];
+    },
+    updateTimebox: function(){
+        var timeboxFilter = this.getTimeboxFilter();
+        this.logger.log('updateTimebox', timeboxFilter.toString());
+
+        this.releases = [];
+        this.portfolioItems = [];
+
+        if (!timeboxFilter || timeboxFilter.length === 0){
+            this._showMissingCriteria();
+            return;
+        }
+        this.setLoading(true);
+        var promises = [Rally.technicalservices.Toolbox.fetchData({
+            model: Ext.String.capitalize(this.timeboxType),
+            fetch: ['ObjectID'],
+            filters: this.getTimeboxFilter(true)
+        }), Rally.technicalservices.Toolbox.fetchData({
+            model: this.portfolioItemTypes[0],
+            fetch: ['ObjectID','PreliminaryEstimate','Value'],
+            context: {project: null},
+            filters: timeboxFilter
+        })];
+
+        var me = this;
+        Deft.Promise.all(promises).then({
+
+            success: function(results){
+                this.logger.log('updateTimebox Results', results);
+                this.timeboxes = results[0];
+                this.portfolioItems = results[1];
+                this._updateBurnup();
+            },
+            failure: this._showError,
+            scope: this
+        }).always(function(){
+            me.setLoading(false);
+        });
+    },
+    onTimeboxScopeChange: function(timeboxScope){
+        this.logger.log('onTimeboxScopeChange',timeboxScope);
+        if (timeboxScope && timeboxScope.type === this.timeboxType){
+            this.getContext().setTimeboxScope(timeboxScope);
+            this.updateTimebox();
+        }
+    },
+    _getFieldValueArray: function(records, fieldName){
+        return _.map(records || [], function(r){ return r.get(fieldName); });
+    },
+    _showMissingCriteria: function(){
+//        this.down('#displayBox').removeAll();
+//        this.down('#displayBox').add({
+        this.down('#chart_box').removeAll();
+        this.down('#chart_box').add({
+            xtype: 'container',
+            html: 'Please select a release filter.'
+        });
+    },
+    _showError: function(msg){
+        Rally.ui.notify.Notifier.showError({message: msg});
+    },
+    _getChartColors: function(){
+        //In order to keep the colors consistent for the different options,
+        //we need to build the colors according to the settings
+        var chartColors = [],
+            numCompletedStates = this.completedStates.length;
+
+        if (this.getShowStories()){
+            chartColors.push('#b2cee9');
+        }
+        if (this.getShowDefects()){
+            chartColors.push('#C0C0C0');
+        }
+        if (numCompletedStates > 1){
+            if (this.getShowStories()){
+                chartColors.push('#005EB8');
+            }
+            if (this.getShowDefects()){
+                chartColors.push('#666');
+            }
+        }
+//        chartColors.push('#7CAFD7');005EB8
+        chartColors.push('#FF8200');
+        if (this.getShowPlannedPredictionLine()){
+            chartColors.push('#FF8200');
+        }
+        if (this.getShowAcceptedPredictionLine()){
+            chartColors.push('#F6A900');
+        }
+        return chartColors;
+    },
+    _updateBurnup: function(){
+        this.logger.log('_updateBurnup', this.getUnit(), this.getTimeboxEndDate());
+
+//        this.down('#displayBox').removeAll();
+        this.down('#chart_box').removeAll();
+
+        if (!this.timeboxes || this.timeboxes.length === 0){
+            this._showMissingCriteria();
+            return;
+        }
+
+//        this.down('#displayBox').add({
+        this.down('#chart_box').add({
+            xtype: 'rallychart',
+            chartColors: this._getChartColors(),
+            storeType: 'Rally.data.lookback.SnapshotStore',
+            storeConfig: this._getStoreConfig(),
+            calculatorType: 'Rally.technicalservices.ReleaseBurnupCalculator',
+            calculatorConfig: {
+                usePoints: this.getUnit() === 'Points',
+                completedScheduleStateNames: this.completedStates,
+                startDate: this.getTimeboxStartDate(),
+                endDate: this.getTimeboxEndDate(),
+                showPlannedPredictionLine: this.getShowPlannedPredictionLine(),
+                showAcceptedPredictionLine: this.getShowAcceptedPredictionLine(),
+                showDefects: this.getShowDefects(),
+                showStories: this.getShowStories()
+                //preliminaryEstimateValueHashByObjectID: this.preliminaryEstimateValueHashByObjectID
+            },
+            chartConfig: this._getChartConfig()
+        });
+    },
+    getBooleanSetting: function(settingName){
+        return this.getSetting(settingName) === 'true' || this.getSetting(settingName) === true;
+    },
+    getShowPlannedPredictionLine: function(){
+        return this.getBooleanSetting('showPlannedPredictionLine');
+    },
+    getShowAcceptedPredictionLine: function(){
+        return this.getBooleanSetting('showAcceptedPredictionLine');
+    },
+    getShowDefects: function(){
+        return this.getBooleanSetting('showDefects');
+    },
+    getShowExport: function(){
+        return this.getBooleanSetting('showExportButton');
+    },
+    getShowStories: function(){
+        var showStories = this.getBooleanSetting('showStories');
+        if (!this.getShowDefects()){
+            return true;
+        }
+        return showStories;
+
+    },
+    _getStoreConfig: function(){
+
+        var rOids = this._getFieldValueArray(this.timeboxes,'ObjectID'),
+            piOids = this._getFieldValueArray(this.portfolioItems,'ObjectID'),
+            projectOid = this.getContext().getProject().ObjectID;
+        this.logger.log('_getStoreConfig', this.portfolioItems);
+        var typeHierarchy = [];
+        if (this.getShowStories()){
+            typeHierarchy.push('HierarchicalRequirement');
+        }
+        if (this.getShowDefects()){
+            typeHierarchy.push('Defect');
+        }
+        if (typeHierarchy.length === 0){
+            typeHierarchy = ['HierarchicalRequirement'];
+        }
+
+        var configs = [{
+            find: {
+                _TypeHierarchy: {$in: typeHierarchy},
+                Children: null,
+                Release: {$in: rOids} //We don't need project hierarchy here because the releases are associated with the current project hierarchy.
+            },
+            fetch: ['ScheduleState', 'PlanEstimate','_id','_TypeHierarchy','FormattedID'],
+            hydrate: ['ScheduleState','_TypeHierarchy'],
+            removeUnauthorizedSnapshots: true,
+            sort: {
+                _ValidFrom: 1
+            },
+            context: this.getContext().getDataContext(),
+            limit: Infinity,
+            listeners: {
+                load: this._updateETLDate,
+                scope: this
+            }
+        }];
+
+        piOids = piOids.slice(-10);
+        this.logger.log('PortfolioItems', piOids.length);
+        if (piOids && piOids.length > 0){
+
+
+            configs.push({
+                find: {
+                        _TypeHierarchy: {$in: typeHierarchy},
+                        Children: null,
+                        _ItemHierarchy: {$in: piOids},
+                        _ProjectHierarchy: projectOid // We need project hierarchy here to limit the stories and defects to just those in this project.
+                },
+                fetch: ['ScheduleState', 'PlanEstimate','_id','_TypeHierarchy','FormattedID'],
+                hydrate: ['ScheduleState','_TypeHierarchy'],
+                compress: true,
+                removeUnauthorizedSnapshots: true,
+                sort: {
+                    _ValidFrom: 1
+                },
+                //context: this.getContext().getDataContext(),
+                limit: Infinity,
+                listeners: {
+                    load: this._updateETLDate,
+                    scope: this
+                }
+            });
+        }
+        return configs;
+    },
+    _getChartConfig: function(){
+        var numTicks = 6;
+        return {
+            chart: {
+                defaultSeriesType: 'area',
+                zoomType: 'xy'
+            },
+            title: {
+                text: this.getTimeboxRecord() && this.getTimeboxRecord().get('Name') || "No Release",
+                style: {
+                    color: '#666',
+                    fontSize: '18px',
+                    fontFamily: 'ProximaNova',
+                    fill: '#666'
+                }
+            },
+            xAxis: {
+                categories: [],
+                tickmarkPlacement: 'on',
+                title: {
+                    text: 'Date',
+                    margin: 10,
+                    style: {
+                        color: '#444',
+                        fontFamily:'ProximaNova',
+                        textTransform: 'uppercase',
+                        fill:'#444'
+                    }
+                },
+                labels: {
+                    style: {
+                        color: '#444',
+                        fontFamily:'ProximaNova',
+                        textTransform: 'uppercase',
+                        fill:'#444'
+                    },
+                    formatter: function(){
+                        var d = new Date(this.value);
+                        return Rally.util.DateTime.format(d, 'm/d/Y');
+                    }
+                },
+                tickPositioner: function () {
+                    var positions = [],
+                        tick = Math.floor(this.dataMin),
+                        increment = Math.ceil((this.dataMax - this.dataMin) / numTicks);
+
+                    if (this.dataMax !== null && this.dataMin !== null) {
+                        for (tick; tick - increment <= this.dataMax; tick += increment) {
+                            positions.push(tick);
+                        }
+                    }
+                    return positions;
+                }
+            },
+            yAxis: [
+                {
+                    title: {
+                        text: this.getUnit(),
+                        style: {
+                            color: '#444',
+                            fontFamily:'ProximaNova',
+                            textTransform: 'uppercase',
+                            fill:'#444'
+                        }
+                    },
+                    labels: {
+                        style: {
+                            color: '#444',
+                            fontFamily:'ProximaNova',
+                            textTransform: 'uppercase',
+                            fill:'#444'
+                        }
+                    },
+                    min: 0
+                }
+            ],
+            legend: {
+                itemStyle: {
+                        color: '#444',
+                        fontFamily:'ProximaNova',
+                        textTransform: 'uppercase'
+                },
+                borderWidth: 0
+            },
+            tooltip: {
+                backgroundColor: '#444',
+                headerFormat: '<span style="display:block;margin:0;padding:0 0 2px 0;text-align:center"><b style="font-family:NotoSansBold;color:white;">{point.key}</b></span><table><tbody>',
+                footerFormat: '</tbody></table>',
+                pointFormat: '<tr><td class="tooltip-label"><span style="color:{series.color};width=100px;">\u25CF</span> {series.name}</td><td class="tooltip-point">{point.y}</td></tr>',
+                shared: true,
+                useHTML: true,
+                borderColor: '#444'
+            },
+            plotOptions: {
+                series: {
+                    marker: {
+                        enabled: false,
+                        states: {
+                            hover: {
+                                enabled: true
+                            }
+                        }
+                    },
+                    groupPadding: 0.01
+                },
+                column: {
+                    stacking: true,
+                    shadow: false
+                }
+            }
+        };
+    },
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    getSettingsFields: function(){
+        var labelWidth = 200;
+
+        return [{
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show Planned Prediction Line',
+            labelAlign: 'right',
+            labelWidth: labelWidth,
+            name: 'showPlannedPredictionLine'
+        },{
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show Accepted Prediction Line',
+            labelAlign: 'right',
+            labelWidth: labelWidth,
+            name: 'showAcceptedPredictionLine'
+        },{
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show Defects',
+            labelAlign: 'right',
+            labelWidth: labelWidth,
+            name: 'showDefects'
+        },{
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show User Stories',
+            labelAlign: 'right',
+            labelWidth: labelWidth,
+            name: 'showStories'
+        },{
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Show Export Button',
+            labelAlign: 'right',
+            labelWidth: labelWidth,
+            name: 'showExportButton'
+
+        }];
+    },
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
 });
 
             
-               Rally.launchApp('DDApp', {
-                   name: 'Defect Density'
+               Rally.launchApp('release-burnup', {
+                   name: 'TSRelease Burnup'
                });
         });
     </script>
@@ -3877,6 +4192,25 @@ Ext.define("DDApp", {
     margin-top: 25px;
     margin-right: 5px;
     cursor: pointer;
+}
+.highcharts-tooltip {
+    font-family:NotoSansBold;
+    color:white;
+}
+.tooltip-point {
+    text-align: right;
+    color: white;
+}
+.tooltip-label {
+    font-family:NotoSans;
+    white-space:nowrap;
+    font-size:13px;
+    color:white;
+}
+.etlDate {
+    color: grey;
+    font-family:NotoSans;
+    font-style: italic;
 }
     </style>
 

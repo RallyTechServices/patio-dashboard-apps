@@ -146,7 +146,7 @@ Ext.define("ATApp", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -158,7 +158,6 @@ Ext.define("ATApp", {
     },
     
     _sortIterations: function(timeboxes) {
-        
 				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
@@ -195,6 +194,7 @@ Ext.define("ATApp", {
             {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
+        this.logger.log('IN_fetchArtifactsInTimeboxes', filters); 
         
         var config = {
             model:'HierarchicalRequirement',
