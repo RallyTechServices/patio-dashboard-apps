@@ -515,12 +515,12 @@ extend: 'CA.techservices.app.ChartApp',
             introText: 'Select the projects where your portfolio items should be.',
             initialSelectedRecords: me.strategyProjects,
             root_filters:   [
-                {property: 'Name',      // reads a top-level starting point from which to build-out the tree
-                //{property: '_ref',      // reads a top-level starting point from which to build-out the tree
+                //{property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                value: me.rootStrategyProject}
+                //value: me.rootStrategyProject}
                 //value: 'https://us1.rallydev.com/slm/webservice/v2.0' + this.getSetting('strategyProjectPicker')}
-                //value: 'Global Development'}
+                value: Rally.util.Ref.getOidFromRef(me.getSetting('strategyProjectPicker'))}
                 ],
 
 
@@ -558,11 +558,12 @@ extend: 'CA.techservices.app.ChartApp',
             initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
                 //{property: 'Name',      // reads a top-level starting point from which to build-out the tree
-                {property: '_ref',      // reads a top-level starting point from which to build-out the tree
+                {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
                 //value: this.getSetting('rootDeliveryProject')}
-                value: this.getSetting('deliveryProjectPicker')}
+                value: Rally.util.Ref.getOidFromRef(me.getSetting('deliveryProjectPicker'))}
                 ],
+                
             listeners: {
                 scope: this,
                 itemschosen: function(items){
