@@ -515,14 +515,10 @@ extend: 'CA.techservices.app.ChartApp',
             introText: 'Select the projects where your portfolio items should be.',
             initialSelectedRecords: me.strategyProjects,
             root_filters:   [
-                //{property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                //value: me.rootStrategyProject}
-                //value: 'https://us1.rallydev.com/slm/webservice/v2.0' + this.getSetting('strategyProjectPicker')}
                 value: Rally.util.Ref.getOidFromRef(me.getSetting('strategyProjectPicker'))}
                 ],
-
 
             listeners: {
                 scope: this,
@@ -552,18 +548,15 @@ extend: 'CA.techservices.app.ChartApp',
         console.log("showDeliveryTeam._showDeliveryTeamsSelection:",this.getSetting('deliveryProjectPicker'));
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
-            //rules: rules,
             title: 'Select the Delivery Team projects',
             introText: 'Select the projects for the Delivery Teams',
             initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
-                //{property: 'Name',      // reads a top-level starting point from which to build-out the tree
                 {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                //value: this.getSetting('rootDeliveryProject')}
                 value: Rally.util.Ref.getOidFromRef(me.getSetting('deliveryProjectPicker'))}
                 ],
-                
+
             listeners: {
                 scope: this,
                 itemschosen: function(items){
@@ -726,6 +719,8 @@ extend: 'CA.techservices.app.ChartApp',
          xtype: 'rallyprojectpicker',
          itemId: 'strategyProjectPicker',            
          fieldLabel: 'Choose the root Business Planning (Strategy) project:',
+         showMostRecentlyUsedProjects: false,
+         workspace: this.getContext().getWorkspaceRef(),
          labelAlign:'left',
          labelWidth: 200,
          labelPad: 10,
@@ -735,16 +730,11 @@ extend: 'CA.techservices.app.ChartApp',
          listeners: {
                 scope: me,
                 select: function(field,value,eOpts){
-                    console.log('app.getSettings.strategyProjectPicker.select:',field,value,eOpts);
-                    console.log('app.getSettings.strategyProjectPicker.select:',field.getSelectedRecord());
-                    //this.saveState();
-                    //this._loadData();                    
+                    console.log('app.getSettings.strategyProjectPicker.select:',field,value,eOpts);                 
                 },
                 change: function(){
                     console.log('app.getSettings.strategyProjectPicker.change: ',this.getSelectedRecord());
                     me.rootStrategyProject = this.getSelectedRecord().get('Name');
-
-
                 }    
             }
         },
@@ -753,6 +743,8 @@ extend: 'CA.techservices.app.ChartApp',
          xtype: 'rallyprojectpicker',
          itemId: 'deliveryProjectPicker',            
          fieldLabel: 'Choose the root Delivery Team project:',
+         showMostRecentlyUsedProjects: false,
+         workspace: this.getContext().getWorkspaceRef(),
          labelAlign:'left',
          labelWidth: 200,
          labelPad: 10,
@@ -762,34 +754,13 @@ extend: 'CA.techservices.app.ChartApp',
          listeners: {
                 scope: me,
                 select: function(field,value,eOpts){
-                    console.log('app.getSettings.deliveryProjectPicker.select:',field,value,eOpts);
-                    //this.validator.rules = rules;
-                    //this.saveState();
-                    //this._loadData();                    
+                    console.log('app.getSettings.deliveryProjectPicker.select:',field,value,eOpts);                    
                 },
                 change: function(eOpts){
                     console.log('app.getSettings.strategyProjectPicker.change: ',eOpts);
                 }    
             }
         },
-        // { 
-        //     name: 'rootStrategyProject',
-        //     itemId: 'rootStrategyProject',
-        //     xtype: 'rallytextfield',
-        //     fieldLabel: 'Name of root Business Strategy project:',
-        //     labelAlign:'left',
-        //     labelWidth: 200,
-        //     labelPad: 10
-        // },
-        // { 
-        //     name: 'rootDeliveryProject',
-        //     itemId: 'rootDeliveryProject',            
-        //     xtype: 'rallytextfield',
-        //     fieldLabel: 'Name of root Delivery Team project:',
-        //     labelAlign:'left',
-        //     labelWidth: 200,
-        //     labelPad: 10
-        // },
         { 
             name: 'rotateChartLabels45',
             itemId: 'rotateChartLabels45',            
@@ -828,8 +799,9 @@ extend: 'CA.techservices.app.ChartApp',
             fieldLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>',
             labelAlign:'left',
             labelWidth: 200,
-            labelPad: 10
-        } 
+            labelPad: 10,
+            padding: '0 0 50 0'  //top right bottom left
+        }
         ];
     }
 });
