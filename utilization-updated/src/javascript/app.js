@@ -352,7 +352,6 @@ Ext.define("TSUtilization", {
 								        "<strong>Utilization Rate:</strong> " + 
 								        Ext.util.Format.number(this.point.y, '0.##') + "%";
                 	
-//                    return '<b>'+ this.series.name +'</b>: '+ Ext.util.Format.number(this.point.y, '0.##');
                 }
             }
         }
@@ -360,19 +359,6 @@ Ext.define("TSUtilization", {
     
     getSettingsFields: function() {
         return [
-        {
-            name: 'typeField',
-            xtype: 'rallyfieldcombobox',
-            model: 'Task',
-            _isNotHidden: function(field) {
-                //console.log(field);
-                if ( field.hidden ) { return false; }
-                var defn = field.attributeDefinition;
-                if ( Ext.isEmpty(defn) ) { return false; }
-                
-                return ( defn.Constrained && defn.AttributeType == 'STRING' );
-            }
-        },
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
