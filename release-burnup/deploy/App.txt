@@ -3,13 +3,13 @@
 <head>
     <title>TSRelease Burnup</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 29 2016 13:51:38 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 14:06:20 GMT-0700 (PDT) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 29 2016 13:51:38 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 29 2016 14:06:20 GMT-0700 (PDT)";
         var BUILDER = "cbedekovich";
-        var CHECKSUM = 350413757052;
+        var CHECKSUM = 350413754116;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
