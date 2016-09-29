@@ -23,14 +23,11 @@ extend: 'CA.techservices.app.ChartApp',
         },
         defaultSettings: {
             showPatterns: false,
-            showStoryRules: true,
-            showTaskRules: false,
-            showFeatureNoEpic: false,
-            showEpicNoEpms: false,
-            showEpmsNoInitiative: false,
-            showInitiativeNoObjective: false,
-            showObjectiveNoGoal: false
-        }
+            rotateChartLabels45: 5, // how many categories (projects) before we rotate the labels
+            rotateChartLabels90: 10 // how many categories (projects) before we rotate the labels
+        },
+        rootStrategyProject: null,
+        rootDeliveryProject: null,
     },
     
     stateId: 'CA.techservices.TSValidationApp.state', // automatically save a cookie (each app needs unique stateId)
@@ -509,7 +506,6 @@ extend: 'CA.techservices.app.ChartApp',
 
     _showBusinessPlanningSelection: function() {
         var me = this;
-        //var rules = this.validator.getRules();
 
         console.log("_showBusinessPlanningSelection:");
 
@@ -520,9 +516,14 @@ extend: 'CA.techservices.app.ChartApp',
             initialSelectedRecords: me.strategyProjects,
             root_filters:   [
                 {property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                //{property: '_ref',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                value: this.getSetting('rootStrategyProject')}
+                value: me.rootStrategyProject}
+                //value: 'https://us1.rallydev.com/slm/webservice/v2.0' + this.getSetting('strategyProjectPicker')}
+                //value: 'Global Development'}
                 ],
+
+
             listeners: {
                 scope: this,
                 itemschosen: function(items){
@@ -544,11 +545,11 @@ extend: 'CA.techservices.app.ChartApp',
         }).show();
     },
 
+
     _showDeliveryTeamsSelection: function() {
         var me = this;
-        //var rules = this.validator.getRules();
 
-        console.log("showDeliveryTeam._showDeliveryTeamsSelection:");
+        console.log("showDeliveryTeam._showDeliveryTeamsSelection:",this.getSetting('deliveryProjectPicker'));
 
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             //rules: rules,
@@ -556,9 +557,11 @@ extend: 'CA.techservices.app.ChartApp',
             introText: 'Select the projects for the Delivery Teams',
             initialSelectedRecords: me.deliveryTeamProjects,
             root_filters: [
-                {property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                //{property: 'Name',      // reads a top-level starting point from which to build-out the tree
+                {property: '_ref',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                value: this.getSetting('rootDeliveryProject')}
+                //value: this.getSetting('rootDeliveryProject')}
+                value: this.getSetting('deliveryProjectPicker')}
                 ],
             listeners: {
                 scope: this,
@@ -714,25 +717,78 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     getSettingsFields: function() {
+        var me = this;
+
         return [
-        { 
-            name: 'rootStrategyProject',
-            itemId: 'rootStrategyProject',
-            xtype: 'rallytextfield',
-            fieldLabel: 'Name of root Business Strategy project:',
-            labelAlign:'left',
-            labelWidth: 200,
-            labelPad: 10
+        {
+         name: 'strategyProjectPicker',
+         xtype: 'rallyprojectpicker',
+         itemId: 'strategyProjectPicker',            
+         fieldLabel: 'Choose the root Business Planning (Strategy) project:',
+         labelAlign:'left',
+         labelWidth: 200,
+         labelPad: 10,
+         stateful: true,
+         stateId: 'strategyProjectPicker',
+         stateEvents: ['change','select'],
+         listeners: {
+                scope: me,
+                select: function(field,value,eOpts){
+                    console.log('app.getSettings.strategyProjectPicker.select:',field,value,eOpts);
+                    console.log('app.getSettings.strategyProjectPicker.select:',field.getSelectedRecord());
+                    //this.saveState();
+                    //this._loadData();                    
+                },
+                change: function(){
+                    console.log('app.getSettings.strategyProjectPicker.change: ',this.getSelectedRecord());
+                    me.rootStrategyProject = this.getSelectedRecord().get('Name');
+
+
+                }    
+            }
         },
-        { 
-            name: 'rootDeliveryProject',
-            itemId: 'rootDeliveryProject',            
-            xtype: 'rallytextfield',
-            fieldLabel: 'Name of root Delivery Team project:',
-            labelAlign:'left',
-            labelWidth: 200,
-            labelPad: 10
+        {
+         name: 'deliveryProjectPicker',
+         xtype: 'rallyprojectpicker',
+         itemId: 'deliveryProjectPicker',            
+         fieldLabel: 'Choose the root Delivery Team project:',
+         labelAlign:'left',
+         labelWidth: 200,
+         labelPad: 10,
+         stateful: true,
+         stateId: 'deliveryProjectPicker',
+         stateEvents: ['change','select'],
+         listeners: {
+                scope: me,
+                select: function(field,value,eOpts){
+                    console.log('app.getSettings.deliveryProjectPicker.select:',field,value,eOpts);
+                    //this.validator.rules = rules;
+                    //this.saveState();
+                    //this._loadData();                    
+                },
+                change: function(eOpts){
+                    console.log('app.getSettings.strategyProjectPicker.change: ',eOpts);
+                }    
+            }
         },
+        // { 
+        //     name: 'rootStrategyProject',
+        //     itemId: 'rootStrategyProject',
+        //     xtype: 'rallytextfield',
+        //     fieldLabel: 'Name of root Business Strategy project:',
+        //     labelAlign:'left',
+        //     labelWidth: 200,
+        //     labelPad: 10
+        // },
+        // { 
+        //     name: 'rootDeliveryProject',
+        //     itemId: 'rootDeliveryProject',            
+        //     xtype: 'rallytextfield',
+        //     fieldLabel: 'Name of root Delivery Team project:',
+        //     labelAlign:'left',
+        //     labelWidth: 200,
+        //     labelPad: 10
+        // },
         { 
             name: 'rotateChartLabels45',
             itemId: 'rotateChartLabels45',            
