@@ -3,11 +3,11 @@
 <head>
     <title>Acceptance Timing</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 29 2016 14:59:42 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 15:18:13 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 29 2016 14:59:42 GMT-0700 (PDT)";
-        var CHECKSUM = 234747365218;
+        var APP_BUILD_DATE = "Thu Sep 29 2016 15:18:13 GMT-0700 (PDT)";
+        var CHECKSUM = 234747363036;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
