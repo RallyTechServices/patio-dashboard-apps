@@ -153,7 +153,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
         // now add the checkboxes for the rules to the appropriate panel
         Ext.Array.each(this.rules,function(rule){
             console.log('InsideArray:',rule.model,rule.label,rule);
-            if (/^PortfolioItem/.exec(rule.model)){
+            if (/^PortfolioItem*/.exec(rule.model)){
                 this.down('#portfolioRulesPanel').add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,

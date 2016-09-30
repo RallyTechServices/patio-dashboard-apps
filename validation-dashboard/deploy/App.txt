@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 29 2016 14:47:41 GMT-0400 (EDT) -->
+    <!--  Build Date: Fri Sep 30 2016 16:08:14 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 29 2016 14:47:41 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Fri Sep 30 2016 16:08:14 GMT-0400 (EDT)";
         var BUILDER = "srhoads";
-        var CHECKSUM = 1001898934124;
+        var CHECKSUM = 1021949615787;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -50,7 +50,9 @@ Ext.define('TSUtilities', {
         var me = this;
                 
         var default_config = {
-            fetch: ['ObjectID']
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
         };
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
@@ -639,7 +641,7 @@ Ext.define('Rally.technicalservices.util.Utilities', {
             iDateDiff -= iAdjust // take into account both days on weekend
     
             if ( iDateDiff < 1 ) { iDateDiff = 1; }
-            console.log(iDateDiff,begin_date_js,end_date_js);
+            //console.log(iDateDiff,begin_date_js,end_date_js);
             return (iDateDiff); 
         }
     },
@@ -1853,8 +1855,8 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
     width: '100%',
     cls: 'column-settings',
 
-    height: 200,
-    width: 400,
+    height: 150,
+    width: 500,
     
     store: undefined,
     labelAlign: 'top',
@@ -3640,7 +3642,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
         // now add the checkboxes for the rules to the appropriate panel
         Ext.Array.each(this.rules,function(rule){
             console.log('InsideArray:',rule.model,rule.label,rule);
-            if (/^PortfolioItem/.exec(rule.model)){
+            if (/^PortfolioItem*/.exec(rule.model)){
                 this.down('#portfolioRulesPanel').add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
@@ -6225,11 +6227,12 @@ extend: 'CA.techservices.app.ChartApp',
             rotateNone: 0,
             rotate45: 5,
             rotate90: 10 
-        },
+        },        
         defaultSettings: {
             showPatterns: false,
+            showWrongProject: 'false',
             rotateChartLabels45: 5, // how many categories (projects) before we rotate the labels
-            rotateChartLabels90: 10 // how many categories (projects) before we rotate the labels
+            rotateChartLabels90: 10 // how many categories (projects) before we rotate the labels        
         },
         rootStrategyProject: null,
         rootDeliveryProject: null,
@@ -6303,8 +6306,6 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype: 'tsstorywithfeatureandfeatureprojectnotdeliveryroot'}            
         ],
         PortfolioItem: [            
-            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
-            {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'},
             {xtype: 'tsfeaturewithoutparentrule'},
             {xtype: 'tsepicwithoutparentrule'},
             {xtype: 'tsthemewithoutparentrule'},
@@ -6313,6 +6314,10 @@ extend: 'CA.techservices.app.ChartApp',
             {xtype: 'tsthemewithoutepmsidrule'},
             {xtype: 'tsfeaturenoplannedstartenddaterule'},
             {xtype: 'tsthemenoplannedstartenddaterule'}
+        ],
+        PortfolioItemProject: [            
+            {xtype:'tsfeatureunscheduledprojectnotstrategyrootrule'},
+            {xtype: 'tsfeaturescheduledprojectnotdeliveryrootrule'}
         ]
     },
     
@@ -6337,6 +6342,7 @@ extend: 'CA.techservices.app.ChartApp',
         me.portfolioItemTypes = portfolioItemTypes;
         
         this.setLoading("Configuring rules ...");
+        
         // configure the rules
         me._configureRules();
 
@@ -6375,41 +6381,47 @@ extend: 'CA.techservices.app.ChartApp',
     },
 
     _addSelectors: function() {
+        var me = this;
+
         var container = this.down('#banner_box');
         container.removeAll();
         
         container.add({xtype:'container',flex: 1});
-        
-        container.add({
-            xtype:'rallybutton',
-            itemId:'business_project_selection_button',
-            cls: 'secondary',
-            text: 'Business Planning', // USPTO calls 'Business Planning (Strategy)'
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function() {
-                    console.log('addSelectors._showBusinessPlanning: ');
-                    this._showBusinessPlanningSelection();
-                }
-            }
-        });
-        
-        container.add({
-            xtype:'rallybutton',
-            itemId:'delivery_teams_selection_button',
-            cls: 'secondary',
-            text: 'Delivery Teams', // USPTO calls 'Delivery Teams'
-            disabled: false,
-            listeners: {
-                scope: this,
-                click: function() {
-                    console.log('addSelectors._showDeliveryTeamsSelection: ');
-                    this._showDeliveryTeamsSelection();
-                }
-            }
-        });     
 
+        console.log('app._addSelectors:',me.getSettings('showWrongProject'));
+
+        if (me.getSetting('showWrongProject')){ // only add the boxes when the appSettings enable it.
+            container.add({
+                xtype:'rallybutton',
+                itemId:'business_project_selection_button',
+                cls: 'secondary',
+                text: 'Business Planning', // USPTO calls 'Business Planning (Strategy)'
+                disabled: false,
+                listeners: {
+                    scope: this,
+                    click: function() {
+                        console.log('addSelectors._showBusinessPlanning: ');
+                        this._showBusinessPlanningSelection();
+                    }
+                }
+            });
+
+            container.add({
+                xtype:'rallybutton',
+                itemId:'delivery_teams_selection_button',
+                cls: 'secondary',
+                text: 'Delivery Teams', // USPTO calls 'Delivery Teams'
+                disabled: false,
+                listeners: {
+                    scope: this,
+                    click: function() {
+                        console.log('addSelectors._showDeliveryTeamsSelection: ');
+                        this._showDeliveryTeamsSelection();
+                    }
+                }
+            });         
+        } 
+        
         container.add({
             xtype:'rallybutton',
             itemId:'rules_selection_button',
@@ -6473,7 +6485,22 @@ extend: 'CA.techservices.app.ChartApp',
 
         // make rules array - visible throughout the app        
         this.ruleConfigs = [];
+        
+        // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
+        // also grab appSetting for a target folder to hold high-level portfolio items
+        Ext.Array.each(me.rulesByType.PortfolioItemProject, function(rule){
+            // get the collection of workspace specific portfolio item names per level            
+            rule.portfolioItemTypes = me.portfolioItemTypes;
 
+            // for rules that need to have a specific project folder for portfolio items
+            rule.strategyProjects = me.strategyProjects;
+            rule.deliveryTeamProjects = me.deliveryTeamProjects;
+                        
+            if ((me.initialActiveRules) && (Ext.Array.contains(me.initialActiveRules,rule.xtype))) { // match in array contents against second argument value
+                rule.active = true;
+            }
+        });
+    
         // add the array of portfolioItem Type names to each portfolio rule as we instantiate it
         // also grab appSetting for a target folder to hold high-level portfolio items
         Ext.Array.each(me.rulesByType.PortfolioItem, function(rule){
@@ -6519,6 +6546,9 @@ extend: 'CA.techservices.app.ChartApp',
         });
 
         // Get all the ruleConfigs into the array
+        if (me.getSetting('showWrongProject')) { // only enable these rules when allowed by appSettings
+             this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItemProject']);
+        }
         this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['PortfolioItem']);
         this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['HierarchicalRequirement']);
         this.ruleConfigs = Ext.Array.push(this.ruleConfigs, this.rulesByType['Task']);
@@ -6927,7 +6957,7 @@ extend: 'CA.techservices.app.ChartApp',
          showMostRecentlyUsedProjects: false,
          workspace: this.getContext().getWorkspaceRef(),
          labelAlign:'left',
-         labelWidth: 200,
+         labelWidth: 300,
          labelPad: 10,
          stateful: true,
          stateId: 'strategyProjectPicker',
@@ -6951,7 +6981,7 @@ extend: 'CA.techservices.app.ChartApp',
          showMostRecentlyUsedProjects: false,
          workspace: this.getContext().getWorkspaceRef(),
          labelAlign:'left',
-         labelWidth: 200,
+         labelWidth: 300,
          labelPad: 10,
          stateful: true,
          stateId: 'deliveryProjectPicker',
@@ -6972,7 +7002,7 @@ extend: 'CA.techservices.app.ChartApp',
             xtype: 'rallynumberfield',
             fieldLabel: 'Rotate Chart Labels 45 degrees at this project count:',
             labelAlign:'left',
-            labelWidth: 200,
+            labelWidth: 300,
             labelPad: 10,
             allowDecimals: false,
             allowExponential: false,
@@ -6987,7 +7017,7 @@ extend: 'CA.techservices.app.ChartApp',
             xtype: 'rallynumberfield',
             fieldLabel: 'Rotate Chart Labels 90 degrees at this project count:',
             labelAlign:'left',
-            labelWidth: 200,
+            labelWidth: 300,
             labelPad: 10,
             allowDecimals: false,
             allowExponential: false,
@@ -6997,13 +7027,22 @@ extend: 'CA.techservices.app.ChartApp',
             minValue: 5
         },
         { 
+            name: 'showWrongProject',
+            xtype: 'rallycheckboxfield',
+            fieldLabel: 'Enable selection of the two Feature Selection rules. Use the [Business Planning] and [Delivery Team] buttons to identify the correct projects for scheduled and unscheduled Features in your program.',
+            labelAlign:'left',
+            labelWidth: 300,
+            labelPad: 10,
+            padding: '0 0 50 0'  //top right bottom left
+        },                
+        { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
             //boxLabelAlign: 'after',
             //margin: '0 0 25 200',
             fieldLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>',
             labelAlign:'left',
-            labelWidth: 200,
+            labelWidth: 300,
             labelPad: 10,
             padding: '0 0 50 0'  //top right bottom left
         }
