@@ -24,6 +24,11 @@ Ext.define("TSDeliveryEffortFocus", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             typeField: 'c_Type'
@@ -149,7 +154,7 @@ Ext.define("TSDeliveryEffortFocus", {
             scope: this,
             success: function(results) {
                
-				this._sortTasks(results);
+//				this._sortTasks(results);
 
         var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
 
@@ -176,8 +181,12 @@ Ext.define("TSDeliveryEffortFocus", {
                             align: 'center',
                             flex:1,
                             renderer: function(value,meta,record) {
-                                //if(value.actual_hours_total > 0){
+                      						if (value.actual_hours_total === undefined || value.actual_hours_pct === undefined) {
+                      								return "- / -";
+                      							} else {
                                     return value.actual_hours_total + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
+                            			}
+                                //if(value.actual_hours_total > 0){
                                 //}
                             }
                         });
@@ -276,7 +285,7 @@ Ext.define("TSDeliveryEffortFocus", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_date_field,end_date_field],
-            filters: [{property:end_date_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_date_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_date_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -301,7 +310,7 @@ Ext.define("TSDeliveryEffortFocus", {
             if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
         }); 
-        
+				this.timeboxes = timeboxes;        
         return timeboxes;
 
     },
@@ -456,7 +465,18 @@ Ext.define("TSDeliveryEffortFocus", {
         var me = this,
             data = [];
         
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0,
+                _records: []
+            });
+						return;
+				}
+
+//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
             
             var size = Ext.Array.sum(
@@ -486,15 +506,24 @@ Ext.define("TSDeliveryEffortFocus", {
     },
     
     _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+//        return Ext.Object.getKeys(artifacts_by_timebox);
+				return Ext.Array.map(this.timeboxes, function(timebox) {
+
+			return timebox.get('Name');
+
+			});
     },
-    
+
     _getChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Delivery Effort (Actual Task Hours by Type)' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
                 title: { text: 'Hours' }
             }],
@@ -511,6 +540,21 @@ Ext.define("TSDeliveryEffortFocus", {
         }
     },
     
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     getSettingsFields: function() {
         return [
         {

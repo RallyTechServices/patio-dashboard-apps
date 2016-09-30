@@ -19,6 +19,11 @@ Ext.define("TSDeliveryEfficiency", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false,
             typeField: null
@@ -137,13 +142,13 @@ Ext.define("TSDeliveryEfficiency", {
         
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
-            this._sortIterations,
+            this._sortTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
             success: function(results) {
                 
-						this._sortTasks(results);
+//						this._sortTasks(results);
 
             var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 
@@ -175,13 +180,13 @@ Ext.define("TSDeliveryEfficiency", {
             start_field = "ReleaseStartDate";
             end_field   = "ReleaseDate";
         }        
-                
+               
         var config = {
             model: type,
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -192,21 +197,21 @@ Ext.define("TSDeliveryEfficiency", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-    _sortIterations: function(timeboxes) {
-        
+    _sortTimeboxes: function(timeboxes) {
 				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
 						return [];
 				}
 
-        // Ext.Array.sort(iterations, function(a,b){
-        //     if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
-        //     if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
-        //     return 0;
-        // });
-        
-        return timeboxes.reverse();
+         Ext.Array.sort(timeboxes, function(a,b){
+             if ( a.get('EndDate') < b.get('EndDate') ) { return -1; }
+             if ( a.get('EndDate') > b.get('EndDate') ) { return  1; }
+             return 0;
+         });
+         
+				this.timeboxes = timeboxes;          
+        return timeboxes;
     },
     
     _sortTasks: function(task_records) {
@@ -323,17 +328,21 @@ Ext.define("TSDeliveryEfficiency", {
      _makeGrid: function(artifacts_by_timebox) {
         var me = this;
         
+        this.logger.log('_makeGrid', artifacts_by_timebox);
         var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
+
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
             columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
                             text: field + '---<p/> Est Hours / Act Hours', 
                             align: 'center',
                             flex:1,
                             renderer: function(value,meta,record) {
-                                //if(value.actual_hours_total > 0){
-                                    return value.estimate_hours_total + " / " + value.actual_hours_total;
-                                //}
-                            }
+                      						if (value.estimate_hours_total === undefined || value.actual_hours_total === undefined) {
+                      								return "0 / 0";
+                      							} else {
+                              				return value.estimate_hours_total + " / " + value.actual_hours_total;
+                            			}
+                            		}
                         });
         });
        
@@ -457,8 +466,19 @@ Ext.define("TSDeliveryEfficiency", {
     _calculateMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
         data = [];
-this.logger.log("_calculateMeasure IN", artifacts_by_timebox, allowed_type);
-        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
+
+			Ext.Array.each(this.timeboxes, function(tb) {
+				var timebox = tb.get('Name');
+				var value = artifacts_by_timebox[timebox];
+				if (Ext.isEmpty(value) ) {
+					  data.push({ 
+                y:0,
+                _records: []
+            });
+						return;
+				}
+
+//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
 						var unique = {};
 						var points = 0;
@@ -509,15 +529,24 @@ this.logger.log("_calculateMeasure IN", artifacts_by_timebox, allowed_type);
 
    
     _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+//        return Ext.Object.getKeys(artifacts_by_timebox);
+				return Ext.Array.map(this.timeboxes, function(timebox) {
+
+			return timebox.get('Name');
+
+			});
     },
-    
+
     _getChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Delivery Efficiency' },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
 //                title: { text: 'Task Estimates per Story Point (by Task Type)' }
                 title: { text: 'Task Actuals per Story Point (by Task Type)' }
@@ -535,6 +564,21 @@ this.logger.log("_calculateMeasure IN", artifacts_by_timebox, allowed_type);
         }
     },
     
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     getSettingsFields: function() {
         return [
         {
