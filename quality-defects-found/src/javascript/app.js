@@ -3,7 +3,7 @@ Ext.define("TSQualityDefectsFound", {
 
     description: "<strong>Quality - Defect Density</strong><br/>" +
     "<br/>" +
-    "Quality-Defect Density is the representation of the number of defects found in production or test, per workday  " + 
+    "Quality-Defect Density is the representation of the number of defects found in each environement selected, per workday  " + 
     "<br/>" + 
     "This number is for the project(s) in scope only." + 
     "<br/>" + 
@@ -40,7 +40,8 @@ Ext.define("TSQualityDefectsFound", {
             minWidth: 200,
             margin: '10 10 10 10',
             autoExpand: true,
-            alwaysExpanded: true,                
+            alwaysExpanded: true,
+            multiSelect: true,                
             model: 'Defect',
             field: 'Environment'
         }
@@ -50,17 +51,23 @@ Ext.define("TSQualityDefectsFound", {
 
     launch: function() {
         this.callParent();
+
+        if ( Ext.isEmpty(this.getSetting('envFieldValue')) ) { 
+            Ext.Msg.alert('Configuration Note', 'Use the App Settings item on the gear menu to set the field that defines Environment type.');
+            return;
+        }
         
-        TSUtilities.getPortfolioItemTypes().then({
-            scope: this,
-            success: function(types) {
-                this._piTypes = types;
-                this._updateData();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('Problem Loading PI Types', msg);
-            }
-        });
+        this.allowed_types = this._getEnvs();
+        this._updateData();
+
+    },
+
+    _getEnvs: function(){
+        var envs = this.getSetting('envFieldValue') || [];
+        if (!(envs instanceof Array)){
+            envs = envs.split(',');
+        }
+        return envs;
     },
     
     _updateData: function() {
@@ -105,12 +112,12 @@ Ext.define("TSQualityDefectsFound", {
         var start_date_iso = Rally.util.DateTime.toIsoString(start_date);
         
         this.logger.log('Start Date', start_date, start_date_iso);
-        var filters = [{property:'CreationDate',operator:'>=',value:start_date_iso},{property:'Environment',value:this.getSetting('envFieldValue')}];
+        var filters = [{property:'CreationDate',operator:'>=',value:start_date_iso}];
         
         config = {
             model: 'Defect',
             filters: filters,
-            fetch: ['FormattedID','Name','State','Project','CreationDate']
+            fetch: ['FormattedID','Name','State','Project','CreationDate','Environment']
         };
         
         return TSUtilities.loadWsapiRecords(config);
@@ -118,7 +125,7 @@ Ext.define("TSQualityDefectsFound", {
     
     _makeChart: function(defects) {
         var categories = this._getCategories();
-        var series = [ this._getQualitySeries(defects) ];
+        var series = this._getQualitySeries(defects);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
@@ -138,48 +145,72 @@ Ext.define("TSQualityDefectsFound", {
     
     //
     _getQualitySeries: function(defects) {
+        var series = [],
+            allowed_types = this.allowed_types;
+
         var me = this,
             defects_by_bucket = {};
         var buckets = this._getYearOfBuckets();
         
         Ext.Array.each(buckets, function(bucket){
-            defects_by_bucket[Ext.util.Format.date(bucket.Start, 'Y-m')] = {"Difference":bucket.Difference,all:[]};
+            defects_by_bucket[Ext.util.Format.date(bucket.Start, 'Y-m')] = {"Difference":bucket.Difference,records:{}};
         });
         
         Ext.Array.each(defects, function(defect){
             var accepted_date = defect.get('CreationDate');
             var bucket = Ext.util.Format.date(accepted_date,'Y-m');
+            var environement = defect.get('Environment') == ''?'None' : defect.get('Environment');
             if ( defects_by_bucket[bucket] ) {
-                defects_by_bucket[bucket].all.push(defect);
+                if(defects_by_bucket[bucket].records && defects_by_bucket[bucket].records[environement]){
+                    defects_by_bucket[bucket].records[environement].push(defect);
+                }else{
+                    defects_by_bucket[bucket].records[environement] = [defect];
+                }
             }
         });
         
+        Ext.Array.each(allowed_types, function(allowed_type){
+            var name = allowed_type;
+            if ( Ext.isEmpty(name) ) { name = "-None-"; }
+            
+            series.push({
+                name: name,
+                data: this._calculateMeasure(defects_by_bucket,allowed_type),
+                type: 'column',
+                stack: 'a'
+            });
+        },this);
+
+        return series;
+
+    },
+    
+
+    _calculateMeasure: function(defects_by_bucket,allowed_type) {
+        var me = this,
+        data = [];
+
         var data = Ext.Array.map(Ext.Object.getKeys(defects_by_bucket), function(bucket){
-            var value = defects_by_bucket[bucket].all.length/defects_by_bucket[bucket].Difference;
+            var value = defects_by_bucket[bucket].records[allowed_type] ? defects_by_bucket[bucket].records[allowed_type].length/defects_by_bucket[bucket].Difference:0;
             return {
                 y: value,
-                _records: defects_by_bucket[bucket].all,
+                _records: defects_by_bucket[bucket].records[allowed_type] ? defects_by_bucket[bucket].records[allowed_type]:[],
                 events: {
                     click: function() {
                         me.showDrillDown(this._records,  bucket+": "+Ext.util.Format.number(value, '0.##')+" Points");
                     }
                 }
             };
-                
         });
-        return {
-            name: 'Project',
-            data: data,
-            type:'column'
-        };
+        return data
     },
-    
+
     _getChartConfig: function() {
         var me = this;
         return {
             chart: { type:'column' },
             title: { text: 'Defect Density' },
-            subtitle: {text: 'Environment: ' + me.getSetting('envFieldValue') },
+            subtitle: {text: 'Environments: ' + me.getSetting('envFieldValue') },
             xAxis: {},
             yAxis: [{ 
                 title: { text: 'Count' }
@@ -213,6 +244,10 @@ Ext.define("TSQualityDefectsFound", {
             dataIndex: 'State',
             text: 'State'
         },
+        {
+            dataIndex: 'Environment',
+            text: 'Environment'
+        },        
         {
             dataIndex: 'CreationDate',
             text:'Creation Date'
