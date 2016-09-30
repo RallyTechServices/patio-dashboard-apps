@@ -227,6 +227,7 @@ Ext.define("ATApp", {
      */
 
     _collectArtifactsByTimebox: function(items) {
+        this.logger.log('IN_collectArtifactsByTimebox', items); 
         var hash = {},
             fib_types = this.fib_types;
 
@@ -328,6 +329,7 @@ Ext.define("ATApp", {
         var name = "Stories";
         series.push({
             name: 'All',
+            type: 'line',
             data: this._calculateTopMeasure(artifacts_by_timebox,'all')
         }); 
         Ext.Array.each(fib_types, function(fib_type){
@@ -347,6 +349,7 @@ Ext.define("ATApp", {
             data = [],
             sum_total_records = 0;
 
+        this.logger.log('IN_calculateTopMeasure', artifacts_by_timebox,fib_type); 
         Ext.Object.each(artifacts_by_timebox, function(key, value){
             var records = value.records[fib_type] || [];
             sum_total_records += records.length
@@ -354,6 +357,8 @@ Ext.define("ATApp", {
                 y: sum_total_records
             });
         });
+        this.logger.log('_calculateTopMeasure', data); 
+
         return data;
     },       
 
@@ -365,9 +370,10 @@ Ext.define("ATApp", {
             xAxis: {
                 title: { text: 'Sprint Day' }
             },
-            yAxis: [{ 
+            yAxis: { 
                 title: { text: 'Total # Stories Accepted' }
-            }],
+                },
+
             legend: {
                 labelFormatter: function(){
                     //console.log(this.name);
