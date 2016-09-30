@@ -51,11 +51,9 @@ Ext.define("TSDefectsByProgram", {
             this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
-                flex: 1,
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',                
                 listeners: {
                     change: this._updateQuarterInformation,
                     scope: this
@@ -117,8 +115,14 @@ Ext.define("TSDefectsByProgram", {
                 defects = Ext.Array.filter(Ext.Array.flatten(defects), function(defect) {
                     return !Ext.isEmpty(defect);
                 });
-        
-                var defects_by_program = this._organizeDefectsByProgram(defects);
+                
+                // filter out duplicates
+                var defects_by_fid = {};
+                Ext.Array.each(defects, function(defect){
+                    defects_by_fid[defect.get('FormattedID')] = defect;
+                });
+                
+                var defects_by_program = this._organizeDefectsByProgram(Ext.Object.getValues(defects_by_fid));
 
                 //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
                 var final_results = {};
@@ -171,7 +175,6 @@ Ext.define("TSDefectsByProgram", {
             deferred = Ext.create('Deft.Deferred');
         
         this.setLoading("Gathering Data For " + workspace.Name);
-        this.logger.log("Workspace:", workspace.Name, workspace);
         
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
@@ -253,8 +256,6 @@ Ext.define("TSDefectsByProgram", {
         
         var end_date = quarterRecord.get('endDate');
         var start_date = quarterRecord.get('startDate');
-
-        this.logger.log('_getDefectsForEPMSProjects',epms_items_by_project_name,quarterRecord);
         
         var filters = [
             {property:'CreationDate',operator:'>=',value:start_date},
@@ -463,8 +464,6 @@ Ext.define("TSDefectsByProgram", {
             removeUnauthorizedSnapshots:true
         };
         
-        
-        this.logger.log("_loadLookbackRecords", config);
         Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -489,7 +488,7 @@ Ext.define("TSDefectsByProgram", {
             fetch: ['ObjectID'],
             compact: false
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -539,13 +538,10 @@ Ext.define("TSDefectsByProgram", {
     
     _export: function(){
         var me = this;
-        this.logger.log('_export');
        
         var grid = this.down('rallygrid');
         var rows = this.rows || [];
-                
-        this.logger.log('number of rows:', rows.length, rows);
-        
+                        
         if (!rows ) { return; }
         
         var store = Ext.create('Rally.data.custom.Store',{ data: rows });
@@ -583,8 +579,6 @@ Ext.define("TSDefectsByProgram", {
         }
         
         var filename = 'defect_counts.csv';
-
-        this.logger.log('saving file:', filename);
         
         this.setLoading("Generating CSV");
         Deft.Chain.sequence([
@@ -592,7 +586,6 @@ Ext.define("TSDefectsByProgram", {
         ]).then({
             scope: this,
             success: function(csv){
-                this.logger.log('got back csv ', csv.length);
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {

@@ -95,7 +95,6 @@ Ext.define("OIPApp", {
     },
 
     updateQuarters: function(quarterAndPrograms){
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
@@ -122,14 +121,23 @@ Ext.define("OIPApp", {
             scope: this,
             success: function(all_results) {
                 this.setLoading(false);
-                me._displayGrid(Ext.Array.flatten(all_results));
+                var rows = this._getUniqueRows(all_results);
+                me._displayGrid(rows);
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem gathering data', msg);
             }
         });
-
-        
+    },
+    
+    _getUniqueRows: function(items){
+        items = Ext.Array.flatten(items);
+        var rows = {};
+        Ext.Array.each(items, function(item){
+            console.log('--', item);
+            rows[item.Program] = item;
+        });
+        return Ext.Object.getValues(rows);
     },
 
     _getData: function(workspace) {
@@ -138,7 +146,6 @@ Ext.define("OIPApp", {
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
 
@@ -149,7 +156,7 @@ Ext.define("OIPApp", {
                     deferred.resolve([]);
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
-                                        
+                    
                     var epmsModelPath = types[2].get('TypePath');
 
                     Deft.Promise.all([
@@ -160,8 +167,11 @@ Ext.define("OIPApp", {
                         success: function(records){
                             var merged_results = Ext.Object.merge(records[0],records[1]);
 
-                            predict_data = []
-                            Ext.Object.each(merged_results,function(key,val){
+                            predict_data = [];
+                            var keys = Ext.Array.unique(Ext.Object.getKeys(merged_results));
+                            
+                            Ext.Array.each(keys,function(key){
+                                var val = merged_results[key];
                                 var predict_rec = {
                                     Program: val.Name,
                                     CommittedPoints: val.CommittedPoints > 0 ?val.CommittedPoints:0,
@@ -178,7 +188,7 @@ Ext.define("OIPApp", {
                 }
             },
             failure: function(msg){
-                Ext.Msg.alert('',msg);
+                deferred.reject(msg);
             },
             scope: this
         });
@@ -227,7 +237,6 @@ Ext.define("OIPApp", {
                         };
                     }
                 });
-                me.logger.log('epms_projects_by_oid',programs_by_project_oid);
                 deferred.resolve(programs_by_project_oid);
             }
         });
@@ -285,7 +294,7 @@ Ext.define("OIPApp", {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -302,7 +311,6 @@ Ext.define("OIPApp", {
     _loadAStoreWithAPromise: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        this.logger.log("Starting load:",model_name,model_fields);
           
         Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
@@ -328,11 +336,6 @@ Ext.define("OIPApp", {
             remoteSort: false
         });
 
-
-        this.logger.log('_displayGrid>>',store);
-
-
-
         var grid = {
             xtype: 'rallygrid',
             store: store,
@@ -342,13 +345,7 @@ Ext.define("OIPApp", {
             columnCfgs: this._getColumns()
         }
 
-        this.logger.log('grid before rendering',grid);
-
         this.setGrid(grid,0);
-
-        //this.displayContainer.add(grid);
-
-
     },
 
     _getColumns: function() {
@@ -358,10 +355,10 @@ Ext.define("OIPApp", {
         columns.push({dataIndex:'CommittedPoints',text:'Committed Points', flex: 1 });
         columns.push({dataIndex:'EarnedPoints',text:'Earned Points', flex: 1 });
         columns.push({dataIndex:'Variance',text:'Commitment Variance', flex: 1,
-                      renderer: function(Variance){
-                        return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
-                      } 
-                  });  
+            renderer: function(Variance){
+                return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
+            } 
+        });  
         return columns;
     },
 
@@ -413,8 +410,6 @@ Ext.define("OIPApp", {
 
         if ( !grid ) { return; }
         
-        this.logger.log('_export',grid);
-
         var filename = Ext.String.format('predictability_counts.csv');
 
         this.setLoading("Generating CSV");

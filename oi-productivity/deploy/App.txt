@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 28 2016 16:58:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 20:44:03 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 28 2016 16:58:43 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Thu Sep 29 2016 20:44:03 GMT-0700 (PDT)";
         var STORY    = "US555";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 134987360125;
+        var CHECKSUM = 132195887108;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -274,8 +274,10 @@ Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
     
+    layout: 'border',
+    
     items: [
-        {xtype:'container', itemId:'grid_box'},
+        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {
@@ -557,7 +559,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
     layout : 'hbox',
-    width : '100%',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -584,15 +585,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
                 return me._getPrograms( workspace ) 
             };
         });
-        
-        console.log('promises', promises);
-        
+                
         this.setLoading('loading program information');
         
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                console.log('all_results>>>>',all_results);
                 var results = {};
                 Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
                 me.programs = results;
@@ -606,7 +604,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         // configured to allow others to ask what the current selection is,
         // in case they missed the initial message
         this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
-
     },
 
     _getPrograms:function(workspace){
@@ -723,6 +720,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
+        
+        var container = this.add({
+            xtype:'container',
+            layout: 'vbox'
+        });
+        
         var programs = []
         Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
 
@@ -731,7 +734,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             data : programs
         });        
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Quarter',
             itemId: 'quarter-combobox',
@@ -747,7 +750,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         });
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -780,7 +783,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         var cb_quarter = this.down('#quarter-combobox');
         var cb_programs = this.down('#program-combobox');
 
-        
         if (cb_quarter && cb_programs){
             var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
             this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value,'allPrograms':me.programs};
@@ -2078,7 +2080,6 @@ descriptions: [
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
@@ -2154,11 +2155,10 @@ descriptions: [
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('_getData:', workspace);
+
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
@@ -2254,8 +2254,6 @@ descriptions: [
     _getDataFromSnapShotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-
-        this.logger.log('_getDataFromSnapShotStore',epmsModelPath,date);
         
         var find = {
             "_TypeHierarchy": epmsModelPath,
@@ -2281,7 +2279,6 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 deferred.resolve(records);
             },
             scope:this
@@ -2313,7 +2310,7 @@ descriptions: [
         // }
 
         workspace_oid = '/workspace/'+workspace_oid;
-        console.log('workspace for snapshot store', workspace_oid);
+
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             //"context": {"workspace": {"_ref": workspace_oid }},
             "context": {"workspace": workspace_oid },
@@ -2328,7 +2325,6 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -2456,7 +2452,7 @@ descriptions: [
             fetch: ['ObjectID'],
             compact: false
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -2472,13 +2468,10 @@ descriptions: [
     
     _export: function(){
         var me = this;
-        this.logger.log('_export');
        
         var grid = this.down('rallygrid');
         var rows = this.rows || [];
-                
-        this.logger.log('number of rows:', rows.length, rows);
-        
+                        
         if (!rows ) { return; }
         
         var store = Ext.create('Rally.data.custom.Store',{ data: rows });
@@ -2516,8 +2509,6 @@ descriptions: [
         }
         
         var filename = 'productivity_counts.csv';
-
-        this.logger.log('saving file:', filename);
         
         this.setLoading("Generating CSV");
         Deft.Chain.sequence([
@@ -2525,7 +2516,6 @@ descriptions: [
         ]).then({
             scope: this,
             success: function(csv){
-                this.logger.log('got back csv ', csv.length);
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {

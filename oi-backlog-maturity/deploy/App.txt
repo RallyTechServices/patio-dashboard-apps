@@ -3,11 +3,11 @@
 <head>
     <title>OI Backlog Maturity App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Sep 28 2016 16:24:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Sep 29 2016 20:43:58 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Sep 28 2016 16:24:43 GMT-0700 (PDT)";
-        var CHECKSUM = 154888289763;
+        var APP_BUILD_DATE = "Thu Sep 29 2016 20:43:58 GMT-0700 (PDT)";
+        var CHECKSUM = 155991545448;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -449,8 +449,10 @@ Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
     
+    layout: 'border',
+    
     items: [
-        {xtype:'container', itemId:'grid_box'},
+        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {
@@ -732,7 +734,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
     layout : 'hbox',
-    width : '100%',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -759,15 +760,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
                 return me._getPrograms( workspace ) 
             };
         });
-        
-        console.log('promises', promises);
-        
+                
         this.setLoading('loading program information');
         
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                console.log('all_results>>>>',all_results);
                 var results = {};
                 Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
                 me.programs = results;
@@ -781,7 +779,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         // configured to allow others to ask what the current selection is,
         // in case they missed the initial message
         this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
-
     },
 
     _getPrograms:function(workspace){
@@ -898,6 +895,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
+        
+        var container = this.add({
+            xtype:'container',
+            layout: 'vbox'
+        });
+        
         var programs = []
         Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
 
@@ -906,7 +909,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             data : programs
         });        
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Quarter',
             itemId: 'quarter-combobox',
@@ -922,7 +925,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         });
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -955,7 +958,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         var cb_quarter = this.down('#quarter-combobox');
         var cb_programs = this.down('#program-combobox');
 
-        
         if (cb_quarter && cb_programs){
             var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
             this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value,'allPrograms':me.programs};
@@ -1771,8 +1773,8 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
     width: '100%',
     cls: 'column-settings',
 
-    height: 200,
-    width: 400,
+    height: 150,
+    width: 500,
     
     store: undefined,
     labelAlign: 'top',
@@ -2256,7 +2258,6 @@ Ext.define("OIBMApp", {
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
@@ -2334,7 +2335,6 @@ Ext.define("OIBMApp", {
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
 
@@ -2353,7 +2353,6 @@ Ext.define("OIBMApp", {
                     me._getEPMSProjectsFromSnapshotStore(second_day,workspace_oid,epmsModelPath).then({
                         scope: me,
                         success: function(programs){
-                            me.logger.log('_getEPMSProjectsFromSnapshotStore',programs);
                             
                             if (!programs || !programs.length > 0 ) {
                                 deferred.resolve({});
@@ -2407,8 +2406,6 @@ Ext.define("OIBMApp", {
                                             Deft.Promise.all(promises).then({
                                                 scope: this,
                                                 success: function(all_projects_velocity){
-                                                    me.logger.log('all_projects_velocity',all_projects_velocity);
-
                                                     var backlog_data = [];
                                                     Ext.Array.each(all_projects_velocity,function(vel){
                                                         
@@ -2456,8 +2453,6 @@ Ext.define("OIBMApp", {
     _getEPMSProjectsFromSnapshotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-
-        this.logger.log('_getEPMSProjectsFromSnapshotStore',epmsModelPath,date);
         
         var find = {
             "_TypeHierarchy": epmsModelPath,
@@ -2482,7 +2477,6 @@ Ext.define("OIBMApp", {
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 deferred.resolve(records);
             },
             scope:this
@@ -2523,7 +2517,6 @@ Ext.define("OIBMApp", {
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -2645,7 +2638,6 @@ Ext.define("OIBMApp", {
         }).load({
             callback : function(records, operation, successful) {
                 if (successful){
-                    me.logger.log('_getIterations',records);
 
                     var result = {ProjectID:program_name};
  
@@ -2678,7 +2670,7 @@ Ext.define("OIBMApp", {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -2695,7 +2687,6 @@ Ext.define("OIBMApp", {
     _loadAStoreWithAPromise: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        this.logger.log("Starting load:",model_name,model_fields);
           
         Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
@@ -2758,8 +2749,6 @@ Ext.define("OIBMApp", {
 
         if ( !grid ) { return; }
         
-        this.logger.log('_export',grid);
-
         var filename = Ext.String.format('backlog_maturity_counts.csv');
 
         this.setLoading("Generating CSV");
@@ -2782,10 +2771,20 @@ Ext.define("OIBMApp", {
         return [{
             name: 'showScopeSelector',
             xtype: 'rallycheckboxfield',
-            fieldLabel: 'Show Scope Selector',
-            //bubbleEvents: ['change'],
-            labelAlign: 'right',
-            labelCls: 'settingsLabel'
+            label: ' ',
+            boxLabel: 'Show Scope Selector<br/><span style="color:#999999;"> ' +
+            '<i>Tick to show the selectors and broadcast settings.</i><p/>' + 
+            '<em>If this is not checked, the app expects another app on the same page ' +
+            'to broadcast the chosen program(s) and quarter.  When <b>checked</b> the Workspaces and ' +
+            'Program Parents must be chosen.  When <b>not checked</b> the below Workspaces and Program ' +
+            'Parents are ignored.</em>' +
+            '</span>' + 
+            '<p/>' + 
+            '<span style="color:#999999;">' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         },
 //        {
 //            name: 'showAllWorkspaces',
@@ -2799,8 +2798,14 @@ Ext.define("OIBMApp", {
         {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
-            fieldLabel: 'Workspaces and Program Parents',
-            margin: '0 10 100 0'
+            fieldLabel: ' ',
+            margin: '0 10 50 150',
+            boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
+            '<p/>' + 
+            '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
+            'for each workspace you wish to display, then choose the AC project underwhich the ' + 
+            'leaf projects that represent programs live.</em>' +
+            '</span>'
         }];
     }
 });

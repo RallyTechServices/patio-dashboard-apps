@@ -2,8 +2,10 @@ Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
     
+    layout: 'border',
+    
     items: [
-        {xtype:'container', itemId:'grid_box'},
+        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {

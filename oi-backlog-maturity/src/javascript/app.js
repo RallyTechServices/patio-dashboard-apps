@@ -95,7 +95,6 @@ Ext.define("OIBMApp", {
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
@@ -173,7 +172,6 @@ Ext.define("OIBMApp", {
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
 
@@ -192,7 +190,6 @@ Ext.define("OIBMApp", {
                     me._getEPMSProjectsFromSnapshotStore(second_day,workspace_oid,epmsModelPath).then({
                         scope: me,
                         success: function(programs){
-                            me.logger.log('_getEPMSProjectsFromSnapshotStore',programs);
                             
                             if (!programs || !programs.length > 0 ) {
                                 deferred.resolve({});
@@ -246,8 +243,6 @@ Ext.define("OIBMApp", {
                                             Deft.Promise.all(promises).then({
                                                 scope: this,
                                                 success: function(all_projects_velocity){
-                                                    me.logger.log('all_projects_velocity',all_projects_velocity);
-
                                                     var backlog_data = [];
                                                     Ext.Array.each(all_projects_velocity,function(vel){
                                                         
@@ -295,8 +290,6 @@ Ext.define("OIBMApp", {
     _getEPMSProjectsFromSnapshotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-
-        this.logger.log('_getEPMSProjectsFromSnapshotStore',epmsModelPath,date);
         
         var find = {
             "_TypeHierarchy": epmsModelPath,
@@ -321,7 +314,6 @@ Ext.define("OIBMApp", {
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 deferred.resolve(records);
             },
             scope:this
@@ -362,7 +354,6 @@ Ext.define("OIBMApp", {
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -484,7 +475,6 @@ Ext.define("OIBMApp", {
         }).load({
             callback : function(records, operation, successful) {
                 if (successful){
-                    me.logger.log('_getIterations',records);
 
                     var result = {ProjectID:program_name};
  
@@ -517,7 +507,7 @@ Ext.define("OIBMApp", {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -534,7 +524,6 @@ Ext.define("OIBMApp", {
     _loadAStoreWithAPromise: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        this.logger.log("Starting load:",model_name,model_fields);
           
         Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
@@ -597,8 +586,6 @@ Ext.define("OIBMApp", {
 
         if ( !grid ) { return; }
         
-        this.logger.log('_export',grid);
-
         var filename = Ext.String.format('backlog_maturity_counts.csv');
 
         this.setLoading("Generating CSV");

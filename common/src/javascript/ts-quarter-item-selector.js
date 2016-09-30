@@ -2,7 +2,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
     layout : 'hbox',
-    width : '100%',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -29,15 +28,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
                 return me._getPrograms( workspace ) 
             };
         });
-        
-        console.log('promises', promises);
-        
+                
         this.setLoading('loading program information');
         
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(all_results) {
-                console.log('all_results>>>>',all_results);
                 var results = {};
                 Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
                 me.programs = results;
@@ -51,7 +47,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         // configured to allow others to ask what the current selection is,
         // in case they missed the initial message
         this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
-
     },
 
     _getPrograms:function(workspace){
@@ -168,6 +163,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
+        
+        var container = this.add({
+            xtype:'container',
+            layout: 'vbox'
+        });
+        
         var programs = []
         Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
 
@@ -176,7 +177,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             data : programs
         });        
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Quarter',
             itemId: 'quarter-combobox',
@@ -192,7 +193,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         });
 
-        this.add({
+        container.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -225,7 +226,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         var cb_quarter = this.down('#quarter-combobox');
         var cb_programs = this.down('#program-combobox');
 
-        
         if (cb_quarter && cb_programs){
             var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
             this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value,'allPrograms':me.programs};

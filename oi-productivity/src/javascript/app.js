@@ -92,7 +92,6 @@ descriptions: [
 
     updateQuarters: function(quarterAndPrograms){
         //var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
         this.programObjectIds = quarterAndPrograms.programs;
@@ -168,11 +167,10 @@ descriptions: [
     _getData: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('_getData:', workspace);
+
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
@@ -268,8 +266,6 @@ descriptions: [
     _getDataFromSnapShotStore:function(date,workspace_oid,epmsModelPath){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-
-        this.logger.log('_getDataFromSnapShotStore',epmsModelPath,date);
         
         var find = {
             "_TypeHierarchy": epmsModelPath,
@@ -295,7 +291,6 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('Lookback recs',records);
                 deferred.resolve(records);
             },
             scope:this
@@ -327,7 +322,7 @@ descriptions: [
         // }
 
         workspace_oid = '/workspace/'+workspace_oid;
-        console.log('workspace for snapshot store', workspace_oid);
+
         var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
             //"context": {"workspace": {"_ref": workspace_oid }},
             "context": {"workspace": workspace_oid },
@@ -342,7 +337,6 @@ descriptions: [
 
         snapshotStore.load({
             callback: function(records, operation) {
-                this.logger.log('lookback recs',records);
                 Ext.Array.each(records,function(rec){
                     Ext.Object.each(empms_projects, function(key,val){
                         if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
@@ -470,7 +464,7 @@ descriptions: [
             fetch: ['ObjectID'],
             compact: false
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -486,13 +480,10 @@ descriptions: [
     
     _export: function(){
         var me = this;
-        this.logger.log('_export');
        
         var grid = this.down('rallygrid');
         var rows = this.rows || [];
-                
-        this.logger.log('number of rows:', rows.length, rows);
-        
+                        
         if (!rows ) { return; }
         
         var store = Ext.create('Rally.data.custom.Store',{ data: rows });
@@ -530,8 +521,6 @@ descriptions: [
         }
         
         var filename = 'productivity_counts.csv';
-
-        this.logger.log('saving file:', filename);
         
         this.setLoading("Generating CSV");
         Deft.Chain.sequence([
@@ -539,7 +528,6 @@ descriptions: [
         ]).then({
             scope: this,
             success: function(csv){
-                this.logger.log('got back csv ', csv.length);
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
