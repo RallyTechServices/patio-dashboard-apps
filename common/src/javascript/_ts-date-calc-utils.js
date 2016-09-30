@@ -93,7 +93,7 @@ Ext.define('Rally.technicalservices.util.Utilities', {
             iDateDiff -= iAdjust // take into account both days on weekend
     
             if ( iDateDiff < 1 ) { iDateDiff = 1; }
-            console.log(iDateDiff,begin_date_js,end_date_js);
+            //console.log(iDateDiff,begin_date_js,end_date_js);
             return (iDateDiff); 
         }
     },
