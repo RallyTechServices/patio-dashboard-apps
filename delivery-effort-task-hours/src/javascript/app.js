@@ -36,6 +36,11 @@ Ext.define("TSDeliveryEffortTaskHours", {
     },
     
     config: {
+        chartLabelRotationSettings:{
+            rotateNone: 0,
+            rotate45: 10,
+            rotate90: 15 
+        },
         defaultSettings: {
             showPatterns: false
         }
@@ -147,7 +152,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_date_field,end_date_field],
-            filters: [{property:end_date_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:start_date_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_date_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
@@ -173,7 +178,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
         });
-        
+        this.timeboxes = timeboxes;
         return timeboxes;
     },
     
@@ -205,11 +210,11 @@ Ext.define("TSDeliveryEffortTaskHours", {
         
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
-        var last_date = timeboxes[timeboxes.length - 1].get(start_field);
+        var last_date = timeboxes[timeboxes.length - 1].get(end_field);
         
         var filters = [
             {property: this.timebox_type + '.' + start_field, operator: '>=', value:first_date},
-            {property: this.timebox_type + '.' + start_field, operator: '<=', value:last_date},
+            {property: this.timebox_type + '.' + end_field, operator: '<=', value:last_date},
             {property:'WorkProduct.AcceptedDate', operator: '!=', value: null }
         ];
         
@@ -622,6 +627,21 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
     
+    _rotateLabels: function(){
+        
+        var rotationSetting = 0;
+
+        if (this.timebox_limit <= this.chartLabelRotationSettings.rotate45) {
+            rotationSetting = 0;
+        } else if (this.timebox_limit <= this.chartLabelRotationSettings.rotate90){
+            rotationSetting =  45;
+        } else { // full vertical rotation for more than 10 items (good for up-to about 20)
+            rotationSetting =  90;
+        }
+        
+        return rotationSetting;
+    },
+
     _getTopChartConfig: function() {
         var me = this;
         
@@ -632,7 +652,11 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return {
             chart: { type:'column' },
             title: { text: 'Actual Task Hours by ' + timebox_name },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
                 title: { text: 'Hours' }
             }],
@@ -660,7 +684,11 @@ Ext.define("TSDeliveryEffortTaskHours", {
         return {
             chart: { type:'column' },
             title: { text: 'Actual FTEs by ' + timebox_name },
-            xAxis: {},
+            xAxis: {
+                labels:{
+                    rotation:this._rotateLabels()
+                }
+            },
             yAxis: [{ 
                 title: { text: 'FTEs' }
             }],
