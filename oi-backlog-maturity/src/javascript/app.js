@@ -58,7 +58,6 @@ Ext.define("OIBMApp", {
                 context: this.getContext(),
                 workspaces: me.workspaces,
                 stateful: false,
-                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this

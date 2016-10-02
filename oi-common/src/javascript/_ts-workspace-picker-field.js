@@ -46,7 +46,8 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
         var container = Ext.create('Ext.container.Container',{
             layout: { type:'hbox' },
             renderTo: this.inputEl,
-            minWidth: 50
+            minWidth: 50,
+            border: '1px solid red'
         });
         
         var decodedValue = [];

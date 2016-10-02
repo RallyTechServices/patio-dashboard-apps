@@ -57,11 +57,9 @@ Ext.define("OIPApp", {
             this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
-                flex: 1,
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this

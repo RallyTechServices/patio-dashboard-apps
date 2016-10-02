@@ -56,7 +56,6 @@ descriptions: [
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
