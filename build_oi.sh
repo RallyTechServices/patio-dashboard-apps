@@ -1,0 +1,12 @@
+cd oi-backlog-maturity
+grunt deploy
+cd ..
+cd oi-predictability
+grunt deploy
+cd ..
+cd oi-productivity
+grunt deploy
+cd ..
+cd oi-quality
+grunt deploy
+cd ..

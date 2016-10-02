@@ -14,22 +14,23 @@ module.exports = function(grunt) {
         config = grunt.file.readJSON('config.json');
 
         config.js_files = grunt.file.expand([
-            'src/javascript/utils/*.js',
+            '../common/src/javascript/__ts-info-link.js',
+            '../common/src/javascript/__ts-logger.js',
+            '../common/src/javascript/_ts-file-utilities.js',
+            '../common/src/javascript/__ts-general-utils.js',
             '../common/src/javascript/colors.js',
             '../common/src/javascript/ts-grid-box.js',
             '../common/src/javascript/ts-chart-app.js',
             '../common/src/javascript/ts-chart-and-description.js',
-            '../common/src/javascript/ts-quarter-item-selector.js',
-            '../common/src/javascript/_ts-file-utilities.js',
-            '../common/src/javascript/__ts-general-utils.js',
-            '../common/src/javascript/_ts-workspace-picker-field.js',
-            '../common/src/javascript/_ts-workspace-program-picker-dialog.js',
+            '../oi-common/src/javascript/ts-quarter-item-selector.js',
+            '../oi-common/src/javascript/_ts-workspace-picker-field.js',
+            '../oi-common/src/javascript/_ts-workspace-program-picker-dialog.js',
             'src/javascript/*.js'
         ]);
 
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
         
-        config.css_files = grunt.file.expand( 'src/style/*.css' );
+        config.css_files = grunt.file.expand(['../common/src/style/*.css','src/style/*.css']);
         
         config.js_contents = " ";
         for (var i=0;i<config.js_files.length;i++) {

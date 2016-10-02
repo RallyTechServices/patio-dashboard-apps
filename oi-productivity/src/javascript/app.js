@@ -5,7 +5,7 @@ Ext.define("OIPRApp", {
 descriptions: [
         "<strong>OCIO Dashboard - Productivity</strong><br/>" +
             "<br/>" +
-            "It is the number of work broken down by user stories, split stories and defects by program by quarter<br/>" +
+            "It is the number of work items broken down by user stories, split stories and defects by program by quarter<br/>" +
             "Count displayed as of the end of First day of Quarter."
     ],
     
