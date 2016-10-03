@@ -105,7 +105,7 @@ Ext.define("TSDefectsByProgram", {
             return;
         }
         
-        promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
+        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
             var workspace_data = Ext.clone( workspace );
             return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
         });
@@ -214,6 +214,7 @@ Ext.define("TSDefectsByProgram", {
     _getPortfolioItems: function(typepath,workspace) {
         var config = {
             model: typepath,
+            enablePostGet:true,
             fetch:['ObjectID','Project','Name'],
             context: { 
                 project: null,
