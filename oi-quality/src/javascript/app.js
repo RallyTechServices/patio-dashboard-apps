@@ -93,9 +93,7 @@ Ext.define("TSDefectsByProgram", {
                 
         this.setLoading('Loading Data...');
         
-        var promises = [];
-
-        //if there are programs selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //if there are programs selected from drop down get the corresponding workspace 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(selectorValue.programs,function(selected){
@@ -103,7 +101,8 @@ Ext.define("TSDefectsByProgram", {
         })
 
         if(this.programs.length < 1){
-            workspaces_of_selected_programs = this.workspaces;
+            Ext.Msg.alert('There are no chosen programs');
+            return;
         }
         
         promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
@@ -183,14 +182,14 @@ Ext.define("TSDefectsByProgram", {
                     this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
                     deferred.resolve('');
                 } else {
-                    var epmsModelPath = types[2].get('TypePath');
+                    var epmsModelPaths = [types[2].get('TypePath'),types[1].get('TypePath')];
                     
                     Deft.Chain.pipeline([
                         function() {
-                            return me._getEPMSProjects(epmsModelPath,workspace);
+                            return me._getEPMSProjects(epmsModelPaths,workspace);
                         },
                         function(epms_id_projects_by_name) {
-                            return me._getDefectsEPMSProjects(epms_id_projects_by_name,epmsModelPath,quarterRecord,workspace);
+                            return me._getDefectsFromEPMSProjects(epms_id_projects_by_name,quarterRecord,workspace);
                         }
                     ],this).then({
                         scope: this,
@@ -212,12 +211,9 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
 
-    _getEPMSProjects:function(epmsModelPath,workspace){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-
+    _getPortfolioItems: function(typepath,workspace) {
         var config = {
-            model: epmsModelPath,
+            model: typepath,
             fetch:['ObjectID','Project','Name'],
             context: { 
                 project: null,
@@ -225,20 +221,36 @@ Ext.define("TSDefectsByProgram", {
             }
         };
         
-        this._loadWsapiRecords(config).then({
-            success: function(records) {
+        return this._loadWsapiRecords(config);
+    },
+    
+    // get the level 1 or level 2 (from the bottom) portfolio items from the given workspace
+    // as they are now
+    _getEPMSProjects:function(epmsModelPaths,workspace){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+
+        
+        Deft.Chain.sequence([
+            function() { return me._getPortfolioItems(epmsModelPaths[0],workspace); },
+            function() { return me._getPortfolioItems(epmsModelPaths[1],workspace); }
+        ]).then({
+            success: function(level_1_pis, level_2_pis) {
                 var epms_programs_by_project_name = {};
-                Ext.Array.each(records,function(rec){
-                    var project_name = rec.get('Project').Name;
+
+                var pis = Ext.Array.flatten(level_1_pis,level_2_pis);
+                
+                Ext.Array.each(pis,function(pi){
+                    var project_name = pi.get('Project').Name;
                     
                     if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
                         epms_programs_by_project_name[project_name] = {
-                            program: rec.get('Project'),
+                            program: pi.get('Project'),
                             epms_projects: []
                         }
                     }
                     
-                    epms_programs_by_project_name[project_name].epms_projects.push(rec.getData());
+                    epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
                     
                 });
                 deferred.resolve(epms_programs_by_project_name);
@@ -252,7 +264,9 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
     
-    _getDefectsEPMSProjects: function(epms_items_by_project_name,epmsModelPath,quarterRecord,workspace) {
+    // get the defects that are currently associated with level 1 or level 2 (from the bottom) portfolio
+    // items and were created during the quarter. The state is what the state is now.
+    _getDefectsFromEPMSProjects: function(epms_items_by_project_name,quarterRecord,workspace) {
         var deferred = Ext.create('Deft.Deferred');
         
         var end_date = quarterRecord.get('endDate');
@@ -310,38 +324,13 @@ Ext.define("TSDefectsByProgram", {
         return deferred.promise;
     },
     
-    _getDefectsForStories: function(stories,quarterRecord,workspace,featureModelName) {
-
-        var end_date = quarterRecord.get('endDate');
-        var start_date = quarterRecord.get('startDate');
-
-        var date_filters = Rally.data.wsapi.Filter.and([
-            {property:'CreationDate',operator:'>=',value:start_date},
-            {property:'CreationDate',operator:'<=',value:end_date}
-        ]);
-        
-        var config = {
-            model: 'defect',
-            filters: filters,
-            limit: Infinity,
-            pageSize: 2000,
-            fetch: ['ObjectID','FormattedID','Project','Requirement','State','Parent'],
-            context: { 
-                project: null,
-                workspace: workspace._ref
-            },
-            enablePostGet: true
-        };
-        
-        return this._loadWsapiRecords(config);
-    },
-    
     _organizeDefectsByProgram: function(defects){
         var me = this,
             defects_by_program = {};
 
         Ext.Array.each(defects, function(defect){
             var program = defect.EPMSProject;
+            console.log("--", defect.get("FormattedID"), program);
             if ( Ext.isEmpty(defects_by_program[program]) ) {
                 defects_by_program[program] = {
                     all: [],
