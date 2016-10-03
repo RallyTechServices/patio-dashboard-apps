@@ -3,11 +3,11 @@
 <head>
     <title>OI Backlog Maturity App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 02 2016 16:41:58 GMT-0700 (PDT) -->
+    <!--  Build Date: Sun Oct 02 2016 17:01:25 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 02 2016 16:41:58 GMT-0700 (PDT)";
-        var CHECKSUM = 133463802116;
+        var APP_BUILD_DATE = "Sun Oct 02 2016 17:01:25 GMT-0700 (PDT)";
+        var CHECKSUM = 133125647268;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1584,23 +1584,19 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
                 decodedValue = this.initialConfig.value;
             }
         }
-        
-        console.log('decodedValue', decodedValue);
-        
+                
         var data = [],
             empty_text = "No selections";
             
         if ( Ext.isArray(decodedValue) ) {
-            
             data = decodedValue;
-            
         } 
         
         var custom_store = Ext.create('Ext.data.Store', {
-            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName','workspaceProjectRef','workspaceProjectObjectID'],
+            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName',
+                'workspaceProjectRef','workspaceProjectObjectID'],
             data: data
         });
-        
         
         var gridWidth = Math.min(this.width-125, 500);
         this._grid = container.add(  {
@@ -1947,14 +1943,14 @@ Ext.define("OIBMApp", {
         this.callParent();
 
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
-
-            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            
+            if ( Ext.isEmpty(this.workspaces) || this.workspaces == "[]" ) {
                 Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
                     '<br/>Please use Edit App Settings... to make this configuration.');
                 return;
             }
             
-            this.workspaces = this.getSetting('workspaceProgramParents');
             if ( Ext.isString(this.workspaces ) ){
                 this.workspaces = Ext.JSON.decode(this.workspaces);
             }
@@ -1979,7 +1975,6 @@ Ext.define("OIBMApp", {
                 context: this.getContext(),
                 workspaces: me.workspaces,
                 stateful: false,
-                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
@@ -2557,7 +2552,6 @@ Ext.define("OIBMApp", {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
             fieldLabel: ' ',
-            margin: '0 10 50 150',
             boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
             '<p/>' + 
             '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +

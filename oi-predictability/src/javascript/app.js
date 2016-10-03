@@ -28,14 +28,14 @@ Ext.define("OIPApp", {
     launch: function() {
         this.callParent();
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
-
-            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            
+            if ( Ext.isEmpty(this.workspaces) || this.workspaces == "[]" ) {
                 Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
                     '<br/>Please use Edit App Settings... to make this configuration.');
                 return;
             }
             
-            this.workspaces = this.getSetting('workspaceProgramParents');
             if ( Ext.isString(this.workspaces ) ){
                 this.workspaces = Ext.JSON.decode(this.workspaces);
             }
@@ -392,7 +392,6 @@ Ext.define("OIPApp", {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
             fieldLabel: ' ',
-            margin: '0 10 50 150',
             boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
             '<p/>' + 
             '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +

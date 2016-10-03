@@ -46,8 +46,7 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
         var container = Ext.create('Ext.container.Container',{
             layout: { type:'hbox' },
             renderTo: this.inputEl,
-            minWidth: 50,
-            border: '1px solid red'
+            minWidth: 50
         });
         
         var decodedValue = [];
@@ -59,23 +58,19 @@ Ext.define('CA.technicalservices.WorkspaceSettingsField',{
                 decodedValue = this.initialConfig.value;
             }
         }
-        
-        console.log('decodedValue', decodedValue);
-        
+                
         var data = [],
             empty_text = "No selections";
             
         if ( Ext.isArray(decodedValue) ) {
-            
             data = decodedValue;
-            
         } 
         
         var custom_store = Ext.create('Ext.data.Store', {
-            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName','workspaceProjectRef','workspaceProjectObjectID'],
+            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName',
+                'workspaceProjectRef','workspaceProjectObjectID'],
             data: data
         });
-        
         
         var gridWidth = Math.min(this.width-125, 500);
         this._grid = container.add(  {
