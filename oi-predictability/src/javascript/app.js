@@ -28,14 +28,14 @@ Ext.define("OIPApp", {
     launch: function() {
         this.callParent();
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
-
-            if ( Ext.isEmpty(this.getSetting('workspaceProgramParents')) ) {
+            this.workspaces = this.getSetting('workspaceProgramParents');
+            
+            if ( Ext.isEmpty(this.workspaces) || this.workspaces == "[]" ) {
                 Ext.Msg.alert('Configuration Issue','This app requires the designation of a parent project to determine programs in each workspace.' +
                     '<br/>Please use Edit App Settings... to make this configuration.');
                 return;
             }
             
-            this.workspaces = this.getSetting('workspaceProgramParents');
             if ( Ext.isString(this.workspaces ) ){
                 this.workspaces = Ext.JSON.decode(this.workspaces);
             }
@@ -57,11 +57,9 @@ Ext.define("OIPApp", {
             this.addToBanner({
                 xtype: 'quarteritemselector',
                 stateId: this.getContext().getScopedStateId('app-selector'),
-                flex: 1,
                 workspaces: me.workspaces,
                 context: this.getContext(),
                 stateful: false,
-                width: '75%',
                 listeners: {
                     change: this.updateQuarters,
                     scope: this
@@ -95,52 +93,70 @@ Ext.define("OIPApp", {
     },
 
     updateQuarters: function(quarterAndPrograms){
-        this.logger.log('updateQuarters',quarterAndPrograms);
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
-        this.programObjectIds = quarterAndPrograms.programs;
+        this.programs = [];
 
-        //if there are programs selected from drop down get the corresponding workspace and get data otherwise 
-        // get data from all workspaces.
+        //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
-        if(this.programObjectIds.length < 1){
-            workspaces_of_selected_programs = me.workspaces;
+        if(this.programs.length < 1){
+            Ext.Msg.alert('There are no chosen programs');
+            return;
         }
 
         var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
             return function() { 
-                return me._getData( workspace ) 
+                return me._getDataForWorkspace( workspace ) 
             };
         });
         
         Deft.Chain.sequence(promises).then({
             scope: this,
-            success: function(all_results) {
-                this.setLoading(false);
-                me._displayGrid(Ext.Array.flatten(all_results));
+            success: function(rows) {
+                rows = Ext.Array.flatten(rows);
+                var clean_rows = {};
+                
+                Ext.Array.each(this.programs,function(program_info){
+                    Ext.Array.each(rows, function(row){
+                        if ( program_info.Name == row.Name ) {
+                            clean_rows[row.Name] = row;
+                        }
+                    });
+                });
+ 
+                me._displayGrid(Ext.Object.getValues(clean_rows));
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem gathering data', msg);
             }
+        }).always(function() { me.setLoading(false); });
+    },
+    
+    _getUniqueRows: function(items){
+        items = Ext.Array.flatten(items);
+        var rows = {};
+        Ext.Array.each(items, function(item){
+            rows[item.Program] = item;
         });
-
-        
+        return Ext.Object.getValues(rows);
     },
 
-    _getData: function(workspace) {
+    _getDataForWorkspace: function(workspace) {
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
-        this.logger.log('Quarter Start:', this.quarterRecord.get('startDate'), this.quarterRecord);
         var second_day = new Date(this.quarterRecord.get('startDate'));
         second_day = Rally.util.DateTime.add(second_day,'day', 1);// add a day to start date to get the end of the day.        
+
+        this.setLoading("Gathering Data For " + workspace.Name);
 
         TSUtilities.getPortfolioItemTypes(workspace).then({
             success: function(types) {
@@ -148,37 +164,58 @@ Ext.define("OIPApp", {
                     this.logger.log("Cannot find a record type for EPMS project",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    this.setLoading('Loading Workspace ' + workspace_name);
-                                        
-                    var epmsModelPath = types[2].get('TypePath');
-
-                    Deft.Promise.all([
-                        me._getEPMSProjects(workspace_oid,epmsModelPath),
-                        me._getDataFromSnapShotStore(second_day,workspace_oid,epmsModelPath)
+                    
+                    var epmsModelPaths = [types[2].get('TypePath'),types[1].get('TypePath')];
+                    
+                    Deft.Chain.sequence([
+                        function() { return me._getEPMSProjectsOn(new Date(),workspace,epmsModelPaths); },
+                        function() { return me._getEPMSProjectsOn(second_day,workspace,epmsModelPaths); }
                     ],me).then({
                         scope: me,
-                        success: function(records){
-                            var merged_results = Ext.Object.merge(records[0],records[1]);
-
-                            predict_data = []
-                            Ext.Object.each(merged_results,function(key,val){
-                                var predict_rec = {
-                                    Program: val.Name,
-                                    CommittedPoints: val.CommittedPoints > 0 ?val.CommittedPoints:0,
-                                    EarnedPoints: val.EarnedPoints,
-                                    Variance: val.EarnedPoints > 0 && val.CommittedPoints > 0 ? (val.EarnedPoints / val.CommittedPoints) * 100 : 0
+                        success: function(results){
+                            var programs_now = results[0];
+                            var programs_then = results[1];
+                            
+                            var program_names = Ext.Object.getKeys(programs_now);
+                            Ext.Object.each(programs_then, function(program,info){
+                                program_names.push(program);
+                            });
+                            
+                            var rows = [];
+                            
+                            Ext.Array.each(program_names, function(program_name){
+                                var row = {
+                                    program: program_name,
+                                    epms_projects: [],
+                                    earned_points: 0,
+                                    planned_points: 0,
+                                    Name: program_name,
+                                    variance: null
+                                };
+                                
+                                var program_then = programs_then[program_name];
+                                if ( program_then ) {
+                                    var start_plan = program_then.planned_points || 0;
+                                    var start_earned = program_then.earned_points || 0;
+                                    row.planned_points = start_plan - start_earned;
                                 }
-                                predict_data.push(predict_rec);
-                            })
+                                
+                                var program_now = programs_now[program_name];
+                                if ( program_now ) {
+                                    row.earned_points = program_now.earned_points || 0; 
+                                    row.variance = row.earned_points > 0 && row.planned_points > 0 ? (row.earned_points / row.planned_points) * 100 : 0
+                                }
+                                
+                                rows.push(row);
+                            });
                             
-                            deferred.resolve(predict_data);
-                            
+                            deferred.resolve(rows);
                         }
                     });
                 }
             },
             failure: function(msg){
-                Ext.Msg.alert('',msg);
+                deferred.reject(msg);
             },
             scope: this
         });
@@ -186,96 +223,135 @@ Ext.define("OIPApp", {
         return deferred.promise;
     },
 
-    _getEPMSProjects:function(workspace_oid,epmsModelPath){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-
+    _getPortfolioItems: function(typepath,workspace) {
         var config = {
-            model: epmsModelPath,
+            model: typepath,
             enablePostGet:true,
             fetch:['ObjectID','Project','LeafStoryPlanEstimateTotal','Name','AcceptedLeafStoryPlanEstimateTotal'],
             context: { 
                 project: null,
-                workspace: '/workspace/' + workspace_oid
+                workspace: workspace._ref
             }
         };
-
-        if(me.programObjectIds && me.programObjectIds.length > 0){
-
-            var model_filters = [];
-
-            Ext.Array.each(me.programObjectIds,function(objId){
-                model_filters.push({property:'Project.ObjectID',value:objId});
-            })
-
-            model_filters = Rally.data.wsapi.Filter.or(model_filters);
-                        
-            config.filters =  model_filters;
-
-        }
-
-        Ext.create('Rally.data.wsapi.Store', config).load({
-            callback : function(epmsprojects, operation, successful) {
-                var programs_by_project_oid = {};
-                Ext.Array.each(epmsprojects,function(rec){
-                    if(programs_by_project_oid[rec.get('Project').ObjectID]){
-                        programs_by_project_oid[rec.get('Project').ObjectID].EarnedPoints += rec.get('AcceptedLeafStoryPlanEstimateTotal');
-                    }else{
-                        programs_by_project_oid[rec.get('Project').ObjectID] = {
-                            EarnedPoints : rec.get('AcceptedLeafStoryPlanEstimateTotal'),
-                            Name         : rec.get('Project').Name
-                        };
-                    }
-                });
-                me.logger.log('epms_projects_by_oid',programs_by_project_oid);
-                deferred.resolve(programs_by_project_oid);
-            }
-        });
         
-        return deferred.promise;
-
+        return this._loadWsapiRecords(config);
     },
 
+    // get the level 1 or level 2 (from the bottom) portfolio items from the given workspace
+    // as they are now
+    _getEPMSProjects:function(workspace,epmsModelPaths){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        Deft.Chain.sequence([
+            function() { return me._getPortfolioItems(epmsModelPaths[0],workspace); },
+            function() { return me._getPortfolioItems(epmsModelPaths[1],workspace); }
+        ]).then({
+            success: function(level_1_pis, level_2_pis) {
+                var epms_programs_by_project_name = {};
 
-    _getDataFromSnapShotStore:function(date,workspace_oid,epmsModelPath){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
+                var pis = Ext.Array.flatten(level_1_pis,level_2_pis);
+                
+                Ext.Array.each(pis,function(pi){
+                    var project_name = pi.get('Project').Name;
+                    
+                    if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
+                        epms_programs_by_project_name[project_name] = {
+                            program: pi.get('Project'),
+                            epms_projects: [],
+                            earned_points: 0,
+                            planned_points: 0,
+                            Name: project_name
+                        }
+                    }
+                    
+                    epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
+                    var planned_size = pi.get('LeafStoryPlanEstimateTotal') || 0;
+                    epms_programs_by_project_name[project_name].planned_points += planned_size;                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
+                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
+                    epms_programs_by_project_name[project_name].earned_points += accepted_size;
+                });
+                deferred.resolve(epms_programs_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg)
+            }
+        });
+        return deferred.promise;
+    },
+
+    // 
+    _getEPMSProjectsOn:function(date,workspace,epmsModelPaths){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
 
         var find = {
-            "_TypeHierarchy": epmsModelPath,
+            "_TypeHierarchy": { "$in": [ epmsModelPaths[0],epmsModelPaths[1] ] },
             "__At": date
         };
-        if(me.programObjectIds && me.programObjectIds.length > 0){
-            find["Project"] = {"$in": me.programObjectIds};
-        }
-        workspace_oid = '/workspace/'+workspace_oid;
-        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": {"workspace": workspace_oid},
-            "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project"],
-            "find": find,
-            "sort": { "_ValidFrom": -1 },
-            "removeUnauthorizedSnapshots":true,            
-            "useHttpPost":true,
-            "hydrate": ["Project"]
-        });
-
-        snapshotStore.load({
-            callback: function(records, operation) {
-               var programs_by_project_oid = {};
-                Ext.Array.each(records,function(rec){
-                    if(programs_by_project_oid[rec.get('Project').ObjectID]){
-                        programs_by_project_oid[rec.get('Project').ObjectID].CommittedPoints += rec.get('LeafStoryPlanEstimateTotal');
-                    }else{
-                        programs_by_project_oid[rec.get('Project').ObjectID] = {'CommittedPoints' : rec.get('LeafStoryPlanEstimateTotal')};
-                        programs_by_project_oid[rec.get('Project').ObjectID].Name = rec.get('Project').Name;
-                    }                
-                });
-                deferred.resolve(programs_by_project_oid);
+        
+        var config = {
+            context: { 
+                project: null,
+                workspace: workspace._ref
             },
-            scope:this
+            "fetch": [ "ObjectID","LeafStoryPlanEstimateTotal","Project","AcceptedLeafStoryPlanEstimateTotal"],
+            "find": find,
+            "hydrate": ["Project"]
+        };
+        
+        this._loadLookbackRecords(config).then({
+            success: function(pis) {
+                var epms_programs_by_project_name = {};
+                
+                Ext.Array.each(pis,function(pi){
+                    var project_name = pi.get('Project').Name;
+                    
+                    if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
+                        epms_programs_by_project_name[project_name] = {
+                            program: pi.get('Project'),
+                            epms_projects: [],
+                            earned_points: 0,
+                            Name: project_name
+                        }
+                    }
+                    
+                    epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
+                    var planned_size = pi.get('LeafStoryPlanEstimateTotal') || 0;
+                    epms_programs_by_project_name[project_name].planned_points += planned_size;                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
+                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
+                    epms_programs_by_project_name[project_name].earned_points += accepted_size;
+                });
+                deferred.resolve(epms_programs_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
         });
     
         return deferred;
+    },
+    
+    _loadLookbackRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true,
+            "useHttpPost":true
+        };
+
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
     },
 
     _loadWsapiRecords: function(config){
@@ -285,7 +361,7 @@ Ext.define("OIPApp", {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        this.logger.log("Starting load:",config.model);
+
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
@@ -302,7 +378,6 @@ Ext.define("OIPApp", {
     _loadAStoreWithAPromise: function(model_name, model_fields){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        this.logger.log("Starting load:",model_name,model_fields);
           
         Ext.create('Rally.data.wsapi.Store', {
             model: model_name,
@@ -321,47 +396,36 @@ Ext.define("OIPApp", {
     },
     
    _displayGrid: function(records){
-        //this.displayContainer.removeAll();
-        //Custom store
-        var store = Ext.create('Rally.data.custom.Store', {
+       console.log('rows:', records);
+       
+       var store = Ext.create('Rally.data.custom.Store', {
             data: records,
             remoteSort: false
-        });
+       });
 
-
-        this.logger.log('_displayGrid>>',store);
-
-
-
-        var grid = {
+       var grid = {
             xtype: 'rallygrid',
             store: store,
             showRowActionsColumn: false,
             editable: false,
             sortableColumns: true,            
             columnCfgs: this._getColumns()
-        }
+       }
 
-        this.logger.log('grid before rendering',grid);
-
-        this.setGrid(grid,0);
-
-        //this.displayContainer.add(grid);
-
-
+       this.setGrid(grid,0);
     },
 
     _getColumns: function() {
         var columns = [];
         var me = this;
-        columns.push({dataIndex:'Program',text:'Program', flex: 1 });
-        columns.push({dataIndex:'CommittedPoints',text:'Committed Points', flex: 1 });
-        columns.push({dataIndex:'EarnedPoints',text:'Earned Points', flex: 1 });
-        columns.push({dataIndex:'Variance',text:'Commitment Variance', flex: 1,
-                      renderer: function(Variance){
-                        return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
-                      } 
-                  });  
+        columns.push({dataIndex:'Name',text:'Program', flex: 1 });
+        columns.push({dataIndex:'planned_points',text:'Committed Points', flex: 1 });
+        columns.push({dataIndex:'earned_points',text:'Earned Points', flex: 1 });
+        columns.push({dataIndex:'variance',text:'Commitment Variance', flex: 1,
+            renderer: function(Variance){
+                return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
+            } 
+        });  
         return columns;
     },
 
@@ -397,7 +461,6 @@ Ext.define("OIPApp", {
             name: 'workspaceProgramParents',
             xtype:'tsworkspacesettingsfield',
             fieldLabel: ' ',
-            margin: '0 10 50 150',
             boxLabel: 'Program Parent in Each Workspace<br/><span style="color:#999999;"> ' +
             '<p/>' + 
             '<em>Programs are the names of projects that hold EPMS Projects.  Choose a new row ' +
@@ -413,8 +476,6 @@ Ext.define("OIPApp", {
 
         if ( !grid ) { return; }
         
-        this.logger.log('_export',grid);
-
         var filename = Ext.String.format('predictability_counts.csv');
 
         this.setLoading("Generating CSV");
