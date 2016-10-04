@@ -89,13 +89,14 @@ descriptions: [
     updateQuarters: function(quarterAndPrograms){
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
-        this.programs = quarterAndPrograms.programs;
+        this.programs = [];
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
         if(this.programs.length < 1){
@@ -117,8 +118,8 @@ descriptions: [
                 //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
                 var final_results = {};
                                 
-                Ext.Object.each(quarterAndPrograms.allPrograms,function(oid,program_info){                    
-                    var name = program_info.program.Name;
+                Ext.Array.each(this.programs,function(program_info){                    
+                    var name = program_info.Name;
                     
                     final_results[name] = {
                         defects: [],

@@ -95,15 +95,16 @@ Ext.define("OIPApp", {
     updateQuarters: function(quarterAndPrograms){
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
-        this.programs = quarterAndPrograms.programs;
+        this.programs = [];
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
-        
+
         if(this.programs.length < 1){
             Ext.Msg.alert('There are no chosen programs');
             return;
@@ -118,13 +119,23 @@ Ext.define("OIPApp", {
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(rows) {
-                this.setLoading(false);
-                me._displayGrid(rows);
+                rows = Ext.Array.flatten(rows);
+                var clean_rows = {};
+                
+                Ext.Array.each(this.programs,function(program_info){
+                    Ext.Array.each(rows, function(row){
+                        if ( program_info.Name == row.Name ) {
+                            clean_rows[row.Name] = row;
+                        }
+                    });
+                });
+ 
+                me._displayGrid(Ext.Object.getValues(clean_rows));
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem gathering data', msg);
             }
-        });
+        }).always(function() { me.setLoading(false); });
     },
     
     _getUniqueRows: function(items){
@@ -164,32 +175,41 @@ Ext.define("OIPApp", {
                         success: function(results){
                             var programs_now = results[0];
                             var programs_then = results[1];
-                            var project_name = workspace.workspaceProjectName;
                             
-                            var row = {
-                                program: project_name,
-                                epms_projects: [],
-                                earned_points: 0,
-                                planned_points: 0,
-                                Name: project_name,
-                                variance: null
-                            };
+                            var program_names = Ext.Object.getKeys(programs_now);
+                            Ext.Object.each(programs_then, function(program,info){
+                                program_names.push(program);
+                            });
                             
-                            var program_then = programs_then[project_name];
-                            if ( program_then ) {
-                                var start_plan = program_then.planned_points || 0;
-                                var start_earned = program_then.earned_points || 0;
-                                row.planned_points = start_plan - start_earned;
-                            }
+                            var rows = [];
                             
-                            var program_now = programs_now[project_name];
-                            if ( program_now ) {
-                                row.earned_points = program_now.earned_points || 0; 
-                                row.variance = row.earned_points > 0 && row.planned_points > 0 ? (row.earned_points / row.planned_points) * 100 : 0
-                            }
-
-                            deferred.resolve(row);
+                            Ext.Array.each(program_names, function(program_name){
+                                var row = {
+                                    program: program_name,
+                                    epms_projects: [],
+                                    earned_points: 0,
+                                    planned_points: 0,
+                                    Name: program_name,
+                                    variance: null
+                                };
+                                
+                                var program_then = programs_then[program_name];
+                                if ( program_then ) {
+                                    var start_plan = program_then.planned_points || 0;
+                                    var start_earned = program_then.earned_points || 0;
+                                    row.planned_points = start_plan - start_earned;
+                                }
+                                
+                                var program_now = programs_now[program_name];
+                                if ( program_now ) {
+                                    row.earned_points = program_now.earned_points || 0; 
+                                    row.variance = row.earned_points > 0 && row.planned_points > 0 ? (row.earned_points / row.planned_points) * 100 : 0
+                                }
+                                
+                                rows.push(row);
+                            });
                             
+                            deferred.resolve(rows);
                         }
                     });
                 }
@@ -376,23 +396,23 @@ Ext.define("OIPApp", {
     },
     
    _displayGrid: function(records){
-        //this.displayContainer.removeAll();
-        //Custom store
-        var store = Ext.create('Rally.data.custom.Store', {
+       console.log('rows:', records);
+       
+       var store = Ext.create('Rally.data.custom.Store', {
             data: records,
             remoteSort: false
-        });
+       });
 
-        var grid = {
+       var grid = {
             xtype: 'rallygrid',
             store: store,
             showRowActionsColumn: false,
             editable: false,
             sortableColumns: true,            
             columnCfgs: this._getColumns()
-        }
+       }
 
-        this.setGrid(grid,0);
+       this.setGrid(grid,0);
     },
 
     _getColumns: function() {

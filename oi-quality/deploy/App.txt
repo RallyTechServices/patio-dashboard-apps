@@ -3,13 +3,13 @@
 <head>
     <title>Defects By Program</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 02 2016 17:33:33 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon Oct 03 2016 17:41:43 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 02 2016 17:33:33 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Mon Oct 03 2016 17:41:43 GMT-0700 (PDT)";
         var STORY    = "US556";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 135101330850;
+        var CHECKSUM = 134829025054;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1336,9 +1336,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     _getPrograms:function(workspace){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        
-        console.log("_getPrograms", workspace);
-        
+                
         var workspace_name = workspace.Name || workspace.workspaceName || workspace.get('_refObjectName');
         var workspace_ref  = workspace.workspaceRef || workspace._ref || workspace.get('_ref');
         var program_parent_oid = workspace.workspaceProjectObjectID;
@@ -1373,7 +1371,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(projects) {
-                console.log("Found projects:", projects);
                 var epms_id_projects = {}
                 Ext.Array.each(projects,function(project){
                     var project_oid = project.get('ObjectID');
@@ -2083,7 +2080,7 @@ Ext.define("TSDefectsByProgram", {
             return;
         }
         
-        promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
+        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
             var workspace_data = Ext.clone( workspace );
             return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
         });
@@ -2192,6 +2189,7 @@ Ext.define("TSDefectsByProgram", {
     _getPortfolioItems: function(typepath,workspace) {
         var config = {
             model: typepath,
+            enablePostGet:true,
             fetch:['ObjectID','Project','Name'],
             context: { 
                 project: null,
