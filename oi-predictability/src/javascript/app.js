@@ -155,7 +155,6 @@ Ext.define("OIPApp", {
                 } else {
                     
                     var epmsModelPaths = [types[2].get('TypePath'),types[1].get('TypePath')];
-                    console.log('paths', epmsModelPaths);
                     
                     Deft.Chain.sequence([
                         function() { return me._getEPMSProjectsOn(new Date(),workspace,epmsModelPaths); },
@@ -165,9 +164,6 @@ Ext.define("OIPApp", {
                         success: function(results){
                             var programs_now = results[0];
                             var programs_then = results[1];
-                            console.log(workspace);
-                            this.logger.log('now:',programs_now);
-                            this.logger.log('then:',programs_then);
                             var project_name = workspace.workspaceProjectName;
                             
                             var row = {

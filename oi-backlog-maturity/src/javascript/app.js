@@ -6,7 +6,6 @@ Ext.define("OIBMApp", {
             "<br/>" +
             "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program.<br/>" + 
             "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter "
-            
     ],
 
     defaults: { margin: 10 },
@@ -48,7 +47,6 @@ Ext.define("OIBMApp", {
     },
       
     _addComponents: function(){
-
         var me = this;
         if ( this.getSetting('showScopeSelector') || this.getSetting('showScopeSelector') == "true" ) {
 
@@ -93,66 +91,58 @@ Ext.define("OIBMApp", {
 
 
     updateQuarters: function(quarterAndPrograms){
-        //var deferred = Ext.create('Deft.Deferred');
         var me = this;
         this.quarterRecord = quarterAndPrograms.quarter;
-        this.programObjectIds = quarterAndPrograms.programs;
+        this.programs = [];
 
-        //if there are porgrams selected from drop down get the corresponding workspace and get data otherwise get data from all workspaces.
+        //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
         var workspaces_of_selected_programs = []
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
             workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
-        if(this.programObjectIds.length < 1){
-            workspaces_of_selected_programs = me.workspaces;
+        if(this.programs.length < 1){
+            Ext.Msg.alert('There are no chosen programs');
+            return;
         }
 
         var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
             return function() { 
-                return me._getData( workspace ) 
+                return me._getDataForWorkspace( workspace ) 
             };
         });
         
         Deft.Chain.sequence(promises).then({
             scope: this,
-            success: function(all_results) {
-                //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
-                var results = Ext.Array.flatten(all_results);
-                var final_results = []
-                Ext.Object.each(quarterAndPrograms.allPrograms,function(key,val){
-                    var allow = true;
-                    if(this.programObjectIds && this.programObjectIds.length > 0 ){
-                        allow = Ext.Array.contains(this.programObjectIds,val.program.ObjectID) ? true : false;
-                    }
-
-                    if(allow){
-                        var obj = null;
-                        Ext.Array.each(results,function(res){
-                            if(val.program.Name == res.Program){
-                                obj = res;
-                                return false;
-                            }
-                        });
-
-                        if(obj){
-                            final_results.push(obj);
-                        }else{
-                            final_results.push({
-                                AvgVelocity:0,
-                                Program: val.program.Name,
-                                Sprints:0,
-                                StoryPoints:0
-                            })
-                        }                        
-
-                    }
-
+            success: function(epms_programs_by_project_name) {
+                var final_results = {};
+                
+                merged_programs_by_name = {};
+                
+                Ext.Array.each(epms_programs_by_project_name, function(program) {
+                    merged_programs_by_name = Ext.Object.merge(merged_programs_by_name,program);
+                });
+                
+                Ext.Array.each(this.programs,function(program_info){
+                    var name = program_info.Name;
                     
-                },me);
-
-
+                    final_results[name] = {
+                        velocity:0,
+                        name: name,
+                        sprints:0,
+                        ready_points:0
+                    };
+                    
+                    if ( merged_programs_by_name[name] ) {
+                        var program = merged_programs_by_name[name];
+                        final_results[name].velocity = program.velocity;
+                        final_results[name].ready_points = program.ready_points;
+                        final_results[name].sprints = ( program.velocity > 0 ) && program.ready_points / program.velocity;
+                    }
+                });
+                
                 me._displayGrid(final_results);
                 
             },
@@ -160,14 +150,12 @@ Ext.define("OIBMApp", {
                 Ext.Msg.alert('Problem gathering data', msg);
             }
         });
-
-        
     },
-    //me._displayGrid(backlog_data);
 
-    _getData: function(workspace) {
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
+    _getDataForWorkspace: function(workspace) {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+            
         var workspace_name = workspace.Name ? workspace.Name : workspace.get('Name');
         var workspace_oid = workspace.ObjectID ? workspace.ObjectID : workspace.get('ObjectID');
 
@@ -183,96 +171,25 @@ Ext.define("OIBMApp", {
                 } else {
                     this.setLoading('Loading Workspace ' + workspace_name);
                     
-                    var epmsModelPath = types[2].get('TypePath');
-                    var epmsModelName = types[2].get('Name');
-     
-                    me._getEPMSProjectsFromSnapshotStore(second_day,workspace_oid,epmsModelPath).then({
-                        scope: me,
-                        success: function(programs){
-                            
-                            if (!programs || !programs.length > 0 ) {
-                                deferred.resolve({});
-                                return;
-                            } 
-                            
-                            var item_hierarchy_ids = [];
-
-                            Ext.Array.each(programs,function(res){
-                                item_hierarchy_ids.push({
-                                    "ObjectID":res.get('ObjectID'),
-                                    "EPMSProject":res.get('Project').Name
-                                });
-                            })
-                            
-                            this._getStoriesFromSnapShotStore(second_day,workspace_oid,item_hierarchy_ids).then({
-                                success:function(story_snapshots){
-                                    var promises = [];
-                                    if(!story_snapshots || story_snapshots.length == 0){
-                                        deferred.resolve([]);
-                                        return;
-                                    }
-
-                                    me._getStoryPointsReadyState(story_snapshots,workspace_oid,epmsModelName).then({
-                                        success: function(stories_by_program){
-
-                                            if(Ext.Object.getKeys(stories_by_program).length === 0){
-                                                deferred.resolve([]);
-                                                return;
-                                            }
-
-                                            var programs_by_name = {};
-                                            Ext.Object.each(stories_by_program,function(key,value){
-                                                var plan_estimate = 0;
-                                                Ext.Array.each(value, function(story){
-                                                    var size = story.get("PlanEstimate") || 0;
-                                                    if ( story.snapshot && story.snapshot.get('Ready') ) {
-                                                        plan_estimate = plan_estimate + size;
-                                                    }
-                                                });
-                                                programs[key] = {
-                                                    stories: value,
-                                                    PlanEstimate: plan_estimate
-                                                };
-                                            });
-                                            
-                                            Ext.Object.each(stories_by_program,function(key,value){
-                                                promises.push(me._getVelocity(key,workspace_oid,value));
-                                            });
-                                                                                        
-                                            Deft.Promise.all(promises).then({
-                                                scope: this,
-                                                success: function(all_projects_velocity){
-                                                    var backlog_data = [];
-                                                    Ext.Array.each(all_projects_velocity,function(vel){
-                                                        
-                                                        var backlog_rec = {
-                                                            ObjectID: vel.ProjectID,
-                                                            Program: vel.ProjectID,
-                                                            StoryPoints: programs[vel.ProjectID].PlanEstimate > 0 ? programs[vel.ProjectID].PlanEstimate:0,
-                                                            AvgVelocity: vel.Velocity,
-                                                            Sprints: vel.Velocity > 0 && programs[vel.ProjectID].PlanEstimate > 0 ? (programs[vel.ProjectID].PlanEstimate / vel.Velocity) : 0
-                                                        }
-                                                        backlog_data.push(backlog_rec);
-
-                                                    });
-                                                    deferred.resolve(backlog_data);
-                                                },
-                                                failure: function(error_msg) { deferred.reject(error_msg); }
-                                            });
-                                        },
-                                        failure: function(msg) {
-                                            deferred.reject(msg);
-                                        },
-                                        scope: this
-                                    });
-                                },
-                                failure: function(error) { deferred.reject(error); }
-                            });
+                    var epmsModelPaths = [types[2].get('TypePath'),types[1].get('TypePath')];
+                    Deft.Chain.pipeline([
+                        function() { 
+                            return me._getEPMSProjectsOn(new Date(),workspace,epmsModelPaths);
                         },
-                        failure: function(error){
-                            deferred.reject(error);
+                        function(epms_programs_by_project_name) { 
+                            return me._getReadyItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
+                        },
+                        function(epms_programs_by_project_name) {
+                            return me._getVelocitiesForProjectsInItems(epms_programs_by_project_name,workspace);
                         }
-
+                    ],me).then({
+                        scope: me,
+                        success: function(work_items){
+                            deferred.resolve(work_items);
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
                     });
                 }
             },
@@ -285,157 +202,260 @@ Ext.define("OIBMApp", {
         return deferred.promise;
     },
 
-    // get the epms projects in the appropriate programs
-    _getEPMSProjectsFromSnapshotStore:function(date,workspace_oid,epmsModelPath){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-        
+    // 
+    _getEPMSProjectsOn:function(date,workspace,epmsModelPaths){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+
         var find = {
-            "_TypeHierarchy": epmsModelPath,
-            "__At": Rally.util.DateTime.toIsoString(date)
+            "_TypeHierarchy": { "$in": epmsModelPaths },
+            "__At": date
         };
         
-        if(me.programObjectIds && me.programObjectIds.length > 0){
-            find["Project"] = {"$in": me.programObjectIds};
-        }
-
-        workspace_oid = '/workspace/'+workspace_oid;
-        
-        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": { workspace: workspace_oid },
-            "fetch": [ "ObjectID","Project"],
-            "find": find,
-            "sort": { "_ValidFrom": -1 },
-            "removeUnauthorizedSnapshots":true,            
-            //"useHttpPost":true,
-            "hydrate": ["Project"]
-        });
-
-        snapshotStore.load({
-            callback: function(records, operation) {
-                deferred.resolve(records);
-            },
-            scope:this
-        });
-    
-        return deferred;
-        
-    },
-    
-    _getStoriesFromSnapShotStore: function(second_day,workspace_oid,item_hierarchy_ids) {
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-        var hierarchy_ids = [];
-        var empms_projects = {};
-
-        Ext.Array.each(item_hierarchy_ids,function(id){
-            hierarchy_ids.push(id.ObjectID);
-            empms_projects[id.ObjectID] = {"ObjectID":id.ObjectID,"EPMSProject":id.EPMSProject};
-        });
-        
-        var find = {
-            "_TypeHierarchy": "HierarchicalRequirement",
-            "_ItemHierarchy": {"$in": hierarchy_ids},
-            //"Ready": true,
-            "__At": second_day
-        };
-
-        workspace_oid = '/workspace/'+workspace_oid;
-        var snapshotStore = Ext.create('Rally.data.lookback.SnapshotStore', {
-            "context": {"workspace": workspace_oid },
-            "fetch": [ "ObjectID","PlanEstimate","Project","Feature","_ItemHierarchy","Ready"],
-            "find": find,
-            "sort": { "_ValidFrom": -1 },
-            //"useHttpPost":true,
-            "removeUnauthorizedSnapshots":true,            
-            "hydrate": ["Project"]
-        });
-
-        snapshotStore.load({
-            callback: function(records, operation) {
-                Ext.Array.each(records,function(rec){
-                    Ext.Object.each(empms_projects, function(key,val){
-                        if(Ext.Array.contains(rec.get('_ItemHierarchy'),val.ObjectID)){
-                            rec.EPMSProject = val.EPMSProject;
-                        }
-                    });
-                });
-                deferred.resolve(records);
-            },
-            scope:this
-        });
-    
-        return deferred;
-    },
-
-    _getStoryPointsReadyState :function(story_snapshots,workspace_oid,epmsModelName){
-        var me = this;
-
-        var deferred = Ext.create('Deft.Deferred');
-
-        if(!story_snapshots || !story_snapshots.length > 0){
-            deferred.resolve({});
-            return deferred;
-        }
-        var object_id_filters = [];
-
-        Ext.Array.each(story_snapshots, function(story){
-            object_id_filters.push({property:'ObjectID',value:story.get('ObjectID')});
-        })
-
-        Ext.create('Rally.data.wsapi.Store', {
-            model: 'UserStory',
-            filters: Rally.data.wsapi.Filter.or(object_id_filters),
-            enablePostGet:true,
-            fetch:['ObjectID','Project','PlanEstimate','Name','PortfolioItemType','Feature','Parent'],
-            limit: Infinity,
-            pageSize: 2000,
+        var config = {
             context: { 
                 project: null,
-                workspace: '/workspace/' + workspace_oid
-            }
-
-        }).load({
-            callback : function(stories, operation, successful) {
-                if (successful){
-                    var records_by_oid = {};
+                workspace: workspace._ref
+            },
+            "fetch": [ "ObjectID","Project"],
+            "find": find,
+            "hydrate": ["Project"]
+        };
+        
+        this._loadLookbackRecords(config).then({
+            success: function(pis) {
+                var epms_programs_by_project_name = {};
+                
+                Ext.Array.each(pis,function(pi){
+                    var project_name = pi.get('Project').Name;
                     
-                    Ext.Array.each(stories,function(story){
-                        records_by_oid[story.get('ObjectID')] = story;
-                    });
-                    
-                    Ext.Array.each(story_snapshots, function(snapshot){
-                        var oid = snapshot.get('ObjectID');
-                        if (records_by_oid[oid]) {
-                            records_by_oid[oid].EPMSProject = snapshot.EPMSProject;
-                            records_by_oid[oid].snapshot = snapshot;
+                    if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
+                        epms_programs_by_project_name[project_name] = {
+                            program: pi.get('Project'),
+                            epms_projects: [],
+                            Name: project_name
                         }
-                    });
-                                        
-                    var stories_by_program = me._organizeStoriesByProgram(Ext.Object.getValues(records_by_oid));
+                    }
+                    
+                    epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
+                });
+                deferred.resolve(epms_programs_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+    
+        return deferred;
+    },
 
-                    deferred.resolve(stories_by_program);
+    // get items accepted during the quarter
+    _getReadyItemsInPrograms:function(second_day,workspace,epms_items_by_project_name){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        var epms_oids = [];
+        if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+            var epms_oids = [];
+            Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                var epms_projects = epms_item.epms_projects || [];
+                Ext.Array.each(epms_projects, function(epms_project){
+                    epms_oids.push(epms_project.ObjectID);
+                });
+            });
+        }
+
+        var find = {
+            "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
+            "_ItemHierarchy": {"$in": epms_oids},
+            "__At": Rally.util.DateTime.toIsoString(second_day),
+            "Ready": true
+        };
+        
+        var config = {
+            find: find,
+            fetch: ['ObjectID','Name','FormattedID','_ItemHierarchy','PlanEstimate'],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
+        };
+
+        this._loadLookbackRecords(config).then({
+            success: function(items) {
+                Ext.Object.each(epms_items_by_project_name, function(name,epms_item){
+                    var epms_projects = epms_item.epms_projects || [];
+                    Ext.Array.each(epms_projects, function(epms_project){
+                        var project_oid = epms_project.ObjectID;
+                        Ext.Array.each(items, function(item){
+                            if (Ext.Array.contains(item.get('_ItemHierarchy'), project_oid)) {
+                                item.EPMSProject = name;
+                            }
+                        });
+                    });
+                });
+                
+                if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+                    var epms_oids = [];
+                    Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                        var epms_projects = epms_item.epms_projects || [];
+                        if ( Ext.isEmpty(epms_item.ready_items) ) {
+                            epms_item.ready_items = [];
+                            epms_item.ready_points = 0;
+                        }
+                        
+                        Ext.Array.each(items, function(item){
+                            if (item.EPMSProject == key){
+                                var value = item.get('PlanEstimate') || 0;
+                                epms_item.ready_items.push(item);
+                                epms_item.ready_points += value;
+                            }
+                        });
+                    });
                 }
+                
+                deferred.resolve(epms_items_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
         });
         
         return deferred.promise;
-
-    },
-
-    _organizeStoriesByProgram: function(stories){
+    },  
+    
+    _getVelocitiesForProjectsInItems: function(epms_programs_by_project_name,workspace) {
         var me = this,
-            stories_by_program = {};
+            deferred = Ext.create('Deft.Deferred');
+            
+        // which teams are participating in the program?  get the ones with ready items
+        var delivery_projects = {};
         
-        Ext.Array.each(stories, function(story){
-            var program = story.EPMSProject;
-            if ( Ext.isEmpty(stories_by_program[program]) ) {
-                stories_by_program[program] = [];
-            }
-                stories_by_program[program].push(story);
+        Ext.Object.each(epms_programs_by_project_name, function(name,program_info) {
+            var ready_items = program_info.ready_items;
+            Ext.Array.each(ready_items, function(ready_item){
+                delivery_projects[ready_item.get('Project')] = 1; // oid
+            });
         });
         
-        return stories_by_program;
+        // get the velocity for each project in the delivery_projects list
+        var promises = [];
+        Ext.Array.each(Ext.Object.getKeys(delivery_projects), function(project_oid){
+            promises.push( function() { return me._getVelocityForProject(project_oid,workspace); } );
+        });
+
+        epms_programs_by_project_name = this._setDeliveryProjectsOnPrograms(epms_programs_by_project_name);
+        
+        Deft.Chain.sequence(promises).then({
+            success: function(velocities_by_project) {
+                merged_velocities_by_project = {};
+                
+                Ext.Array.each(velocities_by_project, function(velocity) {
+                    merged_velocities_by_project = Ext.Object.merge(merged_velocities_by_project,velocity);
+                });
+                
+                Ext.Object.each(epms_programs_by_project_name, function(name,program){
+                    var delivery_projects = program.delivery_project_oids;
+                    var velocity = 0;
+                    Ext.Array.each(delivery_projects, function(project_oid){
+                        velocity += merged_velocities_by_project[project_oid] || 0;
+                    });
+                    
+                    program.velocity = velocity;
+                });
+                deferred.resolve(epms_programs_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _setDeliveryProjectsOnPrograms:function(epms_programs_by_project_name){
+        Ext.Object.each(epms_programs_by_project_name, function(name,program){
+            program.delivery_project_oids = Ext.Array.unique(
+                Ext.Array.map(program.ready_items, function(item){
+                    return item.get('Project');
+                })
+            );
+        });
+        
+        return epms_programs_by_project_name;
+    },
+        
+    _getVelocityForProject: function(project_oid,workspace) {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        // get last three iterations
+        this._getLastThreeIterations(project_oid,workspace).then({
+            success: function(iterations) {
+                var iteration_oids = Ext.Array.map(iterations, function(iteration){ return iteration.get('ObjectID')});
+                me._getAcceptedItemsInIterations(iteration_oids,workspace).then({
+                    success: function(accepted_items) {
+                        var number_of_iterations = iteration_oids.length;
+                        var velocity = 0;
+                        if ( number_of_iterations > 0 ) {
+                            var sizes = Ext.Array.map(accepted_items, function(item){
+                                return item.get('PlanEstimate') || 0;
+                            });
+                            velocity = Ext.Array.sum(sizes) / number_of_iterations;
+                        }
+                        
+                        var hash = {};
+                        hash[project_oid] = velocity;
+                        deferred.resolve(hash);
+                    },
+                    failure: function(msg) {
+                        deferred.reject(msg);
+                    }
+                }); 
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            },
+            scope: this
+        });
+        return deferred.promise;
+    },
+    
+    _getLastThreeIterations: function(project_oid,workspace) {
+        var config = {
+            model: 'Iteration',
+            limit: 3,
+            pageSize: 3,
+            filters: [{property:'EndDate', operator: '<', value: Rally.util.DateTime.toIsoString(new Date())}],
+            sorters: [{property:'EndDate',direction:'Desc'}],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
+        };
+        
+        return this._loadWsapiRecords(config);
+    },
+    
+    _getAcceptedItemsInIterations: function(iteration_oids,workspace) {
+        var me = this;
+               
+        var find = {
+            "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
+            "ScheduleState": "Accepted",
+            "Iteration": { "$in": iteration_oids },
+            "__At": 'current'
+        };
+        
+        var config = {
+            find: find,
+            fetch: ['ObjectID','Name','FormattedID','PlanEstimate' ],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
+        };
+
+        return this._loadLookbackRecords(config);
     },
 
      _getVelocity: function(program_name,workspace_oid,stories){
@@ -498,7 +518,32 @@ Ext.define("OIBMApp", {
         });
         return deferred.promise; 
     },
-
+    
+    _loadLookbackRecords: function(config,returnOperation) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            sort: { "_ValidFrom": -1 },
+            //"useHttpPost":true,
+            removeUnauthorizedSnapshots:true
+        };
+        
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     _loadWsapiRecords: function(config){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -545,7 +590,7 @@ Ext.define("OIBMApp", {
         this.setLoading(false);
         //Custom store
         var store = Ext.create('Rally.data.custom.Store', {
-            data: records,
+            data: Ext.Object.getValues(records),
             remoteSort: false
         });
 
@@ -558,20 +603,17 @@ Ext.define("OIBMApp", {
             sortableColumns: true,            
             columnCfgs: this._getColumns()
         }
-
-
+        
         this.setGrid(grid,0);
-
-
     },
 
     _getColumns: function() {
         var columns = [];
         var me = this;
-        columns.push({dataIndex:'Program',text:'Program', flex: 2 });
-        columns.push({dataIndex:'StoryPoints',text:'# Story Points Ready State', flex: 1 });
-        columns.push({dataIndex:'AvgVelocity',text:'Average Velocity', flex: 1 });
-        columns.push({dataIndex:'Sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,
+        columns.push({dataIndex:'name',text:'Program', flex: 2 });
+        columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1 });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1 });
+        columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");
                       } 

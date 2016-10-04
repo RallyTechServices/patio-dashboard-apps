@@ -52,9 +52,7 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
     _getPrograms:function(workspace){
         var me = this;
         var deferred = Ext.create('Deft.Deferred');
-        
-        console.log("_getPrograms", workspace);
-        
+                
         var workspace_name = workspace.Name || workspace.workspaceName || workspace.get('_refObjectName');
         var workspace_ref  = workspace.workspaceRef || workspace._ref || workspace.get('_ref');
         var program_parent_oid = workspace.workspaceProjectObjectID;
@@ -89,7 +87,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         
         TSUtilities.loadWsapiRecords(config).then({
             success: function(projects) {
-                console.log("Found projects:", projects);
                 var epms_id_projects = {}
                 Ext.Array.each(projects,function(project){
                     var project_oid = project.get('ObjectID');
