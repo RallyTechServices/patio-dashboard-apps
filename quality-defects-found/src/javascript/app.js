@@ -3,11 +3,11 @@ Ext.define("TSQualityDefectsFound", {
 
     description: "<strong>Quality - Defect Density</strong><br/>" +
     "<br/>" +
-    "Quality-Defect Density is the representation of the number of defects found in each environement selected, per workday  " + 
+    "Quality-Defect Density is the representation of the number of defects found in each environment selected, per workday  " + 
     "<br/>" + 
     "This number is for the project(s) in scope only." + 
     "<br/>" + 
-    "The test environement can be set on app settings.",
+    "The test environments can be set on app settings.",
     
     integrationHeaders : {
         name : "TSQualityDefectsFound"

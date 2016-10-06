@@ -26,20 +26,22 @@ Ext.define("PVNApp", {
         var me = this;
         var model = this.modelsNamesFromType[this.getSetting('model')];
         var metric = 'number of points accepted for each item';
+        var type = 'Velocity'
         if ( this.getSetting('showCount') ) {
             metric = 'number of items accepted';
+            type = 'Throughput';
         }
         
         this.logger.log('Settings:', this.getSettings());
         
-        return  Ext.String.format("<strong>Productivity Throughput ({0})</strong><br/>" +
+        return  Ext.String.format("<strong>Productivity {0} ({1})</strong><br/>" +
             "<br/>" +
-            "This Chart displays the {1} item in each timebox." + 
+            "This Chart displays the {2} item in each timebox." + 
             "Click on a bar to see a table with the stories for the team in that timebox." +
             "<p/>" +
             "<strong>Notes:</strong>" +
             "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
-            
+            type,
             model,
             metric
         );
