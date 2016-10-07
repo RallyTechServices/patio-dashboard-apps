@@ -82,7 +82,13 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             context: { 
                 project: null,
                 workspace: workspace_ref
-            }
+            },
+            sorters: [
+                {
+                    property: 'Name',
+                    direction: 'ASC'
+                }
+            ]
         };
         
         TSUtilities.loadWsapiRecords(config).then({

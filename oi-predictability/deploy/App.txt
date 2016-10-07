@@ -3,11 +3,11 @@
 <head>
     <title>OI Predictability App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Oct 03 2016 18:02:14 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Oct 07 2016 14:22:27 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Oct 03 2016 18:02:14 GMT-0700 (PDT)";
-        var CHECKSUM = 114552069252;
+        var APP_BUILD_DATE = "Fri Oct 07 2016 14:22:27 GMT-0400 (EDT)";
+        var CHECKSUM = 114937707823;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1228,7 +1228,13 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             context: { 
                 project: null,
                 workspace: workspace_ref
-            }
+            },
+            sorters: [
+                {
+                    property: 'Name',
+                    direction: 'ASC'
+                }
+            ]
         };
         
         TSUtilities.loadWsapiRecords(config).then({
@@ -2256,9 +2262,9 @@ Ext.define("OIPApp", {
         var columns = [];
         var me = this;
         columns.push({dataIndex:'Name',text:'Program', flex: 1 });
-        columns.push({dataIndex:'planned_points',text:'Committed Points', flex: 1 });
-        columns.push({dataIndex:'earned_points',text:'Earned Points', flex: 1 });
-        columns.push({dataIndex:'variance',text:'Commitment Variance', flex: 1,
+        columns.push({dataIndex:'planned_points',text:'Committed Points', flex: 1 ,align:'right'});
+        columns.push({dataIndex:'earned_points',text:'Earned Points', flex: 1 ,align:'right' });
+        columns.push({dataIndex:'variance',text:'Commitment Variance', flex: 1, align:'right',
             renderer: function(Variance){
                 return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
             } 

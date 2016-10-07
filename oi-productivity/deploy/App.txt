@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Oct 03 2016 17:41:39 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Oct 07 2016 14:22:32 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Oct 03 2016 17:41:39 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Fri Oct 07 2016 14:22:32 GMT-0400 (EDT)";
         var STORY    = "US555";
-        var BUILDER  = "jmartin";
-        var CHECKSUM = 130478992557;
+        var BUILDER  = "arajaraman";
+        var CHECKSUM = 130695228353;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1366,7 +1366,13 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             context: { 
                 project: null,
                 workspace: workspace_ref
-            }
+            },
+            sorters: [
+                {
+                    property: 'Name',
+                    direction: 'ASC'
+                }
+            ]
         };
         
         TSUtilities.loadWsapiRecords(config).then({
