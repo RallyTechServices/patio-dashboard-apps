@@ -611,9 +611,9 @@ Ext.define("OIBMApp", {
         var columns = [];
         var me = this;
         columns.push({dataIndex:'name',text:'Program', flex: 2 });
-        columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1 });
-        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1 });
-        columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,
+        columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1,align:'right' });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right' });
+        columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,align:'right',
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");
                       } 

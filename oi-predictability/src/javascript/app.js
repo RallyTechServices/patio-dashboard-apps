@@ -419,9 +419,9 @@ Ext.define("OIPApp", {
         var columns = [];
         var me = this;
         columns.push({dataIndex:'Name',text:'Program', flex: 1 });
-        columns.push({dataIndex:'planned_points',text:'Committed Points', flex: 1 });
-        columns.push({dataIndex:'earned_points',text:'Earned Points', flex: 1 });
-        columns.push({dataIndex:'variance',text:'Commitment Variance', flex: 1,
+        columns.push({dataIndex:'planned_points',text:'Committed Points', flex: 1 ,align:'right'});
+        columns.push({dataIndex:'earned_points',text:'Earned Points', flex: 1 ,align:'right' });
+        columns.push({dataIndex:'variance',text:'Commitment Variance', flex: 1, align:'right',
             renderer: function(Variance){
                 return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00")+'%';
             } 

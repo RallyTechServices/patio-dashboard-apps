@@ -3,11 +3,11 @@
 <head>
     <title>OI Backlog Maturity App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Oct 03 2016 17:41:32 GMT-0700 (PDT) -->
+    <!--  Build Date: Fri Oct 07 2016 14:22:24 GMT-0400 (EDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Oct 03 2016 17:41:32 GMT-0700 (PDT)";
-        var CHECKSUM = 140970652539;
+        var APP_BUILD_DATE = "Fri Oct 07 2016 14:22:24 GMT-0400 (EDT)";
+        var CHECKSUM = 141398826306;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1305,7 +1305,13 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             context: { 
                 project: null,
                 workspace: workspace_ref
-            }
+            },
+            sorters: [
+                {
+                    property: 'Name',
+                    direction: 'ASC'
+                }
+            ]
         };
         
         TSUtilities.loadWsapiRecords(config).then({
@@ -2525,9 +2531,9 @@ Ext.define("OIBMApp", {
         var columns = [];
         var me = this;
         columns.push({dataIndex:'name',text:'Program', flex: 2 });
-        columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1 });
-        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1 });
-        columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,
+        columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1,align:'right' });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right' });
+        columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,align:'right',
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");
                       } 
