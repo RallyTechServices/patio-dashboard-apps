@@ -97,9 +97,17 @@ Ext.define("OIBMApp", {
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
+        var workspaces_of_selected_programs = {};
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
             me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
@@ -108,7 +116,7 @@ Ext.define("OIBMApp", {
             return;
         }
 
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getDataForWorkspace( workspace ) 
             };
@@ -169,7 +177,10 @@ Ext.define("OIBMApp", {
                     this.logger.log("Cannot find a record type for EPMS project in workspace:",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    this.setLoading('Loading Workspace ' + workspace_name);
+                    console.log(workspace);
+                    var message = Ext.String.format("Loading {0}", workspace_name);
+                    
+                    this.setLoading(message);
                     
                     var epmsModelPaths = [types[2].get('TypePath'),types[1].get('TypePath')];
                     Deft.Chain.pipeline([
@@ -524,7 +535,7 @@ Ext.define("OIBMApp", {
         var me = this;
         var default_config = {
             sort: { "_ValidFrom": -1 },
-            //"useHttpPost":true,
+            "useHttpPost":true,
             removeUnauthorizedSnapshots:true
         };
         

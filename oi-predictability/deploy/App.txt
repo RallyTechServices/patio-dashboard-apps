@@ -3,11 +3,11 @@
 <head>
     <title>OI Predictability App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Oct 07 2016 14:22:27 GMT-0400 (EDT) -->
+    <!--  Build Date: Sun Oct 16 2016 11:39:53 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Oct 07 2016 14:22:27 GMT-0400 (EDT)";
-        var CHECKSUM = 114937707823;
+        var APP_BUILD_DATE = "Sun Oct 16 2016 11:39:53 GMT-0700 (PDT)";
+        var CHECKSUM = 115584906974;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1942,9 +1942,17 @@ Ext.define("OIPApp", {
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
+        var workspaces_of_selected_programs = {};
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
             me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
@@ -1953,7 +1961,7 @@ Ext.define("OIPApp", {
             return;
         }
 
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getDataForWorkspace( workspace ) 
             };
