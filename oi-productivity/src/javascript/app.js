@@ -93,9 +93,17 @@ descriptions: [
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
+        var workspaces_of_selected_programs = {};
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
             me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
@@ -104,7 +112,7 @@ descriptions: [
             return;
         }
 
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getDataForWorkspace( workspace ) 
             };
@@ -438,7 +446,7 @@ descriptions: [
         var me = this;
         var default_config = {
             sort: { "_ValidFrom": -1 },
-            //"useHttpPost":true,
+            "useHttpPost":true,
             removeUnauthorizedSnapshots:true
         };
         

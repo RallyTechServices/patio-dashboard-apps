@@ -7,7 +7,8 @@ Ext.define("TSDefectsByProgram", {
         "<strong>OCIO Dashboard - Quality</strong><br/>" +
             "<br/>" +
             "Defects opened vs Defects closed vs Total Open<br/> "  +
-            "Defects that were created between Quarter start date and Quarter end date."
+            "Defects that were created between Quarter start date and Quarter end date.  The defects " +
+            "must be associated with a story that is associated with a program."
     ],
 
     integrationHeaders : {
@@ -86,26 +87,35 @@ Ext.define("TSDefectsByProgram", {
         });
     },
 
-    _updateQuarterInformation: function(selectorValue){
+    _updateQuarterInformation: function(quarterAndPrograms){
         var me = this;
-        var quarterRecord = selectorValue.quarter;
-        this.programs = selectorValue.programs || [];
+        var quarterRecord = quarterAndPrograms.quarter;
+        this.programs = [];
                 
         this.setLoading('Loading Data...');
         
         //if there are programs selected from drop down get the corresponding workspace 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
-        Ext.Array.each(selectorValue.programs,function(selected){
-            workspaces_of_selected_programs.push(selectorValue.allPrograms[selected].workspace);
+        var workspaces_of_selected_programs = {};
+        Ext.Array.each(quarterAndPrograms.programs,function(selected){
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
+            me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
         if(this.programs.length < 1){
             Ext.Msg.alert('There are no chosen programs');
             return;
         }
-        
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace){
+
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             var workspace_data = Ext.clone( workspace );
             return function() { return me._updateDataForWorkspace(workspace_data,quarterRecord); };
         });
@@ -126,7 +136,7 @@ Ext.define("TSDefectsByProgram", {
 
                 //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
                 var final_results = {};
-                Ext.Object.each(selectorValue.allPrograms,function(key,val){
+                Ext.Object.each(quarterAndPrograms.allPrograms,function(key,val){
                     var allow = true;
                     if(this.programs && this.programs.length > 0 ){
                         allow = Ext.Array.contains(this.programs,val.program.ObjectID) ? true : false;
@@ -331,7 +341,7 @@ Ext.define("TSDefectsByProgram", {
 
         Ext.Array.each(defects, function(defect){
             var program = defect.EPMSProject;
-            console.log("--", defect.get("FormattedID"), program);
+
             if ( Ext.isEmpty(defects_by_program[program]) ) {
                 defects_by_program[program] = {
                     all: [],
@@ -451,7 +461,7 @@ Ext.define("TSDefectsByProgram", {
         var me = this;
         var default_config = {
             sort: { "_ValidFrom": -1 },
-            //"useHttpPost":true,
+            "useHttpPost":true,
             removeUnauthorizedSnapshots:true
         };
         

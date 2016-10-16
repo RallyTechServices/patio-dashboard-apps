@@ -3,13 +3,13 @@
 <head>
     <title>OI Productivity</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Oct 07 2016 14:22:32 GMT-0400 (EDT) -->
+    <!--  Build Date: Sun Oct 16 2016 11:41:46 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Oct 07 2016 14:22:32 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Sun Oct 16 2016 11:41:46 GMT-0700 (PDT)";
         var STORY    = "US555";
-        var BUILDER  = "arajaraman";
-        var CHECKSUM = 130695228353;
+        var BUILDER  = "jmartin";
+        var CHECKSUM = 131380576485;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2074,9 +2074,17 @@ descriptions: [
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
+        var workspaces_of_selected_programs = {};
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
             me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
@@ -2085,7 +2093,7 @@ descriptions: [
             return;
         }
 
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getDataForWorkspace( workspace ) 
             };
@@ -2419,7 +2427,7 @@ descriptions: [
         var me = this;
         var default_config = {
             sort: { "_ValidFrom": -1 },
-            //"useHttpPost":true,
+            "useHttpPost":true,
             removeUnauthorizedSnapshots:true
         };
         
