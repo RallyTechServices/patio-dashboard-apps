@@ -134,35 +134,32 @@ Ext.define("TSDefectsByProgram", {
                 
                 var defects_by_program = this._organizeDefectsByProgram(Ext.Object.getValues(defects_by_fid));
 
-                //Modifying the results to include blank records as the customer wants to see all the programs even if the rows dont have values. 
+                console.log("defects_by_program", defects_by_program);
+                console.log(quarterAndPrograms);
+                console.log('chosen programs', this.programs);
+                //Modifying the results to include blank records as the customer wants to 
+                //see all the programs even if the rows dont have values. 
                 var final_results = {};
-                Ext.Object.each(quarterAndPrograms.allPrograms,function(key,val){
-                    var allow = true;
-                    if(this.programs && this.programs.length > 0 ){
-                        allow = Ext.Array.contains(this.programs,val.program.ObjectID) ? true : false;
+                
+                Ext.Array.each(this.programs, function(program){
+                    var program_name = program.Name;
+                    if ( Ext.isEmpty(final_results[program_name]) ) {
+                        final_results[program_name] = {
+                            all:[],
+                            closed: [],
+                            open:[]
+                        };
                     }
+                    var match_result = null;
+                    Ext.Object.each(defects_by_program, function(key,val) {
+                        if ( key == program_name ) {
+                            match_result = val;
+                        }
+                    });
+                    
+                    if ( match_result ) { final_results[program_name] = match_result; }
 
-                    if(allow){
-                        var obj = null;
-                        Ext.Object.each(defects_by_program,function(key1,val1){
-                            if(val.program.Name == key1){
-                                obj = val1;
-                                return false;
-                            }
-                        });
-
-                        if(obj){
-                            final_results[val.program.Name]=obj;
-                        }else{
-                            final_results[val.program.Name] = {
-                                all:[],
-                                closed: [],
-                                open:[]
-                            };
-                        }                        
-
-                    }
-                },me);
+                });
 
                 this._makeChart(final_results);
                 this._makeGrid(final_results);
