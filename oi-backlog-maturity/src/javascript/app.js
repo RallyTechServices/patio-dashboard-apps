@@ -68,24 +68,24 @@ Ext.define("OIBMApp", {
         }
 
         
-            this.addToBanner({
-                xtype:'container',
-                flex: 1
-            });          
-            
-            this.addToBanner({
-                xtype:'rallybutton',
-                itemId:'export_button',
-                cls: 'secondary',
-                text: '<span class="icon-export"> </span>',
-                disabled: false,
-                listeners: {
-                    scope: this,
-                    click: function(button) {
-                        this._export(button);
-                    }
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });          
+        
+        this.addToBanner({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function(button) {
+                    this._export(button);
                 }
-            });            
+            }
+        });            
         
     },
 
