@@ -1,7 +1,7 @@
 Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
-    layout : 'hbox',
+    layout : 'vbox',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -21,7 +21,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var me = this;
         this.removeAll();
-        
         
         var promises = Ext.Array.map(me.workspaces, function(workspace) {
             return function() { 
@@ -166,10 +165,9 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
-        
         var container = this.add({
             xtype:'container',
-            layout: 'vbox'
+            layout: 'hbox'
         });
         
         var programs = []
@@ -191,12 +189,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             margin: 5,
             listeners:{
                 change: this._updateGoButton,
-                scope: this,
+                scope: this
             }
 
         });
 
-        container.add({
+        this.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -205,10 +203,11 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ObjectID',
+            width: 400,
             margin: 5
         });
 
-        this.add({
+        container.add({
                 xtype: 'rallybutton',
                 text: 'Go',
                 itemId: 'cb-go-button',
@@ -240,7 +239,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         }
 
     },
-
 
     _getEPMSProjects:function(workspace,epmsModelPath){
         var me = this;

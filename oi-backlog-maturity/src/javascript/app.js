@@ -127,7 +127,7 @@ Ext.define("OIBMApp", {
             success: function(epms_programs_by_project_name) {
                 var final_results = {};
                 
-                merged_programs_by_name = {};
+                var merged_programs_by_name = {};
                 
                 Ext.Array.each(epms_programs_by_project_name, function(program) {
                     merged_programs_by_name = Ext.Object.merge(merged_programs_by_name,program);
@@ -177,7 +177,6 @@ Ext.define("OIBMApp", {
                     this.logger.log("Cannot find a record type for EPMS project in workspace:",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    console.log(workspace);
                     var message = Ext.String.format("Loading {0}", workspace_name);
                     
                     this.setLoading(message);
@@ -359,7 +358,7 @@ Ext.define("OIBMApp", {
         
         Deft.Chain.sequence(promises).then({
             success: function(velocities_by_project) {
-                merged_velocities_by_project = {};
+                var merged_velocities_by_project = {};
                 
                 Ext.Array.each(velocities_by_project, function(velocity) {
                     merged_velocities_by_project = Ext.Object.merge(merged_velocities_by_project,velocity);
@@ -623,7 +622,11 @@ Ext.define("OIBMApp", {
         var me = this;
         columns.push({dataIndex:'name',text:'Program', flex: 2 });
         columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1,align:'right' });
-        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right' });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right',
+            renderer: function(value){
+                return Ext.util.Format.number(value > 0 ? value : 0, "000.00");
+            } 
+        });
         columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,align:'right',
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");

@@ -3,13 +3,13 @@
 <head>
     <title>OI Backlog Maturity App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Oct 19 2016 16:33:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Oct 19 2016 17:04:23 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Oct 19 2016 16:33:31 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Wed Oct 19 2016 17:04:23 GMT-0700 (PDT)";
         var STORY    = "US588";
         var BUILDER  = "jmartin";
-        var CHECKSUM = 142507136508;
+        var CHECKSUM = 142869382263;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1226,7 +1226,7 @@ Ext.define("CA.techservices.app.GridApp", {
 Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
-    layout : 'hbox',
+    layout : 'vbox',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -1246,7 +1246,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var me = this;
         this.removeAll();
-        
         
         var promises = Ext.Array.map(me.workspaces, function(workspace) {
             return function() { 
@@ -1391,10 +1390,9 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
-        
         var container = this.add({
             xtype:'container',
-            layout: 'vbox'
+            layout: 'hbox'
         });
         
         var programs = []
@@ -1416,12 +1414,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             margin: 5,
             listeners:{
                 change: this._updateGoButton,
-                scope: this,
+                scope: this
             }
 
         });
 
-        container.add({
+        this.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -1430,10 +1428,11 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ObjectID',
+            width: 400,
             margin: 5
         });
 
-        this.add({
+        container.add({
                 xtype: 'rallybutton',
                 text: 'Go',
                 itemId: 'cb-go-button',
@@ -1465,7 +1464,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         }
 
     },
-
 
     _getEPMSProjects:function(workspace,epmsModelPath){
         var me = this;
@@ -2049,7 +2047,7 @@ Ext.define("OIBMApp", {
             success: function(epms_programs_by_project_name) {
                 var final_results = {};
                 
-                merged_programs_by_name = {};
+                var merged_programs_by_name = {};
                 
                 Ext.Array.each(epms_programs_by_project_name, function(program) {
                     merged_programs_by_name = Ext.Object.merge(merged_programs_by_name,program);
@@ -2099,7 +2097,6 @@ Ext.define("OIBMApp", {
                     this.logger.log("Cannot find a record type for EPMS project in workspace:",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    console.log(workspace);
                     var message = Ext.String.format("Loading {0}", workspace_name);
                     
                     this.setLoading(message);
@@ -2281,7 +2278,7 @@ Ext.define("OIBMApp", {
         
         Deft.Chain.sequence(promises).then({
             success: function(velocities_by_project) {
-                merged_velocities_by_project = {};
+                var merged_velocities_by_project = {};
                 
                 Ext.Array.each(velocities_by_project, function(velocity) {
                     merged_velocities_by_project = Ext.Object.merge(merged_velocities_by_project,velocity);
@@ -2545,7 +2542,11 @@ Ext.define("OIBMApp", {
         var me = this;
         columns.push({dataIndex:'name',text:'Program', flex: 2 });
         columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1,align:'right' });
-        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right' });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right',
+            renderer: function(value){
+                return Ext.util.Format.number(value > 0 ? value : 0, "000.00");
+            } 
+        });
         columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,align:'right',
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");
