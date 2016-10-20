@@ -5,7 +5,11 @@ Ext.define("OIBMApp", {
         "<strong>OCIO Dashboard - Backlog Maturity</strong><br/>" +
             "<br/>" +
             "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program.<br/>" + 
-            "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter "
+            "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter." + 
+            "<br/><br/>" + 
+            "Velocity is determined by:  finding accepted stories that descend from EPMS projects in the chosen program, then " + 
+            "determining the velocities of the last three sprints of the projects associated with the stories.  The velocity " +
+            "averaged for each set of three sprints, but then added together for all the associated projects."
     ],
 
     defaults: { margin: 10 },
@@ -189,6 +193,9 @@ Ext.define("OIBMApp", {
                         function(epms_programs_by_project_name) { 
                             return me._getReadyItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
                         },
+                        function(epms_programs_by_project_name) { 
+                            return me._getAcceptedItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
+                        },
                         function(epms_programs_by_project_name) {
                             return me._getVelocitiesForProjectsInItems(epms_programs_by_project_name,workspace);
                         }
@@ -334,6 +341,79 @@ Ext.define("OIBMApp", {
         return deferred.promise;
     },  
     
+    // get stories so that we can figure out which projects are delivery projects
+    _getAcceptedItemsInPrograms: function(second_day,workspace,epms_items_by_project_name){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        var epms_oids = [];
+        if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+            var epms_oids = [];
+            Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                var epms_projects = epms_item.epms_projects || [];
+                Ext.Array.each(epms_projects, function(epms_project){
+                    epms_oids.push(epms_project.ObjectID);
+                });
+            });
+        }
+
+        var find = {
+            "_ItemHierarchy": {"$in": epms_oids},
+            "ScheduleState": 'Accepted',
+            "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
+            "__At": Rally.util.DateTime.toIsoString(second_day)
+        };
+        
+        var config = {
+            find: find,
+            fetch: ['ObjectID','Name','FormattedID','_ItemHierarchy'],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
+        };
+
+        this._loadLookbackRecords(config).then({
+            success: function(items) {
+                Ext.Object.each(epms_items_by_project_name, function(name,epms_item){
+                    var epms_projects = epms_item.epms_projects || [];
+                    Ext.Array.each(epms_projects, function(epms_project){
+                        var project_oid = epms_project.ObjectID;
+                        Ext.Array.each(items, function(item){
+                            if (Ext.Array.contains(item.get('_ItemHierarchy'), project_oid)) {
+                                item.EPMSProject = name;
+                            }
+                        });
+                    });
+                });
+                
+                if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+                    var epms_oids = [];
+                    Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                        var epms_projects = epms_item.epms_projects || [];
+                        if ( Ext.isEmpty(epms_item.candidate_items) ) {
+                            epms_item.candidate_items = [];
+                        }
+                        
+                        Ext.Array.each(items, function(item){
+                            if (item.EPMSProject == key){
+                                epms_item.candidate_items.push(item);
+                            }
+                        });
+                    });
+                }
+                
+                deferred.resolve(epms_items_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    
     _getVelocitiesForProjectsInItems: function(epms_programs_by_project_name,workspace) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
@@ -342,9 +422,9 @@ Ext.define("OIBMApp", {
         var delivery_projects = {};
         
         Ext.Object.each(epms_programs_by_project_name, function(name,program_info) {
-            var ready_items = program_info.ready_items;
-            Ext.Array.each(ready_items, function(ready_item){
-                delivery_projects[ready_item.get('Project')] = 1; // oid
+            var candidate_items = program_info.candidate_items;
+            Ext.Array.each(candidate_items, function(item){
+                delivery_projects[item.get('Project')] = 1; // oid
             });
         });
         
@@ -363,10 +443,11 @@ Ext.define("OIBMApp", {
                 Ext.Array.each(velocities_by_project, function(velocity) {
                     merged_velocities_by_project = Ext.Object.merge(merged_velocities_by_project,velocity);
                 });
-                
+                                
                 Ext.Object.each(epms_programs_by_project_name, function(name,program){
                     var delivery_projects = program.delivery_project_oids;
                     var velocity = 0;
+                    
                     Ext.Array.each(delivery_projects, function(project_oid){
                         velocity += merged_velocities_by_project[project_oid] || 0;
                     });
@@ -386,7 +467,7 @@ Ext.define("OIBMApp", {
     _setDeliveryProjectsOnPrograms:function(epms_programs_by_project_name){
         Ext.Object.each(epms_programs_by_project_name, function(name,program){
             program.delivery_project_oids = Ext.Array.unique(
-                Ext.Array.map(program.ready_items, function(item){
+                Ext.Array.map(program.candidate_items, function(item){
                     return item.get('Project');
                 })
             );
@@ -402,8 +483,10 @@ Ext.define("OIBMApp", {
         this._getLastThreeIterations(project_oid,workspace).then({
             success: function(iterations) {
                 var iteration_oids = Ext.Array.map(iterations, function(iteration){ return iteration.get('ObjectID')});
+                
                 me._getAcceptedItemsInIterations(iteration_oids,workspace).then({
                     success: function(accepted_items) {
+                        
                         var number_of_iterations = iteration_oids.length;
                         var velocity = 0;
                         if ( number_of_iterations > 0 ) {
