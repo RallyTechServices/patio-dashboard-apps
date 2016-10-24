@@ -12,8 +12,8 @@ Ext.define("DDApp", {
         "<strong>Percentage of Points Affected by Defects</strong><br/>"+
              "<br/>" +
             "The red line graph displays the percentage of points that are affected by defects in the sprint" 
-
     ],
+    
     
     integrationHeaders : {
         name : "DDApp"
@@ -27,7 +27,7 @@ Ext.define("DDApp", {
         },
         defaultSettings: {
             showPatterns: false,
-            foundByColumn: 'c_foundBy',
+            foundByColumn: 'c_FoundBy',
             typeFieldValue: 'UAT'
         }
     },
@@ -767,10 +767,15 @@ Ext.define("DDApp", {
         //     margin: '0 0 25 25'
         // },
         {
+            xtype:'container',
+            html: 'You can limit displayed defects by choosing a field on the defect and one or more values.<br/>' +
+                  'Choose the field and value(s) below.'
+        },
+        {
                 name: 'typeField',
                 itemId:'typeField',
                 xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Found By Field',
+                fieldLabel: 'Field',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
@@ -779,6 +784,13 @@ Ext.define("DDApp", {
                 alwaysExpanded: false,                
                 model: 'Defect',
                 bubbleEvents: ['typeFieldChange'],
+                _isNotHidden: function(field) {
+                    if ( field.hidden ) { return false; }
+                    var defn = field.attributeDefinition;
+                    if ( Ext.isEmpty(defn) ) { return false; }
+                    
+                    return ( defn.Constrained && defn.AttributeType == 'STRING' );
+                },
                 listeners: {
                     ready: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
@@ -793,7 +805,7 @@ Ext.define("DDApp", {
                 name: 'typeFieldValue',
                 itemId:'typeFieldValue',
                 xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Found By Field Value',
+                fieldLabel: 'Value',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
@@ -917,6 +929,6 @@ Ext.define("DDApp", {
             }
         });
         return deferred;
-    },
+    }
     
 });

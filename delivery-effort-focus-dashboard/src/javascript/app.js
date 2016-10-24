@@ -465,16 +465,16 @@ Ext.define("TSDeliveryEffortFocus", {
         var me = this,
             data = [];
         
-			Ext.Array.each(this.timeboxes, function(tb) {
-				var timebox = tb.get('Name');
-				var value = artifacts_by_timebox[timebox];
-				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0,
-                _records: []
-            });
-						return;
-				}
+        Ext.Array.each(this.timeboxes, function(tb) {
+            var timebox = tb.get('Name');
+            var value = artifacts_by_timebox[timebox];
+            if (Ext.isEmpty(value) ) {
+                data.push({ 
+                    y:0,
+                    _records: []
+                });
+                return;
+            }
 
 //        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
@@ -507,11 +507,9 @@ Ext.define("TSDeliveryEffortFocus", {
     
     _getCategories: function(artifacts_by_timebox) {
 //        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
-
-			return timebox.get('Name');
-
-			});
+        return Ext.Array.map(this.timeboxes, function(timebox) {
+            return timebox.get('Name');
+        });
     },
 
     _getChartConfig: function() {
@@ -558,7 +556,12 @@ Ext.define("TSDeliveryEffortFocus", {
     getSettingsFields: function() {
         return [
         {
+            xtype:'container',
+            html: 'You can choose a different field on tasks to use for categorization using the chooser below.'
+        },
+        {
             name: 'typeField',
+            fieldLabel: 'Field',
             xtype: 'rallyfieldcombobox',
             model: 'Task',
             _isNotHidden: function(field) {
