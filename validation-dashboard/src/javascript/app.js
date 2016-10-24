@@ -619,14 +619,17 @@ extend: 'CA.techservices.app.ChartApp',
         var me = this;
         var rules = this.validator.getRules();
 
-        console.log("_showRulesSelection:",rules);
-
+        var height = this.getHeight() - 20;
+        var width = this.getWidth() - 20;
+        
         Ext.create('CA.technicalservices.RulePickerDialog',{
             rules: rules,
+            height: height,
+            width: width,
             listeners: {
                 scope: this,
+                
                 itemschosen: function(dialog,rules){
-                    console.log('ShowRulesDialogItemsChosen:',dialog,rules);
                     this.validator.rules = rules;
                     this.saveState();
                     this._loadData();                    
