@@ -501,7 +501,7 @@ Ext.define("PredictabilityApp", {
         }
         this.setChart({
             chartData: { series: series, categories: categories },
-            chartConfig: this._getBottomChartConfig(),
+            chartConfig: this._getBottomChartConfig(series),
             chartColors: colors
         },1);
         this.setLoading(false);
@@ -562,8 +562,36 @@ Ext.define("PredictabilityApp", {
      	return data
     },    
     
-    _getBottomChartConfig: function() {
+    _getExtremeFromSeries: function(series) {
         var me = this;
+        console.log('series', series);
+        if ( Ext.isEmpty(series) || series.length === 0 ) { return 100; }
+        
+        var data_points = Ext.Array.map(series[0].data, function(datum) {
+            return datum.y;
+        });
+        
+        var max = Ext.Array.max(data_points);
+        var min = Ext.Array.min(data_points);
+        
+        var extreme = Ext.Array.max([
+            Math.abs(max),
+            Math.abs(min),
+            Math.abs(me.getSetting('targetVariability')+5)
+        ]);
+        
+        if ( extreme > 100 ) { 
+            return extreme;
+        }
+        
+        return 100;
+    },
+    
+    _getBottomChartConfig: function(series) {
+        var me = this;
+        
+        var extreme = this._getExtremeFromSeries(series);
+        
         return {
             chart: { type: 'line' },
             title: { text: 'Percentage of Difference between Planned and Actual Velocity' },
@@ -575,6 +603,8 @@ Ext.define("PredictabilityApp", {
             },
             yAxis: [{ 
                 title: { text: 'Percentage' },
+                max: extreme,
+                min: -1 * extreme,
                 plotBands: [{ 
                     from: me.getSetting('targetVariability'),
                     to: -1 * me.getSetting('targetVariability'),
@@ -726,24 +756,35 @@ Ext.define("PredictabilityApp", {
 
     getSettingsFields: function() {
         var me = this;
+        
         return [
-            { 
-                name: 'showPatterns',
-                xtype: 'rallycheckboxfield',
-                boxLabelAlign: 'after',
-                fieldLabel: '',
-                margin: '0 0 25 25',
-                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+            {
+                xtype:'container',
+                html: 'Change the size of the Target Variability band on the bottom chart by choosing ' +
+                    'a number below that will represent the highest and lowest hoped-for variability.'
             },
+            
             {
                 xtype: 'rallynumberfield',
                 name: 'targetVariability',
                 itemId: 'targetVariability',
                 fieldLabel: 'Target Variability (+/-)',
-                margin: '0 0 25 25',
-                width: 150,
-                allowBlank: false,  // requires a non-empty value
-            }                 
+                margin: 10,
+                labelWidth: 125,
+                width: 195,
+                validator: function(value) {
+                    return ( value >= 0 );
+                },
+                allowBlank: false  // requires a non-empty value
+            },
+            { 
+                name: 'showPatterns',
+                xtype: 'rallycheckboxfield',
+                boxLabelAlign: 'after',
+                fieldLabel: '',
+                margin: 10,
+                boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
+            }
         ];
     },
     

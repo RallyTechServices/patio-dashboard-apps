@@ -16,12 +16,12 @@ module.exports = function(grunt) {
         config.js_files = grunt.file.expand([
             '../common/src/javascript/__ts-info-link.js',
             '../common/src/javascript/__ts-logger.js',
-            '../common/src/javascript/__ts-general-utils.js',
             '../common/src/javascript/_ts-file-utilities.js',
+            '../common/src/javascript/__ts-general-utils.js',
             '../common/src/javascript/colors.js',
+            '../common/src/javascript/ts-grid-box.js',
             '../common/src/javascript/ts-grid-with-description.js',
             '../common/src/javascript/ts-grid-app.js',
-            '../common/src/javascript/ts-grid-box.js',
             '../oi-common/src/javascript/ts-quarter-item-selector.js',
             '../oi-common/src/javascript/_ts-workspace-picker-field.js',
             '../oi-common/src/javascript/_ts-workspace-program-picker-dialog.js',
@@ -31,7 +31,6 @@ module.exports = function(grunt) {
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
         
         config.css_files = grunt.file.expand(['../common/src/style/*.css','src/style/*.css']);
-        config.checksum = "<!= checksum !>";
         
         config.js_contents = " ";
         for (var i=0;i<config.js_files.length;i++) {
@@ -51,7 +50,6 @@ module.exports = function(grunt) {
         }
     }
     if ( grunt.file.exists(auth_file_name) ) {
-    // grunt.log.writeln( config.js_contents );
         var auth = grunt.file.readJSON(auth_file_name);
         config.auth = auth
     } else {
@@ -107,6 +105,10 @@ module.exports = function(grunt) {
                     variables: config
                 }
         },
+        watch: {
+            files: ['src/javascript/**/*.js', 'src/style/*.css'],
+            tasks: ['deploy']
+        },
         jasmine: {
             fast: {
                 src: 'src/**/*.js',
@@ -137,28 +139,38 @@ module.exports = function(grunt) {
             }
         }
     });
-    
-    grunt.registerTask('setChecksum', 'Make a sloppy checksum', function() {
-        var fs = require('fs');
-        var chk = 0x12345678,
-            i;
-        var deploy_file = 'deploy/App.txt';
+   
+    grunt.registerTask('setPostBuildInfo', 'Make a sloppy checksum', function() {
+        var fs = require('fs'),
+            username = require('username');
+            chk = 0x12345678,
+            i,
+            deploy_file_name = 'deploy/App.txt';
 
-        var file = grunt.file.read(deploy_file);
-        string = file.replace(/var CHECKSUM = .*;/,"");
+        var deploy_file = grunt.file.read(deploy_file_name);
+
+        string = deploy_file.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/var BUILDER  = .*;/,"");
         string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
-        
+
         for (i = 0; i < string.length; i++) {
             chk += (string.charCodeAt(i) * i);
         }
+        var builder = username.sync();
+        grunt.log.writeln('setting builder:', builder);
+
         grunt.log.writeln('sloppy checksum: ' + chk);
         grunt.log.writeln('length: ' + string.length);
 // 
         grunt.template.addDelimiters('square-brackets','[%','%]');
-        
-        var output = grunt.template.process(file, { data: { checksum: chk },  delimiters: 'square-brackets' });
-        grunt.file.write(deploy_file,output);
-        
+       
+        var data = { checksum: chk, builder: builder }; 
+        var output = grunt.template.process(deploy_file, { 
+            data: data,  
+            delimiters: 'square-brackets' 
+        });
+
+        grunt.file.write(deploy_file_name,output);
     });
     
     grunt.registerTask('install', 'Deploy the app to a rally instance', function() {
@@ -361,11 +373,13 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-templater');
     grunt.loadNpmTasks('grunt-contrib-jasmine');
     grunt.loadNpmTasks('grunt-contrib-uglify');
+    grunt.loadNpmTasks('grunt-contrib-watch');
+    
     //tasks
     grunt.registerTask('default', ['debug','build','ugly','apikey']);
     
     // (uses all the files in src/javascript)
-    grunt.registerTask('build', "Create the html for deployment",['template:prod','setChecksum']);
+    grunt.registerTask('build', "Create the html for deployment",['template:prod','setPostBuildInfo']);
     // 
     grunt.registerTask('debug', "Create an html file that can run in its own tab", ['template:dev','template:devApiKey']);
     //

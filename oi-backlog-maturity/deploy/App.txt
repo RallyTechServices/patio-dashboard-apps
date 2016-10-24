@@ -2,12 +2,14 @@
 <html>
 <head>
     <title>OI Backlog Maturity App</title>
-    <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 16 2016 11:32:36 GMT-0700 (PDT) -->
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Wed Oct 19 2016 18:01:20 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 16 2016 11:32:36 GMT-0700 (PDT)";
-        var CHECKSUM = 142399015751;
+        var APP_BUILD_DATE = "Wed Oct 19 2016 18:01:20 GMT-0700 (PDT)";
+        var STORY    = "US588";
+        var BUILDER  = "jmartin";
+        var CHECKSUM = 154381328708;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -202,347 +204,6 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
-Ext.define('TSUtilities', {
-    singleton: true,
-      
-    loadWsapiRecords: function(config,returnOperation){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-                
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    if ( returnOperation ) {
-                        deferred.resolve(operation);
-                    } else {
-                        deferred.resolve(records);
-                    }
-                } else {
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-    
-    loadLookbackRecords: function(config,returnOperation){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-                
-        var default_config = {
-            fetch: ['ObjectID'],
-            "sort": { "_ValidFrom": -1 },
-            "removeUnauthorizedSnapshots":true
-        };
-        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    if ( returnOperation ) {
-                        deferred.resolve(operation);
-                    } else {
-                        deferred.resolve(records);
-                    }
-                } else {
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-    
-    loadWsapiRecordsWithParallelPages: function(config, msg) {
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
-        
-        var count_check_config = Ext.clone(config);
-        count_check_config.limit = 1;
-        count_check_config.pageSize = 1;
-        count_check_config.fetch = ['ObjectID'];
-        
-        this.loadWsapiRecords(count_check_config, true).then({
-            success: function(operation) {                
-                config.pageSize = 200;
-                config.limit = config.pageSize;
-                var total = operation.resultSet.totalRecords;
-                var page_count = Math.ceil(total/config.pageSize);
-     
-                var promises = [];
-                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
-                    var config_clone = Ext.clone(config);
-                    config_clone.currentPage = page_index;
-                    promises.push(function() {
-                        var percentage = parseInt( page_index * 100 / page_count, 10);
-                        var message = msg || "Loading values";
-                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
-                        return me.loadWsapiRecords(config_clone); 
-                    });
-                });
-                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
-                        success: function(results){
-                            deferred.resolve( Ext.Array.flatten(results) );
-                        },
-                        failure: function(msg) {
-                            deferred.reject(msg);
-                        }
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    getPreferenceProject: function() {
-        var app = Rally.getApp();
-        
-        return app.getSetting('preferenceProjectRef');
-    },
-    
-    isEditableProjectForCurrentUser: function(projectRef,scope) {
-        var app = scope || Rally.getApp(),
-            me = this;
-
-        if ( this.currentUserIsAdmin(scope) ) {
-            return true;
-        }
-        
-        var project_oid = this._getOidFromRef(projectRef);
-        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
-            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
-                return false;
-            }
-            
-            return ( me._getOidFromRef(permission._ref) == project_oid );
-        });
-        
-        return ( editor_permissions.length > 0 );
-    },
-    
-    getEditableProjectForCurrentUser: function() {
-        var app = Rally.getApp();
-        if ( this._currentUserCanWrite() ) {
-            return app.getContext().getProjectRef();
-        }
-        
-        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
-        
-        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
-            if ( Ext.isEmpty(permission.Workspace) ) {
-                return false;
-            }
-            var permission_oid = this._getOidFromRef(permission.Workspace);
-
-            //console.log('comparing ', workspace_oid, permission_oid, permission);
-            if (workspace_oid  !=  permission_oid) {
-                return false;
-            }
-                        
-            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
-        },this);
-        
-        
-        if ( editor_permissions.length > 0 ) {
-            return editor_permissions[0]._ref;
-        }
-        return false;
-    },
-    
-    _getOidFromRef: function(ref) {
-        var ref_array = ref.replace(/\.js$/,'').split(/\//);
-        return ref_array[ref_array.length-1].replace(/\.js/,'');
-    },
-    
-    // true if sub or workspace admin
-    currentUserIsAdmin: function(scope){
-        var app = scope || Rally.getApp();
-        
-        console.log('current user:', app.getContext().getUser());
-        if ( this.currentUserIsSubAdmin() ) {
-            return true;
-        }
-        
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
-        var is_workspace_admin = false;
-                
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    is_workspace_admin = true;
-                }
-            });
-        }
-        
-        return is_workspace_admin;
-    },
-    
-    currentUserIsSubAdmin: function(scope) {
-        var app = scope || Rally.getApp();
-                
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == 'Subscription Admin' );
-        });
-        
-        return ( sub_admin_list.length > 0 );
-    },
-    
-    getStartFieldForTimeboxType: function(type) {
-        if ( type.toLowerCase() == "release" ) {
-            return 'ReleaseStartDate';
-        }
-        
-        return 'StartDate';
-    },
-    
-    getEndFieldForTimeboxType: function(type) {
-        if ( type.toLowerCase() == "release" ) {
-            return 'ReleaseDate';
-        }
-        
-        return 'EndDate';
-    },
-
-    getAllowedValues: function(model, field_name) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        Rally.data.ModelFactory.getModel({
-            type: model,
-            success: function(model) {
-                model.getField(field_name).getAllowedValueStore().load({
-                    callback: function(records, operation, success) {
-                        var values = Ext.Array.map(records, function(record) {
-                            return record.get('StringValue');
-                        });
-                        deferred.resolve(values);
-                    }
-                });
-            },
-            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
-        });
-        return deferred;
-    },
-	
-    getPortfolioItemTypes: function(workspace) {
-        var deferred = Ext.create('Deft.Deferred');
-                
-        var store_config = {
-            fetch: ['Name','ElementName','TypePath'],
-            model: 'TypeDefinition',
-            filters: [
-                {
-                    property: 'Parent.Name',
-                    operator: '=',
-                    value: 'Portfolio Item'
-                },
-                {
-                    property: 'Creatable',
-                    operator: '=',
-                    value: 'true'
-                }
-            ],
-            autoLoad: true,
-            listeners: {
-                load: function(store, records, successful) {
-                    if (successful){
-                        deferred.resolve(records);
-                    } else {
-                        deferred.reject('Failed to load types');
-                    }
-                }
-            }
-        };
-        
-        if ( !Ext.isEmpty(workspace) ) {            
-            store_config.context = { 
-                project:null,
-                workspace: workspace._ref ? workspace._ref : workspace.get('_ref')
-            };
-        }
-                
-        var store = Ext.create('Rally.data.wsapi.Store', store_config );
-                    
-        return deferred.promise;
-    },
-
-
-    getAllWorkspaces: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        var config = {
-            model: 'Subscription',
-            fetch: ['ObjectID','Workspaces']
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            scope: this,
-            success: function(subs) {
-                var sub = subs[0];
-                sub.getCollection('Workspaces').load({
-                    fetch: ['ObjectID','Name','State'],
-                    sorters: [{property:'Name'}],
-                    callback: function(workspaces,operation,success){
-                        
-                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
-                            return ( ws.get('State') == "Open" ) ;
-                        });
-                        deferred.resolve(open_workspaces);
-                    }
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    getWorkspaces: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        var config = {
-            model: 'Subscription',
-            fetch: ['ObjectID','Workspaces']
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            scope: this,
-            success: function(subs) {
-                var sub = subs[0];
-                sub.getCollection('Workspaces').load({
-                    fetch: ['ObjectID','Name','State'],
-                    sorters: [{property:'Name'}],
-                    callback: function(workspaces,operation,success){
-                        
-                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
-                            if ( Rally.getApp().getSetting('showAllWorkspaces') == false ) {
-                                return ( ws.get('ObjectID') == Rally.getApp().getContext().getWorkspace().ObjectID );
-                            }
-                            
-                            return ( ws.get('State') == "Open" ) ;
-                        });
-                        deferred.resolve(open_workspaces);
-                    }
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-
-});
 Ext.define('recordHolder',{
     data: {},
     constructor: function(config) {
@@ -935,6 +596,347 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     }
 
 });
+Ext.define('TSUtilities', {
+    singleton: true,
+      
+    loadWsapiRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadLookbackRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+                
+        var default_config = {
+            fetch: ['ObjectID'],
+            "sort": { "_ValidFrom": -1 },
+            "removeUnauthorizedSnapshots":true
+        };
+        Ext.create('Rally.data.lookback.SnapshotStore', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+     
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        return ( editor_permissions.length > 0 );
+    },
+    
+    getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
+    },
+    
+    // true if sub or workspace admin
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
+        
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    is_workspace_admin = true;
+                }
+            });
+        }
+        
+        return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
+    },
+    
+    getStartFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseStartDate';
+        }
+        
+        return 'StartDate';
+    },
+    
+    getEndFieldForTimeboxType: function(type) {
+        if ( type.toLowerCase() == "release" ) {
+            return 'ReleaseDate';
+        }
+        
+        return 'EndDate';
+    },
+
+    getAllowedValues: function(model, field_name) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: model,
+            success: function(model) {
+                model.getField(field_name).getAllowedValueStore().load({
+                    callback: function(records, operation, success) {
+                        var values = Ext.Array.map(records, function(record) {
+                            return record.get('StringValue');
+                        });
+                        deferred.resolve(values);
+                    }
+                });
+            },
+            failure: function(msg) { deferred.reject('Error loading field values: ' + msg); }
+        });
+        return deferred;
+    },
+	
+    getPortfolioItemTypes: function(workspace) {
+        var deferred = Ext.create('Deft.Deferred');
+                
+        var store_config = {
+            fetch: ['Name','ElementName','TypePath'],
+            model: 'TypeDefinition',
+            filters: [
+                {
+                    property: 'Parent.Name',
+                    operator: '=',
+                    value: 'Portfolio Item'
+                },
+                {
+                    property: 'Creatable',
+                    operator: '=',
+                    value: 'true'
+                }
+            ],
+            autoLoad: true,
+            listeners: {
+                load: function(store, records, successful) {
+                    if (successful){
+                        deferred.resolve(records);
+                    } else {
+                        deferred.reject('Failed to load types');
+                    }
+                }
+            }
+        };
+        
+        if ( !Ext.isEmpty(workspace) ) {            
+            store_config.context = { 
+                project:null,
+                workspace: workspace._ref ? workspace._ref : workspace.get('_ref')
+            };
+        }
+                
+        var store = Ext.create('Rally.data.wsapi.Store', store_config );
+                    
+        return deferred.promise;
+    },
+
+
+    getAllWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getWorkspaces: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var config = {
+            model: 'Subscription',
+            fetch: ['ObjectID','Workspaces']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(subs) {
+                var sub = subs[0];
+                sub.getCollection('Workspaces').load({
+                    fetch: ['ObjectID','Name','State'],
+                    sorters: [{property:'Name'}],
+                    callback: function(workspaces,operation,success){
+                        
+                        var open_workspaces = Ext.Array.filter(workspaces, function(ws) {
+                            if ( Rally.getApp().getSetting('showAllWorkspaces') == false ) {
+                                return ( ws.get('ObjectID') == Rally.getApp().getContext().getWorkspace().ObjectID );
+                            }
+                            
+                            return ( ws.get('State') == "Open" ) ;
+                        });
+                        deferred.resolve(open_workspaces);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+
+});
 Ext.define("CA.apps.charts.Colors", {
     
     singleton: true, 
@@ -995,6 +997,23 @@ Ext.define("CA.apps.charts.Colors", {
     }
 });
 
+Ext.define('CA.techservices.container.GridBox',{
+    extend: 'Ext.container.Container',
+    alias:  'widget.tsgridbox',
+    
+    layout: 'border',
+    
+    items: [
+        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
+    ],
+    
+    setGrid: function(config) {
+        var box = this.down('#grid_box');
+        box.removeAll();
+        
+        box.add(config);
+    }
+});
 Ext.define('CA.techservices.container.GridWithDescription',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridwithdescription',
@@ -1204,27 +1223,10 @@ Ext.define("CA.techservices.app.GridApp", {
       
 });
 
-Ext.define('CA.techservices.container.GridBox',{
-    extend: 'Ext.container.Container',
-    alias:  'widget.tsgridbox',
-    
-    layout: 'border',
-    
-    items: [
-        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
-    ],
-    
-    setGrid: function(config) {
-        var box = this.down('#grid_box');
-        box.removeAll();
-        
-        box.add(config);
-    }
-});
 Ext.define('CA.techservices.container.QuarterItemSelector', {
     extend : 'Ext.Container',
     alias : 'widget.quarteritemselector',
-    layout : 'hbox',
+    layout : 'vbox',
     mixins : [
         'Rally.Messageable',
         'Ext.state.Stateful'
@@ -1244,7 +1246,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
 
         var me = this;
         this.removeAll();
-        
         
         var promises = Ext.Array.map(me.workspaces, function(workspace) {
             return function() { 
@@ -1389,10 +1390,9 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             ]
         });
 
-        
         var container = this.add({
             xtype:'container',
-            layout: 'vbox'
+            layout: 'hbox'
         });
         
         var programs = []
@@ -1414,12 +1414,12 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             margin: 5,
             listeners:{
                 change: this._updateGoButton,
-                scope: this,
+                scope: this
             }
 
         });
 
-        container.add({
+        this.add({
             xtype: 'combobox',
             fieldLabel: 'Choose Programs',
             itemId: 'program-combobox',
@@ -1428,10 +1428,11 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
             queryMode: 'local',
             displayField: 'Name',
             valueField: 'ObjectID',
+            width: 400,
             margin: 5
         });
 
-        this.add({
+        container.add({
                 xtype: 'rallybutton',
                 text: 'Go',
                 itemId: 'cb-go-button',
@@ -1463,7 +1464,6 @@ Ext.define('CA.techservices.container.QuarterItemSelector', {
         }
 
     },
-
 
     _getEPMSProjects:function(workspace,epmsModelPath){
         var me = this;
@@ -1925,7 +1925,11 @@ Ext.define("OIBMApp", {
         "<strong>OCIO Dashboard - Backlog Maturity</strong><br/>" +
             "<br/>" +
             "Backlog Maturity based on the stories that are in ready state at the end of the first day of the quarter and the average velocity for that program.<br/>" + 
-            "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter "
+            "Counts are based on all the stories that were on Ready state at the end of the first day of the quarter." + 
+            "<br/><br/>" + 
+            "Velocity is determined by:  finding accepted stories that descend from EPMS projects in the chosen program, then " + 
+            "determining the velocities of the last three sprints of the projects associated with the stories.  The velocity " +
+            "averaged for each set of three sprints, but then added together for all the associated projects."
     ],
 
     defaults: { margin: 10 },
@@ -1988,24 +1992,24 @@ Ext.define("OIBMApp", {
         }
 
         
-            this.addToBanner({
-                xtype:'container',
-                flex: 1
-            });          
-            
-            this.addToBanner({
-                xtype:'rallybutton',
-                itemId:'export_button',
-                cls: 'secondary',
-                text: '<span class="icon-export"> </span>',
-                disabled: false,
-                listeners: {
-                    scope: this,
-                    click: function(button) {
-                        this._export(button);
-                    }
+        this.addToBanner({
+            xtype:'container',
+            flex: 1
+        });          
+        
+        this.addToBanner({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function(button) {
+                    this._export(button);
                 }
-            });            
+            }
+        });            
         
     },
 
@@ -2047,7 +2051,7 @@ Ext.define("OIBMApp", {
             success: function(epms_programs_by_project_name) {
                 var final_results = {};
                 
-                merged_programs_by_name = {};
+                var merged_programs_by_name = {};
                 
                 Ext.Array.each(epms_programs_by_project_name, function(program) {
                     merged_programs_by_name = Ext.Object.merge(merged_programs_by_name,program);
@@ -2097,7 +2101,6 @@ Ext.define("OIBMApp", {
                     this.logger.log("Cannot find a record type for EPMS project in workspace:",workspace._refObjectName);
                     deferred.resolve([]);
                 } else {
-                    console.log(workspace);
                     var message = Ext.String.format("Loading {0}", workspace_name);
                     
                     this.setLoading(message);
@@ -2109,6 +2112,9 @@ Ext.define("OIBMApp", {
                         },
                         function(epms_programs_by_project_name) { 
                             return me._getReadyItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
+                        },
+                        function(epms_programs_by_project_name) { 
+                            return me._getAcceptedItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
                         },
                         function(epms_programs_by_project_name) {
                             return me._getVelocitiesForProjectsInItems(epms_programs_by_project_name,workspace);
@@ -2255,6 +2261,79 @@ Ext.define("OIBMApp", {
         return deferred.promise;
     },  
     
+    // get stories so that we can figure out which projects are delivery projects
+    _getAcceptedItemsInPrograms: function(second_day,workspace,epms_items_by_project_name){
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
+        
+        var epms_oids = [];
+        if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+            var epms_oids = [];
+            Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                var epms_projects = epms_item.epms_projects || [];
+                Ext.Array.each(epms_projects, function(epms_project){
+                    epms_oids.push(epms_project.ObjectID);
+                });
+            });
+        }
+
+        var find = {
+            "_ItemHierarchy": {"$in": epms_oids},
+            "ScheduleState": 'Accepted',
+            "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
+            "__At": Rally.util.DateTime.toIsoString(second_day)
+        };
+        
+        var config = {
+            find: find,
+            fetch: ['ObjectID','Name','FormattedID','_ItemHierarchy'],
+            context: { 
+                project: null,
+                workspace: workspace._ref
+            }
+        };
+
+        this._loadLookbackRecords(config).then({
+            success: function(items) {
+                Ext.Object.each(epms_items_by_project_name, function(name,epms_item){
+                    var epms_projects = epms_item.epms_projects || [];
+                    Ext.Array.each(epms_projects, function(epms_project){
+                        var project_oid = epms_project.ObjectID;
+                        Ext.Array.each(items, function(item){
+                            if (Ext.Array.contains(item.get('_ItemHierarchy'), project_oid)) {
+                                item.EPMSProject = name;
+                            }
+                        });
+                    });
+                });
+                
+                if ( Ext.Object.getKeys(epms_items_by_project_name).length > 0 ) {
+                    var epms_oids = [];
+                    Ext.Object.each(epms_items_by_project_name, function(key,epms_item){
+                        var epms_projects = epms_item.epms_projects || [];
+                        if ( Ext.isEmpty(epms_item.candidate_items) ) {
+                            epms_item.candidate_items = [];
+                        }
+                        
+                        Ext.Array.each(items, function(item){
+                            if (item.EPMSProject == key){
+                                epms_item.candidate_items.push(item);
+                            }
+                        });
+                    });
+                }
+                
+                deferred.resolve(epms_items_by_project_name);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    
     _getVelocitiesForProjectsInItems: function(epms_programs_by_project_name,workspace) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
@@ -2263,9 +2342,9 @@ Ext.define("OIBMApp", {
         var delivery_projects = {};
         
         Ext.Object.each(epms_programs_by_project_name, function(name,program_info) {
-            var ready_items = program_info.ready_items;
-            Ext.Array.each(ready_items, function(ready_item){
-                delivery_projects[ready_item.get('Project')] = 1; // oid
+            var candidate_items = program_info.candidate_items;
+            Ext.Array.each(candidate_items, function(item){
+                delivery_projects[item.get('Project')] = 1; // oid
             });
         });
         
@@ -2279,15 +2358,16 @@ Ext.define("OIBMApp", {
         
         Deft.Chain.sequence(promises).then({
             success: function(velocities_by_project) {
-                merged_velocities_by_project = {};
+                var merged_velocities_by_project = {};
                 
                 Ext.Array.each(velocities_by_project, function(velocity) {
                     merged_velocities_by_project = Ext.Object.merge(merged_velocities_by_project,velocity);
                 });
-                
+                                
                 Ext.Object.each(epms_programs_by_project_name, function(name,program){
                     var delivery_projects = program.delivery_project_oids;
                     var velocity = 0;
+                    
                     Ext.Array.each(delivery_projects, function(project_oid){
                         velocity += merged_velocities_by_project[project_oid] || 0;
                     });
@@ -2307,7 +2387,7 @@ Ext.define("OIBMApp", {
     _setDeliveryProjectsOnPrograms:function(epms_programs_by_project_name){
         Ext.Object.each(epms_programs_by_project_name, function(name,program){
             program.delivery_project_oids = Ext.Array.unique(
-                Ext.Array.map(program.ready_items, function(item){
+                Ext.Array.map(program.candidate_items, function(item){
                     return item.get('Project');
                 })
             );
@@ -2323,8 +2403,10 @@ Ext.define("OIBMApp", {
         this._getLastThreeIterations(project_oid,workspace).then({
             success: function(iterations) {
                 var iteration_oids = Ext.Array.map(iterations, function(iteration){ return iteration.get('ObjectID')});
+                
                 me._getAcceptedItemsInIterations(iteration_oids,workspace).then({
                     success: function(accepted_items) {
+                        
                         var number_of_iterations = iteration_oids.length;
                         var velocity = 0;
                         if ( number_of_iterations > 0 ) {
@@ -2543,7 +2625,11 @@ Ext.define("OIBMApp", {
         var me = this;
         columns.push({dataIndex:'name',text:'Program', flex: 2 });
         columns.push({dataIndex:'ready_points',text:'# Story Points Ready State', flex: 1,align:'right' });
-        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right' });
+        columns.push({dataIndex:'velocity',text:'Average Velocity', flex: 1,align:'right',
+            renderer: function(value){
+                return Ext.util.Format.number(value > 0 ? value : 0, "000.00");
+            } 
+        });
         columns.push({dataIndex:'sprints',text:'# Sprints of Ready Stories (Target 3 Sprints)', flex: 1,align:'right',
                       renderer: function(Variance){
                         return Ext.util.Format.number(Variance > 0 ? Variance : 0, "000.00");

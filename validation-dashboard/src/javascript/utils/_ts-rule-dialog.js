@@ -1,8 +1,6 @@
 Ext.define('CA.technicalservices.RulePickerDialog', {
     extend: 'Rally.ui.dialog.Dialog',
     alias: 'widget.rulepickerdialog',
-
-    //layout: 'fit',
     
     config: {
         /**
@@ -28,11 +26,11 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
          */
         rules: undefined,
         layout:{
-            type: 'hbox',
+            type: 'vbox',
             align: 'left'
         },
-        minWidth: 800,
-        minHeight: 500
+        maxHeight: 600,
+        maxWidth: 685
     },
 
     constructor: function(config) {
@@ -62,10 +60,28 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
     beforeRender: function() {
         this.callParent(arguments);
 
-        this.addDocked({
+        if (this.introText) {
+            this.add({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                html: this.introText
+            });
+        }
+
+        var container = this.add({
+            autoScroll: true,
+            layout: 'hbox',
+            region: 'center',
+            width: this.width - 50,
+            height: this.height - 100
+        });
+        
+        this._buildCheckboxes(container);
+        
+        this.add({
             xtype: 'toolbar',
             dock: 'bottom',
-            padding: '0 0 10 0',
+            padding: '10 0 10 5',
             layout: {
                 type: 'hbox',
                 pack: 'center'
@@ -96,16 +112,6 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
             ]
         });
 
-        if (this.introText) {
-            this.addDocked({
-                xtype: 'component',
-                componentCls: 'intro-panel',
-                html: this.introText
-            });
-        }
-
-        this._buildCheckboxes();
-
        // this.selectionCache = this.getInitialSelectedRecords() || [];
     },
 
@@ -117,44 +123,42 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
         return this.rules;
     },
 
-    _buildCheckboxes: function() {
-        console.log("_buildCheckboxes:", this.rules);
+    _buildCheckboxes: function(container) {
         // add three containers, one per rule model family(task,story,portfolioitem)
-        this.add([
-                {
+        
+        
+        var pi_panel = container.add({
                     xtype: 'panel',
                     title: '<h3>Portfolio Items</h3>',
                     itemId: 'portfolioRulesPanel',
                     layout: 'auto',
                     margin: 5,
-                    height: 450,
-                    width: 250
-                },
-                {
+                    height: 475,
+                    width: 200
+                });
+        var story_panel = container.add({
                     xtype: 'panel',
                     title: '<h3>Stories</h3>',
                     itemId: 'storyRulesPanel',
                     layout: 'auto',
                     margin: 5,                    
-                    height: 450,
-                    width: 250                    
-                },
-                            {
+                    height: 475,
+                    width: 200                    
+                });
+        var task_panel = container.add({
                     xtype: 'panel',
                     title: '<h3>Tasks</h3>',
                     itemId: 'taskRulesPanel',
                     layout: 'auto',
                     margin: 5,               
-                    height: 450,
-                    width: 250                    
-                }
-            ]
-        );
+                    height: 475,
+                    width: 200                    
+                });
+        
         // now add the checkboxes for the rules to the appropriate panel
         Ext.Array.each(this.rules,function(rule){
-            console.log('InsideArray:',rule.model,rule.label,rule);
             if (/^PortfolioItem*/.exec(rule.model)){
-                this.down('#portfolioRulesPanel').add( {
+                pi_panel.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
                         autoScroll: true,
@@ -169,7 +173,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         }                 
                     });                
             } else if (/^HierarchicalRequirement/.exec(rule.model)){
-                this.down('#storyRulesPanel').add( {
+                story_panel.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
                         autoScroll: true,
@@ -184,7 +188,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
                         }                 
                     });                  
             } else if (/^Task/.exec(rule.model)){
-                this.down('#taskRulesPanel').add( {
+                task_panel.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
                         autoScroll: true,
@@ -201,7 +205,7 @@ Ext.define('CA.technicalservices.RulePickerDialog', {
             } else {
                 // No match on Model! drop the checkboxes on the raw panel. Will be a 
                 // flag to see that we're handling a new model!
-                this.add( {
+                container.add( {
                         xtype: 'rallycheckboxfield',
                         boxLabel: rule.label,
                         autoScroll: true,
