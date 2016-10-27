@@ -32,7 +32,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
-            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -101,11 +100,13 @@ Ext.define("CA.techservices.app.ChartApp", {
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
+        
         return this.down('#main_grid_' + index);
     },
     
     setGrid: function(config,index) {
-        this.getGridBox(index).setGrid(config);
+        var grid_box = this.getGridBox(index);
+        grid_box.setGrid(config);
     },
 
     getDrillDownColumns: function(title) {

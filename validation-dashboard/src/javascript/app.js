@@ -3,13 +3,13 @@ extend: 'CA.techservices.app.ChartApp',
     // need an array of descriptions - 1 for each chartbox containers
     // need at least one or the container won't be initialized
     descriptions: ['<strong>Data Validation</strong>' +
-                '<p/>' + 
-                'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
-                'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
-                'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
-                '<p/>' + 
-                '<strong>Rules</strong>' +
-                '<p/>'], 
+        '<p/>' + 
+        'The stacked bar chart shows a count of items that fail the various validation rules.  Each bar ' +
+        'represents a team and record type.  For a story to be evaluated, it needs to be either In-Progress or Completed or ' +
+        'Defined (when also Ready).  For a task to be evaluated, its story needs to meet the same state rule.' +
+        '<p/>' + 
+        '<strong>Rules</strong>' +
+        '<p/>'], 
     
     integrationHeaders : {
         name : "TSValidationApp"
@@ -23,7 +23,7 @@ extend: 'CA.techservices.app.ChartApp',
         },        
         defaultSettings: {
             showPatterns: false,
-            showWrongProject: 'false',
+            showWrongProject: true,
             rotateChartLabels45: 5, // how many categories (projects) before we rotate the labels
             rotateChartLabels90: 10 // how many categories (projects) before we rotate the labels        
         },
@@ -535,18 +535,22 @@ extend: 'CA.techservices.app.ChartApp',
     _showBusinessPlanningSelection: function() {
         var me = this;
 
-        console.log("_showBusinessPlanningSelection:");
-
+        var strategy_oid = Rally.util.Ref.getOidFromRef( me.getContext().getProjectRef() );
+        var strategy_ref = me.getSetting('strategyProjectPicker');
+        if ( !Ext.isEmpty(strategy_ref) ) {
+            strategy_oid = Rally.util.Ref.getOidFromRef(strategy_ref);
+        }
+        
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             
             title: 'Select the Business Planning projects',
             introText: 'Select the projects where your portfolio items should be.',
             initialSelectedRecords: me.strategyProjects,
-            root_filters:   [
-                {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
+            root_filters:   [{
+                property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                value: Rally.util.Ref.getOidFromRef(me.getSetting('strategyProjectPicker'))}
-                ],
+                value: strategy_oid
+            }],
 
             listeners: {
                 scope: this,
@@ -575,15 +579,21 @@ extend: 'CA.techservices.app.ChartApp',
 
         console.log("showDeliveryTeam._showDeliveryTeamsSelection:",this.getSetting('deliveryProjectPicker'));
 
+        var top_oid = Rally.util.Ref.getOidFromRef( me.getContext().getProjectRef() );
+        var top_ref = me.getSetting('deliveryProjectPicker');
+        if ( !Ext.isEmpty(top_ref) ) {
+            top_oid = Rally.util.Ref.getOidFromRef(strategy_ref);
+        }
+        
         Ext.create('CA.technicalservices.ProjectTreePickerDialog',{
             title: 'Select the Delivery Team projects',
             introText: 'Select the projects for the Delivery Teams',
             initialSelectedRecords: me.deliveryTeamProjects,
-            root_filters: [
-                {property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
+            root_filters: [{
+                property: 'ObjectID',      // reads a top-level starting point from which to build-out the tree
                 operator: '=',
-                value: Rally.util.Ref.getOidFromRef(me.getSetting('deliveryProjectPicker'))}
-                ],
+                value: top_oid
+            }],
 
             listeners: {
                 scope: this,
@@ -609,14 +619,17 @@ extend: 'CA.techservices.app.ChartApp',
         var me = this;
         var rules = this.validator.getRules();
 
-        console.log("_showRulesSelection:",rules);
-
+        var height = this.getHeight() - 20;
+        var width = this.getWidth() - 20;
+        
         Ext.create('CA.technicalservices.RulePickerDialog',{
             rules: rules,
+            height: height,
+            width: width,
             listeners: {
                 scope: this,
+                
                 itemschosen: function(dialog,rules){
-                    console.log('ShowRulesDialogItemsChosen:',dialog,rules);
                     this.validator.rules = rules;
                     this.saveState();
                     this._loadData();                    
@@ -742,53 +755,53 @@ extend: 'CA.techservices.app.ChartApp',
         var me = this;
 
         return [
-        {
-         name: 'strategyProjectPicker',
-         xtype: 'rallyprojectpicker',
-         itemId: 'strategyProjectPicker',            
-         fieldLabel: 'Choose the root Business Planning (Strategy) project:',
-         showMostRecentlyUsedProjects: false,
-         workspace: this.getContext().getWorkspaceRef(),
-         labelAlign:'left',
-         labelWidth: 300,
-         labelPad: 10,
-         stateful: true,
-         stateId: 'strategyProjectPicker',
-         stateEvents: ['change','select'],
-         listeners: {
-                scope: me,
-                select: function(field,value,eOpts){
-                    console.log('app.getSettings.strategyProjectPicker.select:',field,value,eOpts);                 
-                },
-                change: function(){
-                    console.log('app.getSettings.strategyProjectPicker.change: ',this.getSelectedRecord());
-                    me.rootStrategyProject = this.getSelectedRecord().get('Name');
-                }    
-            }
-        },
-        {
-         name: 'deliveryProjectPicker',
-         xtype: 'rallyprojectpicker',
-         itemId: 'deliveryProjectPicker',            
-         fieldLabel: 'Choose the root Delivery Team project:',
-         showMostRecentlyUsedProjects: false,
-         workspace: this.getContext().getWorkspaceRef(),
-         labelAlign:'left',
-         labelWidth: 300,
-         labelPad: 10,
-         stateful: true,
-         stateId: 'deliveryProjectPicker',
-         stateEvents: ['change','select'],
-         listeners: {
-                scope: me,
-                select: function(field,value,eOpts){
-                    console.log('app.getSettings.deliveryProjectPicker.select:',field,value,eOpts);                    
-                },
-                change: function(eOpts){
-                    console.log('app.getSettings.strategyProjectPicker.change: ',eOpts);
-                }    
-            }
-        },
+//        {
+//         name: 'strategyProjectPicker',
+//         xtype: 'rallyprojectpicker',
+//         itemId: 'strategyProjectPicker',            
+//         fieldLabel: 'Choose the root Business Planning (Strategy) project:',
+//         showMostRecentlyUsedProjects: false,
+//         workspace: this.getContext().getWorkspaceRef(),
+//         labelAlign:'left',
+//         labelWidth: 300,
+//         labelPad: 10,
+//         stateful: true,
+//         stateId: 'strategyProjectPicker',
+//         stateEvents: ['change','select'],
+//         listeners: {
+//                scope: me,
+//                select: function(field,value,eOpts){
+//                    console.log('app.getSettings.strategyProjectPicker.select:',field,value,eOpts);                 
+//                },
+//                change: function(){
+//                    console.log('app.getSettings.strategyProjectPicker.change: ',this.getSelectedRecord());
+//                    me.rootStrategyProject = this.getSelectedRecord().get('Name');
+//                }    
+//            }
+//        },
+//        {
+//         name: 'deliveryProjectPicker',
+//         xtype: 'rallyprojectpicker',
+//         itemId: 'deliveryProjectPicker',            
+//         fieldLabel: 'Choose the root Delivery Team project:',
+//         showMostRecentlyUsedProjects: false,
+//         workspace: this.getContext().getWorkspaceRef(),
+//         labelAlign:'left',
+//         labelWidth: 300,
+//         labelPad: 10,
+//         stateful: true,
+//         stateId: 'deliveryProjectPicker',
+//         stateEvents: ['change','select'],
+//         listeners: {
+//                scope: me,
+//                select: function(field,value,eOpts){
+//                    console.log('app.getSettings.deliveryProjectPicker.select:',field,value,eOpts);                    
+//                },
+//                change: function(eOpts){
+//                    console.log('app.getSettings.strategyProjectPicker.change: ',eOpts);
+//                }    
+//            }
+//        },
         { 
             name: 'rotateChartLabels45',
             itemId: 'rotateChartLabels45',            
@@ -819,15 +832,17 @@ extend: 'CA.techservices.app.ChartApp',
             maxValue: 30,
             minValue: 5
         },
-        { 
-            name: 'showWrongProject',
-            xtype: 'rallycheckboxfield',
-            fieldLabel: 'Enable selection of the two Feature Selection rules. Use the [Business Planning] and [Delivery Team] buttons to identify the correct projects for scheduled and unscheduled Features in your program.',
-            labelAlign:'left',
-            labelWidth: 300,
-            labelPad: 10,
-            padding: '0 0 50 0'  //top right bottom left
-        },                
+//        { 
+//            name: 'showWrongProject',
+//            xtype: 'rallycheckboxfield',
+//            fieldLabel: 'Enable selection of the two Feature Selection rules. Use the ' +
+//                '[Business Planning] and [Delivery Team] buttons to identify the correct projects for ' +
+//                'scheduled and unscheduled Features in your program.',
+//            labelAlign:'left',
+//            labelWidth: 300,
+//            labelPad: 10,
+//            padding: '0 0 50 0'  //top right bottom left
+//        },                
         { 
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',

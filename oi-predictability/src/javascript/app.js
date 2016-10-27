@@ -6,7 +6,7 @@ Ext.define("OIPApp", {
         "<strong>OCIO Dashboard - Predictability</strong><br/>" +
         "<br/>" +
         "Predictability is measured as a percentage by dividing the amount of committed story " +
-        "points by the amount of earned story points." +
+        "points by the amount of earned story points.<br/><br/>" +
         "Committed Points: Total points as of the end of first day of the quarter <br>" +
         "Earned Points: Total points as of today <br>" +
         "Commitment Variance (%): (Committed Points / Earned Points) * 100 <br>"
@@ -99,9 +99,17 @@ Ext.define("OIPApp", {
 
         //if there are programs selected from drop down get the corresponding workspace and get data 
         //quarterAndPrograms.allPrograms[quarterAndPrograms.programs[0]].workspace.ObjectID
-        var workspaces_of_selected_programs = []
+        var workspaces_of_selected_programs = {};
         Ext.Array.each(quarterAndPrograms.programs,function(selected){
-            workspaces_of_selected_programs.push(quarterAndPrograms.allPrograms[selected].workspace);
+            var ws = quarterAndPrograms.allPrograms[selected].workspace;
+            
+            workspaces_of_selected_programs[ws.ObjectID] = {
+                Name: ws.Name,
+                ObjectID: ws.ObjectID,
+                _ref: ws._ref,
+                workspaceName: ws.workspaceName,
+                workspaceObjectID: ws.workspaceObjectID
+            };
             me.programs.push(quarterAndPrograms.allPrograms[selected].program);
         })
 
@@ -110,7 +118,7 @@ Ext.define("OIPApp", {
             return;
         }
 
-        var promises = Ext.Array.map(Ext.Array.unique(workspaces_of_selected_programs), function(workspace) {
+        var promises = Ext.Array.map(Ext.Object.getValues(workspaces_of_selected_programs), function(workspace) {
             return function() { 
                 return me._getDataForWorkspace( workspace ) 
             };
@@ -193,16 +201,20 @@ Ext.define("OIPApp", {
                                     variance: null
                                 };
                                 
+                                var start_earned = 0;
+                                
                                 var program_then = programs_then[program_name];
                                 if ( program_then ) {
                                     var start_plan = program_then.planned_points || 0;
-                                    var start_earned = program_then.earned_points || 0;
+                                    start_earned = program_then.earned_points || 0;
                                     row.planned_points = start_plan - start_earned;
                                 }
                                 
                                 var program_now = programs_now[program_name];
                                 if ( program_now ) {
-                                    row.earned_points = program_now.earned_points || 0; 
+                                    
+                                    row.earned_points = program_now.earned_points || 0;
+                                    row.earned_points = row.earned_points - start_earned;
                                     row.variance = row.earned_points > 0 && row.planned_points > 0 ? (row.earned_points / row.planned_points) * 100 : 0
                                 }
                                 
@@ -237,49 +249,6 @@ Ext.define("OIPApp", {
         return this._loadWsapiRecords(config);
     },
 
-    // get the level 1 or level 2 (from the bottom) portfolio items from the given workspace
-    // as they are now
-    _getEPMSProjects:function(workspace,epmsModelPaths){
-        var me = this,
-            deferred = Ext.create('Deft.Deferred');
-        
-        Deft.Chain.sequence([
-            function() { return me._getPortfolioItems(epmsModelPaths[0],workspace); },
-            function() { return me._getPortfolioItems(epmsModelPaths[1],workspace); }
-        ]).then({
-            success: function(level_1_pis, level_2_pis) {
-                var epms_programs_by_project_name = {};
-
-                var pis = Ext.Array.flatten(level_1_pis,level_2_pis);
-                
-                Ext.Array.each(pis,function(pi){
-                    var project_name = pi.get('Project').Name;
-                    
-                    if ( Ext.isEmpty(epms_programs_by_project_name[project_name]) ) {
-                        epms_programs_by_project_name[project_name] = {
-                            program: pi.get('Project'),
-                            epms_projects: [],
-                            earned_points: 0,
-                            planned_points: 0,
-                            Name: project_name
-                        }
-                    }
-                    
-                    epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
-                    var planned_size = pi.get('LeafStoryPlanEstimateTotal') || 0;
-                    epms_programs_by_project_name[project_name].planned_points += planned_size;                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
-                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
-                    epms_programs_by_project_name[project_name].earned_points += accepted_size;
-                });
-                deferred.resolve(epms_programs_by_project_name);
-            },
-            failure: function(msg) {
-                deferred.reject(msg)
-            }
-        });
-        return deferred.promise;
-    },
-
     // 
     _getEPMSProjectsOn:function(date,workspace,epmsModelPaths){
         var me = this,
@@ -312,13 +281,14 @@ Ext.define("OIPApp", {
                             program: pi.get('Project'),
                             epms_projects: [],
                             earned_points: 0,
+                            planned_points: 0,
                             Name: project_name
                         }
                     }
                     
                     epms_programs_by_project_name[project_name].epms_projects.push(pi.getData());
                     var planned_size = pi.get('LeafStoryPlanEstimateTotal') || 0;
-                    epms_programs_by_project_name[project_name].planned_points += planned_size;                    var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
+                    epms_programs_by_project_name[project_name].planned_points += planned_size;                    
                     var accepted_size = pi.get('AcceptedLeafStoryPlanEstimateTotal') || 0;
                     epms_programs_by_project_name[project_name].earned_points += accepted_size;
                 });
@@ -396,7 +366,6 @@ Ext.define("OIPApp", {
     },
     
    _displayGrid: function(records){
-       console.log('rows:', records);
        
        var store = Ext.create('Rally.data.custom.Store', {
             data: records,

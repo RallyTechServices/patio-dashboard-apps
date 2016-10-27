@@ -4,7 +4,8 @@ Ext.define("IntegrityApp", {
     descriptions: [
         "<strong>Percentage of Stories with Functional Test Coverage</strong><br/>" +
             "<br/>" +
-            "The top stacked bar chart displays your total test case coverage (by %) for user stories in the sprint (e.g., 100% indicates every testable user story had at least one testcase)" 
+            "The top stacked bar chart displays your total test case coverage (by %) for user stories in the " +
+            "sprint (e.g., 100% indicates every testable user story had at least one testcase)" 
             ,
         "<strong>Percentage Passed</strong><br/>"+
             "<br/>" +
@@ -111,6 +112,10 @@ Ext.define("IntegrityApp", {
         ],this).then({
             scope: this,
             success: function(results) {
+                if ( Ext.isEmpty(results) ) { 
+                    return;
+                }
+
                 var artifacts_by_timebox = this._collectArtifactsByTimebox(results || []);
                 this._makeTopChart(artifacts_by_timebox);
                 this._makeBottomChart(artifacts_by_timebox);
@@ -120,7 +125,7 @@ Ext.define("IntegrityApp", {
 //                Ext.Msg.alert('--', msg);
                 Ext.Msg.alert('--', "Be sure you have gone to App Settings to set your configuration");
             }
-        });
+        }).always(function() { me.setLoading(false); });
         
     },
     
@@ -156,12 +161,11 @@ Ext.define("IntegrityApp", {
     },
     
     _sortTimeboxes: function(timeboxes) {
-
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
             this.setLoading(false);					
-						return [];
-				}
+            return [];
+        }
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
       
         Ext.Array.sort(timeboxes, function(a,b){
@@ -258,9 +262,7 @@ Ext.define("IntegrityApp", {
      * { "iteration 1": { "records": { "all": [o,o,o], "with_test_cases": [o,o] } } }
      */
 
-    _collectArtifactsByTimebox: function(items) {
-        //console.log('items >>', items);
-        
+    _collectArtifactsByTimebox: function(items) {        
         var test_cases_object_ids = [];
 
         Ext.Array.each(items[1],function(item){
@@ -273,7 +275,7 @@ Ext.define("IntegrityApp", {
             timebox_type = this.timebox_type;
 
         
-        if ( items[0].length === 0 ) { return hash; }
+        if ( Ext.isEmpty(items[0]) || items[0].length === 0 ) { return hash; }
         
         var base_hash = {
             records: {
@@ -563,30 +565,27 @@ Ext.define("IntegrityApp", {
     _makeRawBottomGrid: function(artifacts_by_timebox) {
         var me = this;
         
-        this.logger.log('_makeRawGrid', artifacts_by_timebox);
-       
         var columns = [{dataIndex:'Name',text:'Counts',flex:2}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({ dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field, 
-                            align: 'center',
-                            flex:1,
-                            renderer: function(value,metaData){
-                                if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
-                                     metaData.style = 'text-align:center;background-color:#ff9999';    
-                                }
-                                return value;
-                            }
-                        });
+            columns.push({ 
+                dataIndex: me._getSafeIterationName(field) + "_number", 
+                text: field, 
+                align: 'center',
+                flex:1,
+                renderer: function(value,metaData, record){
+                    if("TotalTCStoryCount"==metaData.record.get('Type') && value < me.getSetting('gridThreshold')){
+                         metaData.style = 'text-align:center;background-color:#ff9999';    
+                    }
+                    return value;
+                }
+            });
         });
         
-        this.logger.log('about to get Raw Rows');
         var rows = this._getRawBottomRows(artifacts_by_timebox);
         
-        this.logger.log('about to create store', rows);
         var store = Ext.create('Rally.data.custom.Store',{ data: rows });
         
-        this.logger.log('about to add', store, columns);
+        this.logger.log('about to add grid', store, columns);
 
         this.setGrid({
             xtype:'rallygrid',
@@ -597,7 +596,6 @@ Ext.define("IntegrityApp", {
             store: store,
             columnCfgs: columns
         },1);
-
     },
     
     _getRawBottomRows: function(artifacts_by_timebox) {
@@ -666,11 +664,9 @@ Ext.define("IntegrityApp", {
 
     _getCategories: function(artifacts_by_timebox) {
 //        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
-
-			return timebox.get('Name');
-
-			});
+        return Ext.Array.map(this.timeboxes, function(timebox) {
+            return timebox.get('Name');
+        });
     },
 
     _filterOutExceptChoices: function(store) {
@@ -704,23 +700,37 @@ Ext.define("IntegrityApp", {
 
     getSettingsFields: function() {
         var me = this;
+        
         return [
+//        {
+//                name: 'isTestableField',
+//                xtype: 'rallyfieldcombobox',
+//                itemId: 'isTestableField',
+//                labelWidth: 125,
+//                labelAlign: 'left',
+//                minWidth: 200,
+//                fieldLabel: 'Is Testable Field',
+//                model: 'HierarchicalRequirement',
+//                margin: '10 10 10 10',
+//                _isNotHidden: function(field) {
+//                    if ( field.hidden ) { return false; }
+//                    var defn = field.attributeDefinition;
+//                    if ( Ext.isEmpty(defn) ) { return false; }
+//                    
+//                    return ( defn.AttributeType == 'BOOLEAN' );
+//                }
+//        },
         {
-                name: 'isTestableField',
-                xtype: 'rallyfieldcombobox',
-                itemId: 'isTestableField',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,            
-                fieldLabel: 'Is Testable Field',
-                model: 'HierarchicalRequirement',
-                margin: '10 10 10 10'
+            xtype:'container',
+            html: 'You can limit displayed items by choosing a field on test cases and one or more values. ' +
+                'This is generally used to limit to certain types of tests.<br/>' +
+                'Choose the field and value(s) below.'
         },
         {
                 name: 'typeField',
                 itemId:'typeField',
                 xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Test Type Field',
+                fieldLabel: 'Test Case Field',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
@@ -729,6 +739,13 @@ Ext.define("IntegrityApp", {
                 alwaysExpanded: false,                
                 model: 'TestCase',
                 bubbleEvents: ['typeFieldChange'],
+                _isNotHidden: function(field) {
+                    if ( field.hidden ) { return false; }
+                    var defn = field.attributeDefinition;
+                    if ( Ext.isEmpty(defn) ) { return false; }
+                    
+                    return ( defn.Constrained && defn.AttributeType == 'STRING' );
+                },
                 listeners: {
                     ready: function(cb) {
                         me._filterOutExceptChoices(cb.getStore());
@@ -742,21 +759,26 @@ Ext.define("IntegrityApp", {
             },
             {
                 name: 'typeFieldValue',
-                itemId:'typeFieldValue',
                 xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Test Type Field Value',
+                fieldLabel: 'Test Case Value(s)',
                 labelWidth: 125,
                 labelAlign: 'left',
                 minWidth: 200,
                 margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
+//                autoExpand: true,
+//                alwaysExpanded: true,
                 model: 'TestCase',
-                field: 'Type',
+                field: me.getSetting('typeField'),
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
                         cb.setValue(me.getSetting('typeFieldValue').split(','));
+                        var field_values = me.getSetting('typeFieldValue') || [];
+                        if ( Ext.isString(field_values) ) {
+                            field_values = field_values.split(',');
+                        }
+                        console.log(field_values);
+                        cb.setValue(field_values);
                     }
                 }, 
                 handlesEvents: {
@@ -771,9 +793,13 @@ Ext.define("IntegrityApp", {
 //                readyEvent: 'ready'                
             },
             {
+                xtype:'container',
+                html: 'The Stories w/ Test Cases row of the grid will turn cells red when the number is below the Hightlight Threshold chosen below.'
+            },
+            {
                 name:'gridThreshold',
                 xtype:'textfield',
-                fieldLabel: 'Grid Threshold',
+                fieldLabel: 'Highlight Threshold',
                 itemId: 'gridThreshold',
                 labelWidth: 125,
                 labelAlign: 'left',
