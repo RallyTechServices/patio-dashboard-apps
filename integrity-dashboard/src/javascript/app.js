@@ -385,9 +385,12 @@ Ext.define("IntegrityApp", {
 
     _getTopChartConfig: function() {
         var me = this;
+        var testCaseTypes = me.getSetting('typeFieldValue') ? me.getSetting('typeFieldValue') : 'None';
+
         return {
             chart: { type:'column' },
             title: { text: 'Percentage of Stories with Functional Test Coverage' },
+            subtitle: { text: 'Test Case Types: ' + testCaseTypes},
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -666,6 +669,35 @@ Ext.define("IntegrityApp", {
         });
     },
 
+    _filterOutExceptChoices: function(store) {
+        var app = Rally.getApp();
+        
+        store.filter([{
+            filterFn:function(field){ 
+                
+                var forbidden_fields = ['Recycled','Ready'];
+                if ( Ext.Array.contains(forbidden_fields, field.get('name') ) ) {
+                    return false;
+                }
+                
+                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
+                var attribute_type = null;
+                if ( attribute_definition ) {
+                    attribute_type = attribute_definition.AttributeType;
+                }
+                if (  attribute_type == "BOOLEAN" ) {
+                    return false;
+                }
+                if ( attribute_type == "STRING" || attribute_type == "STATE" ) {
+                    if ( field.get('fieldDefinition').attributeDefinition.Constrained ) {
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }]);
+    },    
+
     getSettingsFields: function() {
         var me = this;
         
@@ -716,12 +748,14 @@ Ext.define("IntegrityApp", {
                 },
                 listeners: {
                     ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
+                        me._filterOutExceptChoices(cb.getStore());
                     },
-                    change: function(cb) {
+                    select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
                     }
                 }
+                //,                
+ //               readyEvent: 'ready'
             },
             {
                 name: 'typeFieldValue',
@@ -738,6 +772,7 @@ Ext.define("IntegrityApp", {
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
+                        cb.setValue(me.getSetting('typeFieldValue').split(','));
                         var field_values = me.getSetting('typeFieldValue') || [];
                         if ( Ext.isString(field_values) ) {
                             field_values = field_values.split(',');
@@ -748,9 +783,14 @@ Ext.define("IntegrityApp", {
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){
-                        this.field = chk.value;
+                        var field = chk.getValue();
+                        this.field = chk.model.getField(field);
+                        if(this.field){
+                            this._populateStore();
+                        }
                     }
                 }
+//                readyEvent: 'ready'                
             },
             {
                 xtype:'container',

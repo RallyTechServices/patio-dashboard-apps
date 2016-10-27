@@ -3,11 +3,11 @@
 <head>
     <title>Integrity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 23 2016 19:16:26 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Oct 27 2016 06:03:12 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 23 2016 19:16:26 GMT-0700 (PDT)";
-        var CHECKSUM = 196636242250;
+        var APP_BUILD_DATE = "Thu Oct 27 2016 06:03:12 GMT-0700 (PDT)";
+        var CHECKSUM = 202194076824;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2795,9 +2795,12 @@ Ext.define("IntegrityApp", {
 
     _getTopChartConfig: function() {
         var me = this;
+        var testCaseTypes = me.getSetting('typeFieldValue') ? me.getSetting('typeFieldValue') : 'None';
+
         return {
             chart: { type:'column' },
             title: { text: 'Percentage of Stories with Functional Test Coverage' },
+            subtitle: { text: 'Test Case Types: ' + testCaseTypes},
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -3076,6 +3079,35 @@ Ext.define("IntegrityApp", {
         });
     },
 
+    _filterOutExceptChoices: function(store) {
+        var app = Rally.getApp();
+        
+        store.filter([{
+            filterFn:function(field){ 
+                
+                var forbidden_fields = ['Recycled','Ready'];
+                if ( Ext.Array.contains(forbidden_fields, field.get('name') ) ) {
+                    return false;
+                }
+                
+                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
+                var attribute_type = null;
+                if ( attribute_definition ) {
+                    attribute_type = attribute_definition.AttributeType;
+                }
+                if (  attribute_type == "BOOLEAN" ) {
+                    return false;
+                }
+                if ( attribute_type == "STRING" || attribute_type == "STATE" ) {
+                    if ( field.get('fieldDefinition').attributeDefinition.Constrained ) {
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }]);
+    },    
+
     getSettingsFields: function() {
         var me = this;
         
@@ -3126,12 +3158,14 @@ Ext.define("IntegrityApp", {
                 },
                 listeners: {
                     ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
+                        me._filterOutExceptChoices(cb.getStore());
                     },
-                    change: function(cb) {
+                    select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
                     }
                 }
+                //,                
+ //               readyEvent: 'ready'
             },
             {
                 name: 'typeFieldValue',
@@ -3148,6 +3182,7 @@ Ext.define("IntegrityApp", {
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
+                        cb.setValue(me.getSetting('typeFieldValue').split(','));
                         var field_values = me.getSetting('typeFieldValue') || [];
                         if ( Ext.isString(field_values) ) {
                             field_values = field_values.split(',');
@@ -3158,9 +3193,14 @@ Ext.define("IntegrityApp", {
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){
-                        this.field = chk.value;
+                        var field = chk.getValue();
+                        this.field = chk.model.getField(field);
+                        if(this.field){
+                            this._populateStore();
+                        }
                     }
                 }
+//                readyEvent: 'ready'                
             },
             {
                 xtype:'container',

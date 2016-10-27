@@ -3,11 +3,11 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 23 2016 17:25:25 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Oct 27 2016 06:12:06 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 23 2016 17:25:25 GMT-0700 (PDT)";
-        var CHECKSUM = 197047883837;
+        var APP_BUILD_DATE = "Thu Oct 27 2016 06:12:06 GMT-0700 (PDT)";
+        var CHECKSUM = 196898730406;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2014,7 +2014,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
-            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -2083,11 +2082,13 @@ Ext.define("CA.techservices.app.ChartApp", {
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
+        
         return this.down('#main_grid_' + index);
     },
     
     setGrid: function(config,index) {
-        this.getGridBox(index).setGrid(config);
+        var grid_box = this.getGridBox(index);
+        grid_box.setGrid(config);
     },
 
     getDrillDownColumns: function(title) {
@@ -2337,18 +2338,24 @@ Ext.define("CA.techservices.app.GridApp", {
 Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
-    
-    layout: 'border',
-    
+        
     items: [
-        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
+        {xtype:'container', region: 'center', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {
+        var default_config = {
+            margin: 10,
+            padding: 10,
+            height: 200
+        };
+                
         var box = this.down('#grid_box');
         box.removeAll();
         
-        box.add(config);
+        var new_config = Ext.Object.merge(default_config,config);
+        
+        box.add(new_config);
     }
 });
 Ext.define('CA.techservices.container.GridWithDescription',{
@@ -2581,7 +2588,9 @@ Ext.define("DDApp", {
      _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
         if ( timeboxes.length === 0 ) { return; }
+        var deferred = Ext.create('Deft.Deferred');
         
+
         var type = this.timebox_type;
         
         var start_field = "StartDate";
@@ -2591,7 +2600,6 @@ Ext.define("DDApp", {
             end_field   = "ReleaseDate";
         }
         
-        var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
@@ -2599,7 +2607,9 @@ Ext.define("DDApp", {
             {property: type + '.' + start_field, operator: '>=', value:first_date},
             {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
+
         
+
         var config = {
             model:'HierarchicalRequirement',
             limit: Infinity,
@@ -2610,10 +2620,11 @@ Ext.define("DDApp", {
         
         Deft.Chain.sequence([
             function() { 
-                return TSUtilities.loadWsapiRecords(config);
+                return me._loadStoryRecords(config);
             }
         ],this).then({
             success: function(results) {
+                console.log('final res>>',results);
                 deferred.resolve(Ext.Array.flatten(results));
             },
             failure: function(msg) {
@@ -2622,30 +2633,72 @@ Ext.define("DDApp", {
         });
         return deferred.promise;
     },
-    
-    /* 
-     * returns a hash of hashes -- key is iteration name value is
-     * another hash where the records key holds a hash
-     *    the records hash has a key for each allowed value 
-     *    which then provides an array of items that match the allowed value 
-     *    and timebox
-     * as in
-     * { "iteration 1": { "records": { "all": [o,o,o], "with_defects": [o,o] } } }
-     */
+
+    _loadStoryRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+
+        Ext.create('Rally.data.wsapi.Store', config).load({
+            callback : function(records, operation, successful) {
+                if (successful){       
+                    var promises = [];
+
+                    Ext.Array.each(records,function(story){
+                        promises.push(function(){
+                            return me._getCollection(story); 
+                        });
+
+                    },me);
+
+                    Deft.Chain.sequence(promises).then({
+                            success: function(results){
+                                console.log('_getCollection',results)
+                                deferred.resolve(results);
+                            },
+                            scope:me
+                    });
+
+
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    _getCollection: function(story){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;       
+
+
+        if(story.get('Defects').Count > 0 ){
+            var foundByColumn = me.getSetting('typeField');
+                     
+            story.getCollection('Defects').load({
+                fetch: ['FormattedID', 'Name', 'State',foundByColumn],
+                //filters: filter,
+                //limit: Infinity,
+                callback: function(records, operation, success) {
+                    story.set('__defects',records);
+                    deferred.resolve(story);
+                }
+            });
+        }else{
+            deferred.resolve(story);
+        }
+
+        return deferred.promise;
+    },
 
     _collectArtifactsByTimebox: function(items) {
         this.logger.log('1 _collectArtifactsByTimebox', items);
         var me = this;
+        var foundByColumn = me.getSetting('typeField');
+        var foundByValues = me.getSetting('typeFieldValue').split(',');        
         var hash = {},
             timebox_type = this.timebox_type;
-        var foundByColumn = me.getSetting('foundByColumn');
-        var foundByValues = me.getSetting('typeFieldValue').split(',');
 
-        var foundByFilter = [];
-
-        Ext.Array.each(foundByValues, function(val){
-            foundByFilter.push({property: foundByColumn, value:val});
-        });
         
         if ( items.length === 0 ) { return hash; }
         
@@ -2665,14 +2718,12 @@ Ext.define("DDApp", {
             }
             hash[timebox].records.All.push(item);
 
-            var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
-
-            console.log('defect filter ',filter.toString());
-
-            if(item.get('Defects').Count > 0 ){
-                hash[timebox].records['With_Defects'].push(item);
-            }
-            
+            Ext.Array.each(item.get('__defects'),function(defect){
+                if(Ext.Array.contains(foundByValues,defect.get(foundByColumn))){
+                    hash[timebox].records['With_Defects'].push(item);
+                    return false;
+                }
+            });
             
         });
         
@@ -2736,7 +2787,6 @@ Ext.define("DDApp", {
 						return;
 				}
 
-//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
 
             data.push({ 
@@ -2757,9 +2807,11 @@ Ext.define("DDApp", {
 
     _getTopChartConfig: function() {
         var me = this;
+        var foundByValues = me.getSetting('typeFieldValue') ? me.getSetting('typeFieldValue') : 'None';
         return {
             chart: { type:'column' },
             title: { text: 'Defect Density - Stories vs Stories with Defects' },
+            subtitle: { text: 'Defect Found By: ' + foundByValues},
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -2838,13 +2890,12 @@ Ext.define("DDApp", {
 				var timebox = tb.get('Name');
 				var value = artifacts_by_timebox[timebox];
 				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
-            });
-						return;
+				    data.push({ 
+                        y:0
+                    });
+					return;
 				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
+
             y_value = value.records.All.length > 0 ? Math.round((value.records.With_Defects.length / value.records.All.length) * 100):0;
             data.push({ 
                 y: y_value
@@ -2933,13 +2984,11 @@ Ext.define("DDApp", {
 				var timebox = tb.get('Name');
 				var value = artifacts_by_timebox[timebox];
 				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
-            });
-						return;
+					data.push({ 
+                        y:0
+                    });
+					return;
 				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
             
             var all_points =0;
             var defect_points = 0;
@@ -3041,11 +3090,6 @@ Ext.define("DDApp", {
             {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
             {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
         ];
-
-        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-        //     rows.push({Type:rowname.name,Name:rowname.name});
-        // })
-        // set up fields
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
@@ -3090,85 +3134,45 @@ Ext.define("DDApp", {
     },
 
     _getCategories: function(artifacts_by_timebox) {
-//        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
+			return Ext.Array.map(this.timeboxes, function(timebox) {
 
-			return timebox.get('Name');
+		          return timebox.get('Name');
 
 			});
     },
 
-/*
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+    _filterOutExceptChoices: function(store) {
+        var app = Rally.getApp();
+        
+        store.filter([{
+            filterFn:function(field){ 
+                
+                var forbidden_fields = ['Recycled','Ready'];
+                if ( Ext.Array.contains(forbidden_fields, field.get('name') ) ) {
+                    return false;
+                }
+                
+                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
+                var attribute_type = null;
+                if ( attribute_definition ) {
+                    attribute_type = attribute_definition.AttributeType;
+                }
+                if (  attribute_type == "BOOLEAN" ) {
+                    return false;
+                }
+                if ( attribute_type == "STRING" || attribute_type == "STATE" ) {
+                    if ( field.get('fieldDefinition').attributeDefinition.Constrained ) {
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }]);
     },
-
-
-{
-                name: 'kanbanProcessField',
-                itemId:'kanbanProcessField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Kanban Process',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'UserStory',
-                hiddenName:'Kanban',
-                bubbleEvents: ['kanbanProcessFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        // console.log('CB-Kanban',cb);
-                        me._filterOutWthString(cb.getStore(),'Kanban');
-                    },
-                    change: function(cb) {
-                        this.fireEvent('kanbanProcessFieldChange',cb);
-                    }
-                },                
-                readyEvent: 'ready'
-            },
-            {
-                name: 'kanbanProcessFieldValue',
-                itemId:'kanbanProcessFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Kanban Process Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'UserStory',
-                field: 'ScheduleState',
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('kanbanProcessFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    kanbanProcessFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-                readyEvent: 'ready'                
-            },
-
-*/
-
-
-
 
     getSettingsFields: function() {
         var me = this;
         return [
-        // {
-        //     name: 'typeField',
-        //     xtype: 'rallyfieldcombobox',
-        //     model: 'Defect',
-        //     margin: '0 0 25 25'
-        // },
         {
             xtype:'container',
             html: 'You can limit displayed defects by choosing a field on the defect and one or more values.<br/>' +
@@ -3196,13 +3200,12 @@ Ext.define("DDApp", {
                 },
                 listeners: {
                     ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
+                        //me._filterOutExceptChoices(cb.getStore());
                     },
-                    change: function(cb) {
+                    select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
                     }
-                },                
-//                readyEvent: 'ready'
+                }
             },
             {
                 name: 'typeFieldValue',
@@ -3216,19 +3219,24 @@ Ext.define("DDApp", {
                 autoExpand: true,
                 alwaysExpanded: true,                
                 model: 'Defect',
-                field: 'c_foundBy',
+                field: me.getSetting('typeField'),
+                value: me.getSetting('typeFieldValue').split(','),
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
-                        cb.setValue(me.getSetting('typeFieldValue'));
+                        cb.setValue(me.getSetting('typeFieldValue').split(','));
                     }
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){
-                        this.field = chk.value;
+                        var field = chk.getValue();
+                        this.field = chk.model.getField(field);
+                        if(this.field){
+                            this._populateStore();
+                        }
                     }
-                },
-//                readyEvent: 'ready'                
+                }
+              
             },        
         { 
             name: 'showPatterns',

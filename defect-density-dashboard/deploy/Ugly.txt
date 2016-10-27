@@ -3,10 +3,10 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jul 27 2016 15:30:43 GMT-0400 (EDT) -->
+    <!--  Build Date: Wed Oct 26 2016 14:47:30 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jul 27 2016 15:30:43 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Wed Oct 26 2016 14:47:30 GMT-0700 (PDT)";
         var CHECKSUM = [%= checksum %];
     </script>
     
