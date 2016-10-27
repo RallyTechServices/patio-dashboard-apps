@@ -3,11 +3,11 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Sep 29 2016 15:48:05 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Oct 27 2016 05:42:38 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Sep 29 2016 15:48:05 GMT-0700 (PDT)";
-        var CHECKSUM = 264557159246;
+        var APP_BUILD_DATE = "Thu Oct 27 2016 05:42:38 GMT-0700 (PDT)";
+        var CHECKSUM = 194528247215;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -640,7 +640,7 @@ Ext.define('Rally.technicalservices.util.Utilities', {
             iDateDiff -= iAdjust // take into account both days on weekend
     
             if ( iDateDiff < 1 ) { iDateDiff = 1; }
-            console.log(iDateDiff,begin_date_js,end_date_js);
+            //console.log(iDateDiff,begin_date_js,end_date_js);
             return (iDateDiff); 
         }
     },
@@ -1847,210 +1847,6 @@ Ext.define('Rally.data.wsapi.ProjectTreeStoreBuilder', {
         return false;
     }
 });
-Ext.define('CA.technicalservices.WorkspaceSettingsField',{
-    extend: 'Ext.form.field.Base',
-    alias: 'widget.tsworkspacesettingsfield',
-    fieldSubTpl: '<div id="{id}" class="settings-grid"></div>',
-    width: '100%',
-    cls: 'column-settings',
-
-    height: 150,
-    width: 500,
-    
-    store: undefined,
-    labelAlign: 'top',
-    
-    onDestroy: function() {
-        if (this._grid) {
-            this._grid.destroy();
-            delete this._grid;
-        }
-        this.callParent(arguments);
-    },
-    
-    initComponent: function(){
-        this.callParent();
-
-        var me = this;
-        this.addEvents('ready');
-
-        this.setLoading("Fetching Information...");
-        TSUtilities.getAllWorkspaces().then({
-            scope: this,
-            success: me._buildWorkspaceGrid,
-            failure: function(msg) {
-                Ext.Msg.alert('Problem Loading Workspaces', msg);
-            }
-        });
-    },
-
-    onRender: function() {
-        this.callParent(arguments);
-        this.setLoading('Loading...');
-    },
-        
-    _buildWorkspaceGrid: function(workspaces){
-        this.setLoading(false);
-        
-        var container = Ext.create('Ext.container.Container',{
-            layout: { type:'hbox' },
-            renderTo: this.inputEl,
-            minWidth: 50
-        });
-        
-        var decodedValue = [];
-        
-        if (this.initialConfig && this.initialConfig.value && !_.isEmpty(this.initialConfig.value)){
-            if (!Ext.isObject(this.initialConfig.value)){
-                decodedValue = Ext.JSON.decode(this.initialConfig.value);
-            } else {
-                decodedValue = this.initialConfig.value;
-            }
-        }
-        
-        console.log('decodedValue', decodedValue);
-        
-        var data = [],
-            empty_text = "No selections";
-            
-        if ( Ext.isArray(decodedValue) ) {
-            
-            data = decodedValue;
-            
-        } 
-        
-        var custom_store = Ext.create('Ext.data.Store', {
-            fields: ['workspaceName','workspaceRef','workspaceObjectID','workspaceProjectName','workspaceProjectRef','workspaceProjectObjectID'],
-            data: data
-        });
-        
-        
-        var gridWidth = Math.min(this.width-125, 500);
-        this._grid = container.add(  {
-            xtype:'rallygrid',
-            autoWidth: true,
-            columnCfgs: this._getColumnCfgs(workspaces),
-            showRowActionsColumn:false,
-            showPagingToolbar: false,
-            store: custom_store,
-            width: gridWidth,
-            emptyText: empty_text,
-            editingConfig: {
-                publishMessages: false
-            }
-        });
-        
-        container.add({
-            xtype: 'rallybutton',
-            text: 'Add Row',
-            margin: '0 0 0 10',
-            listeners: {
-                scope: this,
-                click: function(){
-                    var store = this._grid.getStore();
-                    Ext.create('CA.technicalservices.WorkspaceProgramPickerDialog',{
-                        workspaces: workspaces,
-                        listeners: {
-                            scope: this,
-                            select: function(dialog,value) {
-                                if ( Ext.isEmpty(value) ) { return; }
-                              
-                                var workspace = value.workspace;
-                                var project = value.project;
-                                
-                                store.add({
-                                    workspaceName: workspace.get('Name'),
-                                    workspaceRef: workspace.get('_ref'),
-                                    workspaceObjectID: workspace.get('ObjectID'),
-                                    workspaceProjectName: project.get('Name'),
-                                    workspaceProjectObjectID: project.get('ObjectID'),
-                                    workspaceProjectRef: project.get('_ref')
-                                });                                
-                            }
-                        }
-                    });
-
-                    
-                }
-            }
-        });
-
-       this.fireEvent('ready', true);
-    },
-    _removeProject: function(){
-        this.grid.getStore().remove(this.record);
-    },
-    
-    _getColumnCfgs: function(workspaces) {
-        var me = this;
-
-        var columns = [{
-            xtype: 'rallyrowactioncolumn',
-            scope: this,
-            rowActionsFn: function(record){
-                return  [
-                    {text: 'Remove', record: record, handler: me._removeProject, grid: me._grid }
-                ];
-            }
-        },
-        {
-            text: 'Workspace',
-            dataIndex: 'workspaceName',
-            flex: 1,
-            editor: null
-        },
-        {
-            text: 'Program Parent',
-            dataIndex: 'workspaceProjectName',
-            flex: 1,
-            editor: false
-        }];
-        return columns;
-    },
-    /**
-     * When a form asks for the data this field represents,
-     * give it the name of this field and the ref of the selected project (or an empty string).
-     * Used when persisting the value of this field.
-     * @return {Object}
-     */
-    getSubmitData: function() {
-        var data = {};
-        data[this.name] = Ext.JSON.encode(this._buildSettingValue());
-        console.log('getSubmitData', data);
-        return data;
-    },
-    
-    _buildSettingValue: function() {
-        var mappings = [];
-        var store = this._grid.getStore();
-
-        store.each(function(record) {
-            if (record.get('workspaceRef') && record.get('workspaceProjectRef')) {
-                mappings.push({
-                    workspaceName: record.get('workspaceName'),
-                    workspaceRef: record.get('workspaceRef'),
-                    workspaceObjectID: record.get('workspaceObjectID'),
-                    workspaceProjectName: record.get('workspaceProjectName'),
-                    workspaceProjectObjectID: record.get('workspaceProjectObjectID'),
-                    workspaceProjectRef: record.get('workspaceProjectRef')
-                });
-            }
-        }, this);
-        
-        return mappings;
-    },
-
-    getErrors: function() {
-        var errors = [];
-        //Add validation here
-        return errors;
-    },
-    setValue: function(value) {
-        console.log('setValue', value);
-        this.callParent(arguments);
-        this._value = value;
-    }
-});
 Ext.define("CA.apps.charts.Colors", {
     
     singleton: true, 
@@ -2542,8 +2338,10 @@ Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
     
+    layout: 'border',
+    
     items: [
-        {xtype:'container', itemId:'grid_box'},
+        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {
@@ -2603,309 +2401,6 @@ Ext.define('CA.techservices.container.GridWithDescription',{
         box.add(config);
     }
 });
-Ext.define('CA.techservices.container.QuarterItemSelector', {
-    extend : 'Ext.Container',
-    alias : 'widget.quarteritemselector',
-    layout : 'hbox',
-    width : '100%',
-    mixins : [
-        'Rally.Messageable',
-        'Ext.state.Stateful'
-    ],
-    stateful: true,
-    stateEvents: ['change'],
-
-    workspaces: [],
-
-    buttonPushed: false,
-    constructor : function(config){
-        this.callParent(arguments);
-    },
-
-    initComponent : function(){
-        this.callParent(arguments);
-
-        var me = this;
-        this.removeAll();
-        
-        
-        var promises = Ext.Array.map(me.workspaces, function(workspace) {
-            return function() { 
-                return me._getPrograms( workspace ) 
-            };
-        });
-        
-        console.log('promises', promises);
-        
-        this.setLoading('loading program information');
-        
-        Deft.Chain.sequence(promises).then({
-            scope: this,
-            success: function(all_results) {
-                console.log('all_results>>>>',all_results);
-                var results = {};
-                Ext.Array.each(all_results,function(res){Ext.Object.merge(results,res);});
-                me.programs = results;
-                me._addSelector();
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('Problem gathering data', msg);
-            }
-        }).always(function() { me.setLoading(false); });
-
-        // configured to allow others to ask what the current selection is,
-        // in case they missed the initial message
-        this.subscribe(this, 'requestQuarter', this._requestQuarter, this);
-
-    },
-
-    _getPrograms:function(workspace){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-        
-        console.log("_getPrograms", workspace);
-        
-        var workspace_name = workspace.Name || workspace.workspaceName || workspace.get('_refObjectName');
-        var workspace_ref  = workspace.workspaceRef || workspace._ref || workspace.get('_ref');
-        var program_parent_oid = workspace.workspaceProjectObjectID;
-        
-        // programs are the projects that are at the bottom of the tree
-        var parent_filters = Rally.data.wsapi.Filter.or([
-            { property:'ObjectID', value: program_parent_oid },
-            { property:'Parent.ObjectID', value: program_parent_oid },
-            { property:'Parent.Parent.ObjectID', value: program_parent_oid },
-            { property:'Parent.Parent.Parent.ObjectID', value: program_parent_oid },
-            { property:'Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid },
-            { property:'Parent.Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid },
-            { property:'Parent.Parent.Parent.Parent.Parent.Parent.ObjectID', value: program_parent_oid }
-        ]);
-        
-        var leaf_node_filters = Rally.data.wsapi.Filter.and([
-            { property:'Children.ObjectID',value: "" }
-        ]);
-        
-        var config = {
-            model:'Project',
-            filters: leaf_node_filters.and(parent_filters),
-            enablePostGet: true,
-            limit:Infinity,
-            pageSize: 2000,
-            fetch:['ObjectID','Project','Name','Workspace'],
-            context: { 
-                project: null,
-                workspace: workspace_ref
-            }
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            success: function(projects) {
-                console.log("Found projects:", projects);
-                var epms_id_projects = {}
-                Ext.Array.each(projects,function(project){
-                    var project_oid = project.get('ObjectID');
-                    
-                    epms_id_projects[project_oid] = {
-                        program: project.getData(),
-                        projects: [],
-                        workspace: workspace
-                    };
-                    
-                });
-                deferred.resolve(epms_id_projects);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-            
-        });
-//        TSUtilities.getPortfolioItemTypes(workspace).then({
-//            success: function(types) {
-//                if ( types.length < 2 ) {
-//                    deferred.resolve({});
-//                    //Ext.Msg.alert('',"Cannot find a record type for EPMS project");
-//                    return;
-//                }
-//
-//                var epmsModelPath = types[1].get('TypePath');
-//
-//                this._getEPMSProjects(workspace, epmsModelPath).then({
-//                    scope:me,
-//                    success:function(store){
-//                        deferred.resolve(store);
-//                    },
-//                    failure:function(error){
-//                        //me.setLoading(false);
-//                        //Ext.Msg.alert('',msg);
-//                    }
-//                });
-//
-//
-//            },
-//            failure: function(msg){
-//                Ext.Msg.alert('',msg);
-//            },
-//            scope: this
-//        });
-
-
-        return deferred.promise;
-
-    },
-
-    _addSelector: function(){
-        // The data store containing the list of states
-        var me = this;
-        var quarters = Ext.create('Ext.data.Store', {
-            fields: ['abbr', 'name','startDate','endDate'],
-            data : [
-                {"abbr":"Q12015", "name":"2015 - Q1", "startDate":"2014-10-01", "endDate":"2014-12-31"},
-                {"abbr":"Q22015", "name":"2015 - Q2", "startDate":"2015-01-01", "endDate":"2015-03-31"},
-                {"abbr":"Q32015", "name":"2015 - Q3", "startDate":"2015-04-01", "endDate":"2015-06-30"},
-                {"abbr":"Q42015", "name":"2015 - Q4", "startDate":"2015-07-01", "endDate":"2015-09-30"},            
-                {"abbr":"Q12016", "name":"2016 - Q1", "startDate":"2015-10-01", "endDate":"2015-12-31"},
-                {"abbr":"Q22016", "name":"2016 - Q2", "startDate":"2016-01-01", "endDate":"2016-03-31"},
-                {"abbr":"Q32016", "name":"2016 - Q3", "startDate":"2016-04-01", "endDate":"2016-06-30"},
-                {"abbr":"Q42016", "name":"2016 - Q4", "startDate":"2016-07-01", "endDate":"2016-09-30"},
-                {"abbr":"Q12017", "name":"2017 - Q1", "startDate":"2016-10-01", "endDate":"2016-12-31"},
-                {"abbr":"Q22017", "name":"2017 - Q2", "startDate":"2017-01-01", "endDate":"2017-03-31"},
-                {"abbr":"Q32017", "name":"2017 - Q3", "startDate":"2017-04-01", "endDate":"2017-06-30"},
-                {"abbr":"Q42017", "name":"2017 - Q4", "startDate":"2017-07-01", "endDate":"2016-09-30"}                
-            ]
-        });
-
-        var programs = []
-        Ext.Object.each(me.programs,function(key,value){programs.push(value.program)});
-
-        var programs_store = Ext.create('Ext.data.Store', {
-            fields: ['Name','ObjectID'],
-            data : programs
-        });        
-
-        this.add({
-            xtype: 'combobox',
-            fieldLabel: 'Choose Quarter',
-            itemId: 'quarter-combobox',
-            store: quarters,
-            queryMode: 'local',
-            displayField: 'name',
-            valueField: 'abbr',
-            margin: 5,
-            listeners:{
-                change: this._updateGoButton,
-                scope: this,
-            }
-
-        });
-
-        this.add({
-            xtype: 'combobox',
-            fieldLabel: 'Choose Programs',
-            itemId: 'program-combobox',
-            store: programs_store,
-            multiSelect: true,
-            queryMode: 'local',
-            displayField: 'Name',
-            valueField: 'ObjectID',
-            margin: 5
-        });
-
-        this.add({
-                xtype: 'rallybutton',
-                text: 'Go',
-                itemId: 'cb-go-button',
-                cls: 'rly-small primary',
-                disabled: true,
-                margin: 5,
-                listeners: {
-                    scope: this,
-                    click: this._updateQuarter
-                }
-        });
-
-    },
-
-    _updateQuarter: function(){
-        var me = this;
-        this.buttonPushed = true;
-        var cb_quarter = this.down('#quarter-combobox');
-        var cb_programs = this.down('#program-combobox');
-
-        
-        if (cb_quarter && cb_programs){
-            var quarter = cb_quarter.findRecordByValue(cb_quarter.value);
-            this.quarter_and_programs = {'quarter':quarter,'programs':cb_programs.value,'allPrograms':me.programs};
-            this.fireEvent('change', this.quarter_and_programs);
-            this.publish('quarterSelected', this.quarter_and_programs);
-            if (this.stateful && this.stateId){
-                this.saveState();
-            }
-        }
-
-    },
-
-
-    _getEPMSProjects:function(workspace,epmsModelPath){
-        var me = this;
-        var deferred = Ext.create('Deft.Deferred');
-        var workspace_oid = workspace.ObjectID || workspace.get('ObjectID');
-
-        var config = {
-            model: epmsModelPath,
-            fetch:['ObjectID','Project','Name','Workspace'],
-            context: { 
-                project: null,
-                workspace: '/workspace/' + workspace_oid
-            }
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            success: function(records) {
-                var epms_id_projects = {}
-                Ext.Array.each(records,function(rec){
-                    var project_oid = rec.get('Project').ObjectID;
-                    
-                    if ( Ext.isEmpty(epms_id_projects[project_oid]) ) {
-                        epms_id_projects[project_oid] = {
-                            program: rec.get('Project'),
-                            projects: [],
-                            workspace: workspace
-                        }
-                    }
-                    
-                    epms_id_projects[project_oid].projects.push(rec.getData());
-                    
-                });
-                deferred.resolve(epms_id_projects);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-            
-        });
-        
-        return deferred.promise;
-    },
-
-    _updateGoButton: function(cb) {
-        if ( !Ext.isEmpty(cb.getValue()) ) {
-            this.down('#cb-go-button').setDisabled(false);
-        } else {
-            this.down('#cb-go-button').setDisabled(true);
-        }
-    },
-
-    _requestQuarter : function() {
-        // only publish if the go button has been pushed
-        if ( this.buttonPushed ) {
-            this.publish('quarterSelected', this.quarter_and_programs || null);
-            return;
-        }
-        
-        console.log("Requested Quarter, but the user hasn't pushed the Go button");
-        
-    },
-
-});
 Ext.define("DDApp", {
     extend: 'CA.techservices.app.ChartApp',
 
@@ -2935,8 +2430,8 @@ Ext.define("DDApp", {
         },
         defaultSettings: {
             showPatterns: false,
-            foundByColumn: 'c_foundBy',
-            typeFieldValue: 'UAT'
+            typeField: 'c_FoundBy',
+            typeFieldValue: ''
         }
     },
                         
@@ -3086,7 +2581,9 @@ Ext.define("DDApp", {
      _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
         if ( timeboxes.length === 0 ) { return; }
+        var deferred = Ext.create('Deft.Deferred');
         
+
         var type = this.timebox_type;
         
         var start_field = "StartDate";
@@ -3096,7 +2593,6 @@ Ext.define("DDApp", {
             end_field   = "ReleaseDate";
         }
         
-        var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(end_field);
 
@@ -3104,7 +2600,9 @@ Ext.define("DDApp", {
             {property: type + '.' + start_field, operator: '>=', value:first_date},
             {property: type + '.' + end_field, operator: '<=', value:last_date}
         ];
+
         
+
         var config = {
             model:'HierarchicalRequirement',
             limit: Infinity,
@@ -3115,10 +2613,11 @@ Ext.define("DDApp", {
         
         Deft.Chain.sequence([
             function() { 
-                return TSUtilities.loadWsapiRecords(config);
+                return me._loadStoryRecords(config);
             }
         ],this).then({
             success: function(results) {
+                console.log('final res>>',results);
                 deferred.resolve(Ext.Array.flatten(results));
             },
             failure: function(msg) {
@@ -3127,30 +2626,72 @@ Ext.define("DDApp", {
         });
         return deferred.promise;
     },
-    
-    /* 
-     * returns a hash of hashes -- key is iteration name value is
-     * another hash where the records key holds a hash
-     *    the records hash has a key for each allowed value 
-     *    which then provides an array of items that match the allowed value 
-     *    and timebox
-     * as in
-     * { "iteration 1": { "records": { "all": [o,o,o], "with_defects": [o,o] } } }
-     */
+
+    _loadStoryRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+
+        Ext.create('Rally.data.wsapi.Store', config).load({
+            callback : function(records, operation, successful) {
+                if (successful){       
+                    var promises = [];
+
+                    Ext.Array.each(records,function(story){
+                        promises.push(function(){
+                            return me._getCollection(story); 
+                        });
+
+                    },me);
+
+                    Deft.Chain.sequence(promises).then({
+                            success: function(results){
+                                console.log('_getCollection',results)
+                                deferred.resolve(results);
+                            },
+                            scope:me
+                    });
+
+
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    _getCollection: function(story){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;       
+
+
+        if(story.get('Defects').Count > 0 ){
+            var foundByColumn = me.getSetting('typeField');
+                     
+            story.getCollection('Defects').load({
+                fetch: ['FormattedID', 'Name', 'State',foundByColumn],
+                //filters: filter,
+                //limit: Infinity,
+                callback: function(records, operation, success) {
+                    story.set('__defects',records);
+                    deferred.resolve(story);
+                }
+            });
+        }else{
+            deferred.resolve(story);
+        }
+
+        return deferred.promise;
+    },
 
     _collectArtifactsByTimebox: function(items) {
         this.logger.log('1 _collectArtifactsByTimebox', items);
         var me = this;
+        var foundByColumn = me.getSetting('typeField');
+        var foundByValues = me.getSetting('typeFieldValue').split(',');        
         var hash = {},
             timebox_type = this.timebox_type;
-        var foundByColumn = me.getSetting('foundByColumn');
-        var foundByValues = me.getSetting('typeFieldValue').split(',');
 
-        var foundByFilter = [];
-
-        Ext.Array.each(foundByValues, function(val){
-            foundByFilter.push({property: foundByColumn, value:val});
-        });
         
         if ( items.length === 0 ) { return hash; }
         
@@ -3170,14 +2711,12 @@ Ext.define("DDApp", {
             }
             hash[timebox].records.All.push(item);
 
-            var filter = Rally.data.wsapi.Filter.or(foundByFilter).and({ property: 'Requirement.ObjectID', value: item.get('ObjectID')});
-
-            console.log('defect filter ',filter.toString());
-
-            if(item.get('Defects').Count > 0 ){
-                hash[timebox].records['With_Defects'].push(item);
-            }
-            
+            Ext.Array.each(item.get('__defects'),function(defect){
+                if(Ext.Array.contains(foundByValues,defect.get(foundByColumn))){
+                    hash[timebox].records['With_Defects'].push(item);
+                    return false;
+                }
+            });
             
         });
         
@@ -3241,7 +2780,6 @@ Ext.define("DDApp", {
 						return;
 				}
 
-//        Ext.Object.each(artifacts_by_timebox, function(timebox, value){
             var records = value.records[allowed_type] || [];
 
             data.push({ 
@@ -3262,9 +2800,11 @@ Ext.define("DDApp", {
 
     _getTopChartConfig: function() {
         var me = this;
+        var foundByValues = me.getSetting('typeFieldValue') ? me.getSetting('typeFieldValue') : 'None';
         return {
             chart: { type:'column' },
             title: { text: 'Defect Density - Stories vs Stories with Defects' },
+            subtitle: { text: 'Defect Found By: ' + foundByValues},
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -3343,13 +2883,12 @@ Ext.define("DDApp", {
 				var timebox = tb.get('Name');
 				var value = artifacts_by_timebox[timebox];
 				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
-            });
-						return;
+				    data.push({ 
+                        y:0
+                    });
+					return;
 				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
+
             y_value = value.records.All.length > 0 ? Math.round((value.records.With_Defects.length / value.records.All.length) * 100):0;
             data.push({ 
                 y: y_value
@@ -3438,13 +2977,11 @@ Ext.define("DDApp", {
 				var timebox = tb.get('Name');
 				var value = artifacts_by_timebox[timebox];
 				if (Ext.isEmpty(value) ) {
-					  data.push({ 
-                y:0
-//                _records: []
-            });
-						return;
+					data.push({ 
+                        y:0
+                    });
+					return;
 				}
-//        Ext.Object.each(artifacts_by_timebox, function(key, value){
             
             var all_points =0;
             var defect_points = 0;
@@ -3546,11 +3083,6 @@ Ext.define("DDApp", {
             {Type:'TotalDefectCount',  Name: 'Total Defect Count' },
             {Type:'StoryCountInDefects', Name: 'Story Count Within Defects' }
         ];
-
-        // Ext.Array.each(this._getSeries(artifacts_by_timebox),function(rowname){
-        //     rows.push({Type:rowname.name,Name:rowname.name});
-        // })
-        // set up fields
         
         Ext.Array.each(rows, function(row) {
             Ext.Array.each(row_fields, function(field){
@@ -3595,85 +3127,45 @@ Ext.define("DDApp", {
     },
 
     _getCategories: function(artifacts_by_timebox) {
-//        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
+			return Ext.Array.map(this.timeboxes, function(timebox) {
 
-			return timebox.get('Name');
+		          return timebox.get('Name');
 
 			});
     },
 
-/*
-    _getCategories: function(artifacts_by_timebox) {
-        return Ext.Object.getKeys(artifacts_by_timebox);
+    _filterOutExceptChoices: function(store) {
+        var app = Rally.getApp();
+        
+        store.filter([{
+            filterFn:function(field){ 
+                
+                var forbidden_fields = ['Recycled','Ready'];
+                if ( Ext.Array.contains(forbidden_fields, field.get('name') ) ) {
+                    return false;
+                }
+                
+                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
+                var attribute_type = null;
+                if ( attribute_definition ) {
+                    attribute_type = attribute_definition.AttributeType;
+                }
+                if (  attribute_type == "BOOLEAN" ) {
+                    return false;
+                }
+                if ( attribute_type == "STRING" || attribute_type == "STATE" ) {
+                    if ( field.get('fieldDefinition').attributeDefinition.Constrained ) {
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }]);
     },
-
-
-{
-                name: 'kanbanProcessField',
-                itemId:'kanbanProcessField',
-                xtype: 'rallyfieldcombobox',
-                fieldLabel: 'Kanban Process',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: false,
-                alwaysExpanded: false,                
-                model: 'UserStory',
-                hiddenName:'Kanban',
-                bubbleEvents: ['kanbanProcessFieldChange'],
-                listeners: {
-                    ready: function(cb) {
-                        // console.log('CB-Kanban',cb);
-                        me._filterOutWthString(cb.getStore(),'Kanban');
-                    },
-                    change: function(cb) {
-                        this.fireEvent('kanbanProcessFieldChange',cb);
-                    }
-                },                
-                readyEvent: 'ready'
-            },
-            {
-                name: 'kanbanProcessFieldValue',
-                itemId:'kanbanProcessFieldValue',
-                xtype: 'rallyfieldvaluecombobox',
-                fieldLabel: 'Kanban Process Value',
-                labelWidth: 125,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: '10 10 10 10',
-                autoExpand: true,
-                alwaysExpanded: true,                
-                model: 'UserStory',
-                field: 'ScheduleState',
-                listeners: {
-                    ready: function(cb) {
-                        cb.setValue(me.getSetting('kanbanProcessFieldValue'));
-                    }
-                }, 
-                handlesEvents: {
-                    kanbanProcessFieldChange: function(chk){
-                        this.field = chk.value;
-                    }
-                },
-                readyEvent: 'ready'                
-            },
-
-*/
-
-
-
 
     getSettingsFields: function() {
         var me = this;
         return [
-        // {
-        //     name: 'typeField',
-        //     xtype: 'rallyfieldcombobox',
-        //     model: 'Defect',
-        //     margin: '0 0 25 25'
-        // },
         {
                 name: 'typeField',
                 itemId:'typeField',
@@ -3686,16 +3178,16 @@ Ext.define("DDApp", {
                 autoExpand: false,
                 alwaysExpanded: false,                
                 model: 'Defect',
-                bubbleEvents: ['typeFieldChange'],
+                bubbleEvents: ['typeFieldChange']
+                ,
                 listeners: {
                     ready: function(cb) {
-                        this.fireEvent('typeFieldChange',cb);
+                        me._filterOutExceptChoices(cb.getStore());
                     },
-                    change: function(cb) {
+                    select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
                     }
-                },                
-//                readyEvent: 'ready'
+                }
             },
             {
                 name: 'typeFieldValue',
@@ -3709,19 +3201,24 @@ Ext.define("DDApp", {
                 autoExpand: true,
                 alwaysExpanded: true,                
                 model: 'Defect',
-                field: 'c_foundBy',
+                field: me.getSetting('typeField'),
+                value: me.getSetting('typeFieldValue').split(','),
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
-                        cb.setValue(me.getSetting('typeFieldValue'));
+                        cb.setValue(me.getSetting('typeFieldValue').split(','));
                     }
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){
-                        this.field = chk.value;
+                        var field = chk.getValue();
+                        this.field = chk.model.getField(field);
+                        if(this.field){
+                            this._populateStore();
+                        }
                     }
-                },
-//                readyEvent: 'ready'                
+                }
+              
             },        
         { 
             name: 'showPatterns',
