@@ -194,10 +194,11 @@ Ext.define("OIBMApp", {
                             return me._getReadyItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
                         },
                         function(epms_programs_by_project_name) { 
-                            return me._getAcceptedItemsInPrograms(second_day,workspace,epms_programs_by_project_name); 
+                            return me._getItemsInProgram(second_day,workspace,epms_programs_by_project_name); 
                         },
                         function(epms_programs_by_project_name) {
-                            return me._getVelocitiesForProjectsInItems(epms_programs_by_project_name,workspace);
+                            console.log(epms_programs_by_project_name)
+                            return me._getVelocitiesForProjectsInItems(second_day,epms_programs_by_project_name,workspace);
                         }
                     ],me).then({
                         scope: me,
@@ -234,7 +235,7 @@ Ext.define("OIBMApp", {
                 project: null,
                 workspace: workspace._ref
             },
-            "fetch": [ "ObjectID","Project"],
+            "fetch": [ "ObjectID","Project","Name"],
             "find": find,
             "hydrate": ["Project"]
         };
@@ -266,7 +267,6 @@ Ext.define("OIBMApp", {
         return deferred;
     },
 
-    // get items accepted during the quarter
     _getReadyItemsInPrograms:function(second_day,workspace,epms_items_by_project_name){
         var me = this,
             deferred = Ext.create('Deft.Deferred');
@@ -342,7 +342,7 @@ Ext.define("OIBMApp", {
     },  
     
     // get stories so that we can figure out which projects are delivery projects
-    _getAcceptedItemsInPrograms: function(second_day,workspace,epms_items_by_project_name){
+    _getItemsInProgram: function(second_day,workspace,epms_items_by_project_name){
         var me = this,
             deferred = Ext.create('Deft.Deferred');
         
@@ -357,25 +357,24 @@ Ext.define("OIBMApp", {
             });
         }
 
+        // FORCE to __At current to see which teams currently "belong" to an EPMS project
         var find = {
             "_ItemHierarchy": {"$in": epms_oids},
-            "ScheduleState": 'Accepted',
             "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
-            "__At": Rally.util.DateTime.toIsoString(second_day)
+            "__At": 'current'
+//            "__At": Rally.util.DateTime.toIsoString(second_day)
         };
         
         var config = {
             find: find,
-            fetch: ['ObjectID','Name','FormattedID','_ItemHierarchy'],
-            context: { 
-                project: null,
-                workspace: workspace._ref
-            }
+            fetch: ['ObjectID','Name','FormattedID','_ItemHierarchy']
         };
 
         this._loadLookbackRecords(config).then({
             success: function(items) {
+                
                 Ext.Object.each(epms_items_by_project_name, function(name,epms_item){
+                    
                     var epms_projects = epms_item.epms_projects || [];
                     Ext.Array.each(epms_projects, function(epms_project){
                         var project_oid = epms_project.ObjectID;
@@ -414,11 +413,11 @@ Ext.define("OIBMApp", {
     },
     
     
-    _getVelocitiesForProjectsInItems: function(epms_programs_by_project_name,workspace) {
+    _getVelocitiesForProjectsInItems: function(second_day,epms_programs_by_project_name,workspace) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
             
-        // which teams are participating in the program?  get the ones with ready items
+        // which teams are participating in the program?
         var delivery_projects = {};
         
         Ext.Object.each(epms_programs_by_project_name, function(name,program_info) {
@@ -431,7 +430,7 @@ Ext.define("OIBMApp", {
         // get the velocity for each project in the delivery_projects list
         var promises = [];
         Ext.Array.each(Ext.Object.getKeys(delivery_projects), function(project_oid){
-            promises.push( function() { return me._getVelocityForProject(project_oid,workspace); } );
+            promises.push( function() { return me._getVelocityForProject(second_day,project_oid,workspace); } );
         });
 
         epms_programs_by_project_name = this._setDeliveryProjectsOnPrograms(epms_programs_by_project_name);
@@ -476,11 +475,11 @@ Ext.define("OIBMApp", {
         return epms_programs_by_project_name;
     },
         
-    _getVelocityForProject: function(project_oid,workspace) {
+    _getVelocityForProject: function(second_day,project_oid,workspace) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
-        // get last three iterations
-        this._getLastThreeIterations(project_oid,workspace).then({
+        // get preceding three iterations
+        this._getLastThreeIterations(second_day,project_oid,workspace).then({
             success: function(iterations) {
                 var iteration_oids = Ext.Array.map(iterations, function(iteration){ return iteration.get('ObjectID')});
                 
@@ -513,12 +512,14 @@ Ext.define("OIBMApp", {
         return deferred.promise;
     },
     
-    _getLastThreeIterations: function(project_oid,workspace) {
+    _getLastThreeIterations: function(second_day,project_oid,workspace) {
+        var search_date = second_day || new Date();
+        
         var config = {
             model: 'Iteration',
             limit: 3,
             pageSize: 3,
-            filters: [{property:'EndDate', operator: '<', value: Rally.util.DateTime.toIsoString(new Date())}],
+            filters: [{property:'EndDate', operator: '<', value: Rally.util.DateTime.toIsoString(search_date)}],
             sorters: [{property:'EndDate',direction:'Desc'}],
             context: { 
                 project: null,
@@ -533,7 +534,7 @@ Ext.define("OIBMApp", {
         var me = this;
                
         var find = {
-            "_TypeHierarchy": {"$in": ["HierarchicalRequirement"]},
+            "_TypeHierarchy": {"$in": ["HierarchicalRequirement","Defect"]},
             "ScheduleState": "Accepted",
             "Iteration": { "$in": iteration_oids },
             "__At": 'current'
