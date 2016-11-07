@@ -3,11 +3,11 @@
 <head>
     <title>Predictability</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Sun Oct 23 2016 19:42:57 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon Nov 07 2016 10:18:46 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Oct 23 2016 19:42:57 GMT-0700 (PDT)";
-        var CHECKSUM = 193144971538;
+        var APP_BUILD_DATE = "Mon Nov 07 2016 10:18:46 GMT-0800 (PST)";
+        var CHECKSUM = 193149231207;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1946,7 +1946,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             headerPosition: 'left',
             width: 375,
             height: 375,
-            margin: 5,
+            margin: 15,
             overflowY: 'auto',
             html: description,
             listeners:{

@@ -28,7 +28,7 @@ Ext.define("DDApp", {
         defaultSettings: {
             showPatterns: false,
             foundByColumn: 'c_FoundBy',
-            typeFieldValue: 'UAT'
+            typeFieldValue: ''
         }
     },
                         
@@ -790,7 +790,7 @@ Ext.define("DDApp", {
                 },
                 listeners: {
                     ready: function(cb) {
-                        //me._filterOutExceptChoices(cb.getStore());
+                        me._filterOutExceptChoices(cb.getStore());
                     },
                     select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
@@ -810,12 +810,15 @@ Ext.define("DDApp", {
                 alwaysExpanded: true,                
                 model: 'Defect',
                 field: me.getSetting('typeField'),
-                value: me.getSetting('typeFieldValue').split(','),
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
                         cb.setValue(me.getSetting('typeFieldValue').split(','));
-                    }
+                        var field_values = me.getSetting('typeFieldValue') || [];
+                        if ( Ext.isString(field_values) ) {
+                            field_values = field_values.split(',');
+                        }
+                        cb.setValue(field_values);                    }
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){
