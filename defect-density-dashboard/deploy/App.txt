@@ -3,11 +3,11 @@
 <head>
     <title>Defect Density</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Oct 27 2016 06:12:06 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon Nov 07 2016 10:17:33 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Oct 27 2016 06:12:06 GMT-0700 (PDT)";
-        var CHECKSUM = 196898730406;
+        var APP_BUILD_DATE = "Mon Nov 07 2016 10:17:33 GMT-0800 (PST)";
+        var CHECKSUM = 197504401959;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1946,7 +1946,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             headerPosition: 'left',
             width: 375,
             height: 375,
-            margin: 5,
+            margin: 15,
             overflowY: 'auto',
             html: description,
             listeners:{
@@ -2438,7 +2438,7 @@ Ext.define("DDApp", {
         defaultSettings: {
             showPatterns: false,
             foundByColumn: 'c_FoundBy',
-            typeFieldValue: 'UAT'
+            typeFieldValue: ''
         }
     },
                         
@@ -3200,7 +3200,7 @@ Ext.define("DDApp", {
                 },
                 listeners: {
                     ready: function(cb) {
-                        //me._filterOutExceptChoices(cb.getStore());
+                        me._filterOutExceptChoices(cb.getStore());
                     },
                     select: function(cb) {
                         this.fireEvent('typeFieldChange',cb);
@@ -3220,12 +3220,15 @@ Ext.define("DDApp", {
                 alwaysExpanded: true,                
                 model: 'Defect',
                 field: me.getSetting('typeField'),
-                value: me.getSetting('typeFieldValue').split(','),
                 multiSelect: true,
                 listeners: {
                     ready: function(cb) {
                         cb.setValue(me.getSetting('typeFieldValue').split(','));
-                    }
+                        var field_values = me.getSetting('typeFieldValue') || [];
+                        if ( Ext.isString(field_values) ) {
+                            field_values = field_values.split(',');
+                        }
+                        cb.setValue(field_values);                    }
                 }, 
                 handlesEvents: {
                     typeFieldChange: function(chk){

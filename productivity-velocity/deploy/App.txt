@@ -3,13 +3,13 @@
 <head>
     <title>Productivity Velocity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Oct 06 2016 17:02:48 GMT-0400 (EDT) -->
+    <!--  Build Date: Mon Nov 07 2016 10:19:06 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Oct 06 2016 17:02:48 GMT-0400 (EDT)";
+        var APP_BUILD_DATE = "Mon Nov 07 2016 10:19:06 GMT-0800 (PST)";
         var BUILDER = "arajaraman";
-        var CHECKSUM = 150383660013;
+        var CHECKSUM = 150760939514;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1948,7 +1948,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             headerPosition: 'left',
             width: 375,
             height: 375,
-            margin: 5,
+            margin: 15,
             overflowY: 'auto',
             html: description,
             listeners:{
@@ -2016,7 +2016,6 @@ Ext.define("CA.techservices.app.ChartApp", {
         }
                 
         Ext.Array.each(descriptions, function(description,index){
-            console.log("add box, index:", index);
             this._addChartBox(index);
             this.applyDescription(description,index);
             this._addGridBox(index);
@@ -2085,11 +2084,13 @@ Ext.define("CA.techservices.app.ChartApp", {
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
+        
         return this.down('#main_grid_' + index);
     },
     
     setGrid: function(config,index) {
-        this.getGridBox(index).setGrid(config);
+        var grid_box = this.getGridBox(index);
+        grid_box.setGrid(config);
     },
 
     getDrillDownColumns: function(title) {
@@ -2339,18 +2340,24 @@ Ext.define("CA.techservices.app.GridApp", {
 Ext.define('CA.techservices.container.GridBox',{
     extend: 'Ext.container.Container',
     alias:  'widget.tsgridbox',
-    
-    layout: 'border',
-    
+        
     items: [
-        {xtype:'container', region: 'center', layout:'fit', itemId:'grid_box'},
+        {xtype:'container', region: 'center', itemId:'grid_box'},
     ],
     
     setGrid: function(config) {
+        var default_config = {
+            margin: 10,
+            padding: 10,
+            height: 200
+        };
+                
         var box = this.down('#grid_box');
         box.removeAll();
         
-        box.add(config);
+        var new_config = Ext.Object.merge(default_config,config);
+        
+        box.add(new_config);
     }
 });
 Ext.define('CA.techservices.container.GridWithDescription',{

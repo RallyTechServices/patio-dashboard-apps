@@ -3,11 +3,11 @@
 <head>
     <title>Integrity</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Oct 27 2016 06:03:12 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon Nov 07 2016 10:18:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Oct 27 2016 06:03:12 GMT-0700 (PDT)";
-        var CHECKSUM = 202194076824;
+        var APP_BUILD_DATE = "Mon Nov 07 2016 10:18:14 GMT-0800 (PST)";
+        var CHECKSUM = 202198480650;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -1946,7 +1946,7 @@ Ext.define('CA.techservices.container.ChartWithDescription',{
             headerPosition: 'left',
             width: 375,
             height: 375,
-            margin: 5,
+            margin: 15,
             overflowY: 'auto',
             html: description,
             listeners:{
