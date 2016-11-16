@@ -308,7 +308,7 @@ Ext.define("TSDefectTrendDashboard", {
         
         Ext.Object.each(bucket_ranges, function(key, value){
             //buckets[key] = [];
-            buckets[key] = {};
+            buckets[key] = {"all":[]};
             Ext.Array.each(this.all_priorities, function(priority){
                 if (priority == "") {
                     priority = "None";
@@ -328,7 +328,7 @@ Ext.define("TSDefectTrendDashboard", {
                     bucket_choice = key;
                 }
             });
-            
+            buckets[bucket_choice]["all"].push(defect);
             buckets[bucket_choice][priority].push(defect);
             
         });
@@ -693,7 +693,7 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     showClosureDrillDown: function(point) {
-        console.log('point', point);
+        console.log('showClosureDrillDown', point);
         var store = Ext.create('Rally.data.custom.Store',{
             data: point.__all_records || []
         });
@@ -708,6 +708,7 @@ Ext.define("TSDefectTrendDashboard", {
             }}
         ];
 //            
+        
         Ext.create('Rally.ui.dialog.Dialog', {
             id        : 'detailPopup',
             title     : point.category,
