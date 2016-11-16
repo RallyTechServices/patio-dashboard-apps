@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:17:38 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Nov 16 2016 10:16:27 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:17:38 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Nov 16 2016 10:16:27 GMT-0800 (PST)";
         var BUILDER = "arajaraman";
-        var CHECKSUM = 427706893812;
+        var CHECKSUM = 428299079114;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -4360,7 +4360,7 @@ Ext.define("TSDefectTrendDashboard", {
         
         Ext.Object.each(bucket_ranges, function(key, value){
             //buckets[key] = [];
-            buckets[key] = {};
+            buckets[key] = {"all":[]};
             Ext.Array.each(this.all_priorities, function(priority){
                 if (priority == "") {
                     priority = "None";
@@ -4380,7 +4380,7 @@ Ext.define("TSDefectTrendDashboard", {
                     bucket_choice = key;
                 }
             });
-            
+            buckets[bucket_choice]["all"].push(defect);
             buckets[bucket_choice][priority].push(defect);
             
         });
@@ -4745,7 +4745,7 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     showClosureDrillDown: function(point) {
-        console.log('point', point);
+        console.log('showClosureDrillDown', point);
         var store = Ext.create('Rally.data.custom.Store',{
             data: point.__all_records || []
         });
@@ -4760,6 +4760,7 @@ Ext.define("TSDefectTrendDashboard", {
             }}
         ];
 //            
+        
         Ext.create('Rally.ui.dialog.Dialog', {
             id        : 'detailPopup',
             title     : point.category,
