@@ -3,7 +3,7 @@ Ext.define("TSSplitStoryPerSprint", {
     
     description: '<bold><strong>Split Stories By Sprint</strong></bold>' +
                 '<p/><p>' + 
-                'The stacked bar chart displays the number of points (or count) of stories <strong>Accepted</strong> ' +
+                'The stacked bar chart displays the number of points (or count) of stories ' +
                 'in a sprint, grouped by Story Type in the CURRENT PROJECT FOLDER. It does not show stories from ' +
                 'child or parent folders. Also please note that stories in a schedule state of [Completed] or less do NOT ' +
                 'display as part of any of the categories.' + 
@@ -12,9 +12,9 @@ Ext.define("TSSplitStoryPerSprint", {
                 'without a [Plan Estimate] value or a zero (0) value will not show up on the stacked bar chart. They&apos;ll stil show ' +
                 'up in the <strong>[C]</strong> (count) mode.' +
                 '<p/><p>' + 
-                'The top table shows the points (or count) of stories <strong>Accepted</strong> in a sprint, grouped by Story Type.' + 
+                'The top table shows the points (or count) of stories in a sprint, grouped by Story Type.' + 
                 '<p/><p>' + 
-                'The bottom table shows the percentage of points (or count) of <strong>Accepted</strong> stories grouped by Story Type.' +
+                'The bottom table shows the percentage of points (or count) of stories grouped by Story Type.' +
                 '<p/><p>' + 
                 'There are four types of stories:' + 
                 '<ul>' + 
@@ -292,14 +292,16 @@ Ext.define("TSSplitStoryPerSprint", {
         if(type=='Iteration'){
             filters = [
                 {property:'Iteration.StartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_timebox.get(start_field))},
-                {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))},
-                {property:'AcceptedDate',       operator:'!=', value: null }
+                {property:'Iteration.EndDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))}
+                // ,
+                // {property:'AcceptedDate',       operator:'!=', value: null }
             ];
         }else{
             filters = [
                 {property:'Release.ReleaseStartDate',operator:'>=', value: Rally.util.DateTime.toIsoString(first_timebox.get(start_field))},
-                {property:'Release.ReleaseDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))},
-                {property:'AcceptedDate',       operator:'!=', value: null }
+                {property:'Release.ReleaseDate',  operator:'<=', value: Rally.util.DateTime.toIsoString(last_timebox.get(end_field))}
+                // ,
+                // {property:'AcceptedDate',       operator:'!=', value: null }
             ];            
         }
         
