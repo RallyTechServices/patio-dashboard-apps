@@ -3,12 +3,12 @@
 <head>
     <title>Validation App</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:19:51 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Dec 11 2016 14:13:59 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:19:51 GMT-0800 (PST)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 842566129624;
+        var APP_BUILD_DATE = "Sun Dec 11 2016 14:13:59 GMT-0800 (PST)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 843309209114;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -4415,7 +4415,7 @@ Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent'];
+        return ['Name','Project','Parent','c_EPMSid','c_EPMSID'];
     },
 
     getLabel: function(){
@@ -4434,7 +4434,7 @@ Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     applyRuleToRecord: function(record) {
         console.log("ThemeNoEpmsId.applyRuleToRecord:",record);        
         
-        if (record.get('c_EPMSid') == null) {
+        if (Ext.isEmpty(record.get('c_EPMSid')) && Ext.isEmpty(record.get('c_EPMSID'))) {
             return this.getDescription();               
         } else {
             return null; // no rule violation
