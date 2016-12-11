@@ -32,7 +32,7 @@ Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     },
     
     getFetchFields: function() {
-        return ['Name','Project','Parent'];
+        return ['Name','Project','Parent','c_EPMSid','c_EPMSID'];
     },
 
     getLabel: function(){
@@ -51,7 +51,7 @@ Ext.define('CA.techservices.validation.ThemeWithoutEpmsIdRule',{
     applyRuleToRecord: function(record) {
         console.log("ThemeNoEpmsId.applyRuleToRecord:",record);        
         
-        if (record.get('c_EPMSid') == null) {
+        if (Ext.isEmpty(record.get('c_EPMSid')) && Ext.isEmpty(record.get('c_EPMSID'))) {
             return this.getDescription();               
         } else {
             return null; // no rule violation
