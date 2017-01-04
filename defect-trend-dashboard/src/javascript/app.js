@@ -1,6 +1,7 @@
 Ext.define("TSDefectTrendDashboard", {
     extend: 'CA.techservices.app.ChartApp',
 
+    
     descriptions: [
         "<strong>Defect Accumulation</strong><br/>" +
         "<br/>" +
@@ -597,7 +598,7 @@ Ext.define("TSDefectTrendDashboard", {
             xtype: 'rallycheckboxfield',
             boxLabelAlign: 'after',
             fieldLabel: '',
-            margin: '0 0 25 ' + left_margin,
+            margin: '0 0 225 ' + left_margin,
             boxLabel: 'Show Patterns<br/><span style="color:#999999;"><i>Tick to use patterns in the chart instead of color.</i></span>'
         }];
     },
