@@ -113,8 +113,11 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             seriesConfig = this._buildSeriesConfig(calculatorConfig);
 
         var calculator = this.prepareCalculator(calculatorConfig);
+
         calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
 
+        console.log(this._getEndDate(snapshots));
+        
         var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
         
         var updated_chart_data = this._addEvents(chart_data);

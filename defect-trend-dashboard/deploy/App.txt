@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 04 2017 16:15:11 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 04 2017 16:49:32 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 04 2017 16:15:11 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Jan 04 2017 16:49:32 GMT-0800 (PST)";
         var BUILDER = "jmartin";
-        var CHECKSUM = 433524563631;
+        var CHECKSUM = 434050028245;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2529,8 +2529,11 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             seriesConfig = this._buildSeriesConfig(calculatorConfig);
 
         var calculator = this.prepareCalculator(calculatorConfig);
+
         calculator.addSnapshots(snapshots, this._getStartDate(snapshots), this._getEndDate(snapshots));
 
+        console.log(this._getEndDate(snapshots));
+        
         var chart_data = this._transformLumenizeDataToHighchartsSeries(calculator, seriesConfig);
         
         var updated_chart_data = this._addEvents(chart_data);
@@ -4255,6 +4258,7 @@ Ext.define("TSDefectTrendDashboard", {
                 closedStateValues: closedStates,
                 allowedPriorities: this.all_priorities,
                 granularity: this.granularity,
+                endDate: new Date(),
                 timeboxCount: this.timebox_limit
             },
             

@@ -202,6 +202,7 @@ Ext.define("TSDefectTrendDashboard", {
                 closedStateValues: closedStates,
                 allowedPriorities: this.all_priorities,
                 granularity: this.granularity,
+                endDate: new Date(),
                 timeboxCount: this.timebox_limit
             },
             
