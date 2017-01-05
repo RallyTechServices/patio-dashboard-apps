@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Effort Focus</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:17:56 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 04 2017 18:04:16 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:17:56 GMT-0800 (PST)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 175091682041;
+        var APP_BUILD_DATE = "Wed Jan 04 2017 18:04:16 GMT-0800 (PST)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 176000589629;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2081,6 +2081,10 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+    setChartLoading: function(index,msg) {
+        this.getChartBox(index) && this.getChartBox(index).setLoading(msg);
+    },
+    
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
@@ -2585,23 +2589,25 @@ Ext.define("TSDeliveryEffortFocus", {
 
     _makeGrid: function(artifacts_by_timebox) {
         var me = this;
+        this.logger.log("_makeGrid");
         
         var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field + '<br> Actual Hours / %', 
-                            align: 'center',
-                            flex:1,
-                            renderer: function(value,meta,record) {
-                      						if (value.actual_hours_total === undefined || value.actual_hours_pct === undefined) {
-                      								return "- / -";
-                      							} else {
-                                    return value.actual_hours_total + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
-                            			}
-                                //if(value.actual_hours_total > 0){
-                                //}
-                            }
-                        });
+            columns.push({  
+                dataIndex: me._getSafeIterationName(field) + "_number", 
+                text: field + '<br> Actual Hours / %', 
+                align: 'center',
+                flex:1,
+                renderer: function(value,meta,record) {
+                    if (value.actual_hours_total === undefined || value.actual_hours_pct === undefined) {
+                        return "- / -";
+                    } else {
+                        return Ext.util.Format.number(value.actual_hours_total, '0.#') + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
+                    }
+                    //if(value.actual_hours_total > 0){
+                    //}
+                }
+            });
         });
 
        

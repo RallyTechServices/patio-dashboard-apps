@@ -173,23 +173,25 @@ Ext.define("TSDeliveryEffortFocus", {
 
     _makeGrid: function(artifacts_by_timebox) {
         var me = this;
+        this.logger.log("_makeGrid");
         
         var columns = [{dataIndex:'Name',text:'Task Type',flex:1}];
         Ext.Array.each(this._getCategories(artifacts_by_timebox), function(field){
-            columns.push({  dataIndex: me._getSafeIterationName(field) + "_number", 
-                            text: field + '<br> Actual Hours / %', 
-                            align: 'center',
-                            flex:1,
-                            renderer: function(value,meta,record) {
-                      						if (value.actual_hours_total === undefined || value.actual_hours_pct === undefined) {
-                      								return "- / -";
-                      							} else {
-                                    return value.actual_hours_total + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
-                            			}
-                                //if(value.actual_hours_total > 0){
-                                //}
-                            }
-                        });
+            columns.push({  
+                dataIndex: me._getSafeIterationName(field) + "_number", 
+                text: field + '<br> Actual Hours / %', 
+                align: 'center',
+                flex:1,
+                renderer: function(value,meta,record) {
+                    if (value.actual_hours_total === undefined || value.actual_hours_pct === undefined) {
+                        return "- / -";
+                    } else {
+                        return Ext.util.Format.number(value.actual_hours_total, '0.#') + " / "+ parseInt(100*value.actual_hours_pct,10) + "%";
+                    }
+                    //if(value.actual_hours_total > 0){
+                    //}
+                }
+            });
         });
 
        
