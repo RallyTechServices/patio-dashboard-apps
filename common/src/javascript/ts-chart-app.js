@@ -97,6 +97,10 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+    setChartLoading: function(index,msg) {
+        this.getChartBox(index) && this.getChartBox(index).setLoading(msg);
+    },
+    
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
