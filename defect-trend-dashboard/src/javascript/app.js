@@ -185,8 +185,12 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _makeAccumulationChart: function() {
-        var closedStates = this.getSetting('closedStateValues');
+        var me = this,
+            closedStates = this.getSetting('closedStateValues');
+        
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
+        
+        this.setChartLoading(0,"Loading");
         
         this.setChart({
             xtype: 'rallychart',
@@ -202,12 +206,18 @@ Ext.define("TSDefectTrendDashboard", {
             },
             
             chartConfig: this._getAccumulationChartConfig(),
-            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light]
+            chartColors: [CA.apps.charts.Colors.red, CA.apps.charts.Colors.green, CA.apps.charts.Colors.blue_light],
+            listeners: {
+                chartRendered: function() {
+                    me.setChartLoading(0,false);
+                }
+            }
         },0);
     },
     
     _makeDefectOpenTimeChart: function() {
-        var closedStates = this.getSetting('closedStateValues');
+        var me = this,
+            closedStates = this.getSetting('closedStateValues');
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
         
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
@@ -215,6 +225,9 @@ Ext.define("TSDefectTrendDashboard", {
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
+        
+        me.setChartLoading(2,"Loading...");
+
         this.setChart({
             xtype: 'rallychart',
             storeType: 'Rally.data.lookback.SnapshotStore',
@@ -230,7 +243,12 @@ Ext.define("TSDefectTrendDashboard", {
             },
             
             chartConfig: this._getClosureChartConfig(),
-            chartColors: colors
+            chartColors: colors,
+            listeners: {
+                chartRendered: function() {
+                    me.setChartLoading(2,false);
+                }
+            }
         },2);
     },
     
@@ -426,11 +444,28 @@ Ext.define("TSDefectTrendDashboard", {
         },1);
     },
     
-    _getChartStoreConfig: function() {        
+    _getChartStoreConfig: function() {     
+        // this.granularity  this.timebox_limit
+        var granularity = this.granularity; 
+        var count = -1 * this.timebox_limit;
+        if ( granularity == "quarter" ) {
+            granularity = "month";
+            count = 3 * count;
+        }
+        var start_date = Rally.util.DateTime.toIsoString(
+            Rally.util.DateTime.add(new Date(), this.granularity, -1 * this.timebox_limit )
+        );
+        
+        this.logger.log('start date:', start_date);
+        
         return {
-           find: {
-               _ProjectHierarchy: this.getContext().getProject().ObjectID , 
-               _TypeHierarchy: 'Defect' 
+            find: {
+                _TypeHierarchy: 'Defect',
+                _ProjectHierarchy: this.getContext().getProject().ObjectID,
+                "$or": [
+                    { _ValidFrom: { "$gte": start_date } },
+                    { __At: start_date }
+                ]
            },
            removeUnauthorizedSnapshots: true,
            fetch: ['ObjectID','State','Priority','CreationDate','FormattedID','Name'],
@@ -456,6 +491,7 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     _getAccumulationChartConfig: function() {
+        var me = this;
         return {
             chart: {
                 zoomType: 'xy'
@@ -694,7 +730,6 @@ Ext.define("TSDefectTrendDashboard", {
     },
     
     showClosureDrillDown: function(point) {
-        console.log('showClosureDrillDown', point);
         var store = Ext.create('Rally.data.custom.Store',{
             data: point.__all_records || []
         });

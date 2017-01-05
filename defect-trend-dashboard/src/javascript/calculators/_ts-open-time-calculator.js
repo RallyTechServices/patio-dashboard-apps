@@ -53,7 +53,6 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
     runCalculation: function (snapshots) {
         var me = this;
                 
-        console.log(me.allowedPriorities);
         this.startDate = this.startDate || this._getStartDate(snapshots);
         this.endDate = this.endDate || this._getEndDate(snapshots);
             
@@ -86,10 +85,8 @@ Ext.define("CA.TechnicalServices.calculator.DefectResponseTimeCalculator", {
 
         series = this._addEventsToSeries(series);
         
-        console.log(Ext.clone(series));
         series = this._splitBucketsIntoPriorities(series);
         
-        console.log('series:', series);
         return {
             categories: categories,
             series: series
