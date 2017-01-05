@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Acceleration</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:17:43 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 04 2017 17:40:58 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:17:43 GMT-0800 (PST)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 169595173071;
+        var APP_BUILD_DATE = "Wed Jan 04 2017 17:40:58 GMT-0800 (PST)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 170962963312;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2081,6 +2081,10 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+    setChartLoading: function(index,msg) {
+        this.getChartBox(index) && this.getChartBox(index).setLoading(msg);
+    },
+    
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
@@ -2516,6 +2520,7 @@ Ext.define("TSDeliveryAcceleration", {
             "<li>The bars on the chart show the percentage difference from the baseline timebox.</li>" +
             "</ul>",
     
+            
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
     },
@@ -2957,7 +2962,7 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Delivery Acceleration' },
+            title: { text:'Delivery Acceleration' },
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -2971,7 +2976,18 @@ Ext.define("TSDeliveryAcceleration", {
             {
                 id: "b",
                 title: { text: '' },
-                opposite: true
+                opposite: true,                
+                stackLabels: {
+                    enabled: true,
+                    style: {
+                        fontWeight: 'bold',
+                        color: 'gray'
+                    },
+                    formatter: function() {
+                        if ( this.total == 0 ) { return ""; }
+                        return this.total + "%";
+                    }
+                }   
             }],
             plotOptions: {
                 column: {

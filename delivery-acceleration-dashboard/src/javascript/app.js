@@ -15,6 +15,7 @@ Ext.define("TSDeliveryAcceleration", {
             "<li>The bars on the chart show the percentage difference from the baseline timebox.</li>" +
             "</ul>",
     
+            
     integrationHeaders : {
         name : "TSDeliveryAcceleration"
     },
@@ -456,7 +457,7 @@ Ext.define("TSDeliveryAcceleration", {
         var me = this;
         return {
             chart: { type:'column' },
-            title: { text: 'Delivery Acceleration' },
+            title: { text:'Delivery Acceleration' },
             xAxis: {
                 labels:{
                     rotation:this._rotateLabels()
@@ -470,7 +471,18 @@ Ext.define("TSDeliveryAcceleration", {
             {
                 id: "b",
                 title: { text: '' },
-                opposite: true
+                opposite: true,                
+                stackLabels: {
+                    enabled: true,
+                    style: {
+                        fontWeight: 'bold',
+                        color: 'gray'
+                    },
+                    formatter: function() {
+                        if ( this.total == 0 ) { return ""; }
+                        return this.total + "%";
+                    }
+                }   
             }],
             plotOptions: {
                 column: {
