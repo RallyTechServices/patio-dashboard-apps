@@ -153,7 +153,7 @@ Ext.define("TSEstimationEffort", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
