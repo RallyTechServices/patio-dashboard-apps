@@ -4,10 +4,13 @@ Ext.define("PredictabilityApp", {
     descriptions: [
         "<strong>Predictability Dashboard</strong><br/>" +
             "<br/>" +
-            "A team plans and commits to work effort during their Sprint Planning Meeting at the beginning of each sprint. The dashboard will allow the team to determine the effectiveness of planning / committing to work by examining the difference between their Planned and Actual Velocity (execution) in a sprint.<br/>" +
+            "A team plans and commits to work effort during their Sprint Planning Meeting at the beginning of " + 
+            "each sprint. The dashboard will allow the team to determine the effectiveness of planning / committing " + 
+            "to work by examining the difference between their Planned and Actual Velocity (execution) in a sprint.<br/>" +
             "The top bar chart displays your total accepted points (actual velocity) in that sprint<br/>" +
-            "The gold line graph displays the total points planned (planned velocity) in that sprint",
-"<strong>Percentage of difference between planned and actual velocity</strong><br/>" +
+            "The gold line graph displays the total points planned (planned velocity) in that sprint.  Planned velocity is calculated " + 
+            "from the 'PlannedVelocity' fields on the timebox records.",
+        "<strong>Percentage of difference between planned and actual velocity</strong><br/>" +
             "<br/>" +
             "The orange line graph displays the % difference between planned and actual velocity for the sprint.<br/>" +
             "The green box represents the target variability of ±7.5%<br/>" +
@@ -106,6 +109,7 @@ Ext.define("PredictabilityApp", {
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
             this._sortTimeboxes,
+            this._fetchAllTimeboxes,
             this._fetchArtifactsInTimeboxes
         ],this).then({
             scope: this,
@@ -154,13 +158,13 @@ Ext.define("PredictabilityApp", {
         return TSUtilities.loadWsapiRecords(config);
     },
     
-		_sortTimeboxes: function(timeboxes) {
+    _sortTimeboxes: function(timeboxes) {
 
-				if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);					
-						return [];
-				}
+            this.setLoading(false);
+            return [];
+        }
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
       
         Ext.Array.sort(timeboxes, function(a,b){
@@ -169,12 +173,75 @@ Ext.define("PredictabilityApp", {
             return 0;
         }); 
         
-				this.timeboxes = timeboxes;        
+        this.timeboxes = timeboxes;        
         return timeboxes;
     },
 
+    _fetchAllTimeboxes: function(base_timeboxes) {
+        var me = this,
+            deferred = Ext.create('Deft.Deferred'),
+            type = this.timebox_type;
+                
+        if ( base_timeboxes.length === 0 ) { return []; }
+        
+        var start_field = "StartDate";
+        var end_field   = "EndDate";
+
+        if ( type == "Release" ) {
+            start_field = "ReleaseStartDate";
+            end_field   = "ReleaseDate";
+        }   
+
+        var filters = Rally.data.wsapi.Filter.or(
+            Ext.Array.map(base_timeboxes, function(base_timebox){
+                return {property:'Name',value: base_timebox.get('Name')}
+            })
+        );
+        
+        var timeboxes_by_name = {};
+        Ext.Array.each(base_timeboxes, function(base_timebox){
+            base_timebox.set('__timeboxes',[]);
+            timeboxes_by_name[base_timebox.get('Name')] = base_timebox;
+        });
+        
+        this.setLoading("Fetching timeboxes...");
+        
+        var config = {
+            model: type,
+            limit: Infinity,
+            fetch: ['Name','ObjectID','PlannedVelocity',start_field,end_field],
+            filters: filters,
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false
+            }
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(results) {
+                Ext.Array.each(results, function(result) {
+                    var timebox = timeboxes_by_name[result.get('Name')];
+                    var children = timebox.get('__timeboxes');
+                    children.push(result);
+                    timebox.set('__timeboxes',children);
+                });
+                
+                deferred.resolve(base_timeboxes);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            },
+            scope: this
+        });
+        
+        return deferred.promise;
+    },
+    
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         var me = this;
+        
+        this.logger.log("_fetchArtifactsInTimeboxes", timeboxes);
+        
         if ( timeboxes.length === 0 ) { return; }
         
         var type = this.timebox_type;
@@ -298,7 +365,7 @@ Ext.define("PredictabilityApp", {
      *    and timebox
      * as in
      * { "iteration 1": { "records": { "av": [o,o,o] } , { "pv": [o,o,o] } } }
-     * where as av is accepted velocity and pv is planned velocity
+     * where as av is accepted velocity and pv is planned velocity (In this case, the sum of estimates on first day of sprint)
      */
 
     _collectArtifactsByTimebox: function(items) {
@@ -390,40 +457,50 @@ Ext.define("PredictabilityApp", {
 
     _calculateTopMeasure: function(artifacts_by_timebox,allowed_type) {
         var me = this,
-        data = [];
+            data = [];
                    
-				Ext.Array.each(this.timeboxes, function(tb) {
-					var timebox = tb.get('Name');
-					var value = artifacts_by_timebox[timebox];
-					if (Ext.isEmpty(value) ) {
-						  data.push({ 
-	                y:0,
-	                _records: []
-	            });
-							return;
-					}
+        Ext.Array.each(this.timeboxes, function(tb) {
+            me.logger.log("timebox:", tb);
+            
+            var timebox = tb.get('Name');
+            var value = artifacts_by_timebox[timebox];
+            if (Ext.isEmpty(value) ) {
+                data.push({ 
+                    y:0,
+                    _records: []
+                });
+                return;
+            }
 
-          var records = value.records[allowed_type] || [];
-          var y_value = 0;
-
-          Ext.Array.each(records,function(story){
-              y_value += story.get('PlanEstimate') || 0;  
-          });
-
-          data.push({ 
-              y:y_value,
-              _records: records,
-              events: {
+            var records = value.records[allowed_type] || [];
+            var y_value = 0;
+    
+            Ext.Array.each(records,function(story){
+                  y_value += story.get('PlanEstimate') || 0;  
+            });
+            
+            // adding loop to pull pv from PlannedVelocity on Iteration Objects
+            if ( allowed_type == "pv" ) {
+                var children = tb.get('__timeboxes') || [];
+                y_value = 0;
+                Ext.Array.each(children, function(child) {
+                    y_value += child.get('PlannedVelocity') || 0;
+                });
+            }
+    
+            data.push({ 
+                y:y_value,
+                _records: records,
+                events: {
                   click: function() {
                       me.showDrillDown(this._records,  timebox + " (" + allowed_type + ")");
                   }
-              }
-          });
-
+                }
+            });
         });
 
         return data;
-	    },       
+    },       
 
     _rotateLabels: function(){
         
@@ -526,41 +603,47 @@ Ext.define("PredictabilityApp", {
         var me = this,
         data = [];
         
-				Ext.Array.each(this.timeboxes, function(tb) {
-					var timebox = tb.get('Name');
-					var value = artifacts_by_timebox[timebox];
+        Ext.Array.each(this.timeboxes, function(tb) {
+            var timebox = tb.get('Name');
+            var value = artifacts_by_timebox[timebox];
+            
+            if (Ext.isEmpty(value) ) {
+                data.push({ 
+                    y:0
+                });
+                return;
+            }
 
-					if (Ext.isEmpty(value) ) {
-						  data.push({ 
-          	      y:0
-            	});
-							return;
-					}
+            var av_records = value.records.av || [];
+            var pv_records = value.records.pv || [];
+            var av_value = 0;
+            var pv_value = 0;
+            var y_value = 0;
 
-          var av_records = value.records.av || [];
-          var pv_records = value.records.pv || [];
-          var av_value = 0;
-          var pv_value = 0;
-          var y_value = 0;
+            Ext.Array.each(av_records,function(story){
+                av_value += story.get('PlanEstimate')  
+            });
 
-          Ext.Array.each(av_records,function(story){
-              av_value += story.get('PlanEstimate')  
-          });
+//            Ext.Array.each(pv_records,function(story){
+//                pv_value += story.get('PlanEstimate')  
+//            });
 
-          Ext.Array.each(pv_records,function(story){
-              pv_value += story.get('PlanEstimate')  
-          });
+            var children = tb.get('__timeboxes') || [];
+            Ext.Array.each(children, function(child) {
+                pv_value += child.get('PlannedVelocity') || 0;
+            });
+            
+            
+            y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
 
-          y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
+            data.push({ 
+                y: Math.round(y_value)
+            });
 
-          data.push({ 
-              y: Math.round(y_value)
-          });
+        });
 
-      });
-
-     	return data
-    },    
+        return data
+    },   
     
     _getExtremeFromSeries: function(series) {
         var me = this;
@@ -745,12 +828,9 @@ Ext.define("PredictabilityApp", {
 
 
     _getCategories: function(artifacts_by_timebox) {
-//        return Ext.Object.getKeys(artifacts_by_timebox);
-				return Ext.Array.map(this.timeboxes, function(timebox) {
-
-			return timebox.get('Name');
-
-			});
+        return Ext.Array.map(this.timeboxes, function(timebox) {
+            return timebox.get('Name');
+        });
     },
 
 
