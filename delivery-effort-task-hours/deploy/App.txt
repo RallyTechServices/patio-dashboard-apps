@@ -3,13 +3,13 @@
 <head>
     <title>Delivery Effort Task Hours</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:18:00 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 11 2017 16:30:05 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:18:00 GMT-0800 (PST)";
-        var BUILDER = "arajaraman";
-        var CHECKSUM = 192861336321;
+        var APP_BUILD_DATE = "Wed Jan 11 2017 16:30:05 GMT-0800 (PST)";
+        var BUILDER = "jmartin";
+        var CHECKSUM = 194120077657;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2081,6 +2081,10 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+    setChartLoading: function(index,msg) {
+        this.getChartBox(index) && this.getChartBox(index).setLoading(msg);
+    },
+    
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
@@ -2991,10 +2995,13 @@ Ext.define("TSDeliveryEffortTaskHours", {
    
         var size = Ext.Array.sum(
             Ext.Array.map(records, function(record){
-                return record.get(hours_field) || 0;
+                return ( record.get(hours_field) || 0 ) * 10000;
             })
         );
-        return size;
+        
+        // earlier multiplied by 1000 then now divided by 1000 to deal with
+        // issue in JS where adding 0.1 + 0.2 gives you 0.29999999
+        return size  / 10000;
     },
 
     _calculateBottomMeasure: function(artifacts_by_timebox,hours_field,title) {

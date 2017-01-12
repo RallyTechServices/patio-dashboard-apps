@@ -579,10 +579,13 @@ Ext.define("TSDeliveryEffortTaskHours", {
    
         var size = Ext.Array.sum(
             Ext.Array.map(records, function(record){
-                return record.get(hours_field) || 0;
+                return ( record.get(hours_field) || 0 ) * 10000;
             })
         );
-        return size;
+        
+        // earlier multiplied by 1000 then now divided by 1000 to deal with
+        // issue in JS where adding 0.1 + 0.2 gives you 0.29999999
+        return size  / 10000;
     },
 
     _calculateBottomMeasure: function(artifacts_by_timebox,hours_field,title) {
