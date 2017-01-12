@@ -3,11 +3,11 @@
 <head>
     <title>Estimation Effort</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Nov 07 2016 10:18:08 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 11 2017 17:11:30 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Nov 07 2016 10:18:08 GMT-0800 (PST)";
-        var CHECKSUM = 188483042402;
+        var APP_BUILD_DATE = "Wed Jan 11 2017 17:11:30 GMT-0800 (PST)";
+        var CHECKSUM = 189085327626;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -2079,6 +2079,10 @@ Ext.define("CA.techservices.app.ChartApp", {
         this.getChartBox(index).setChart(config);
     },
     
+    setChartLoading: function(index,msg) {
+        this.getChartBox(index) && this.getChartBox(index).setLoading(msg);
+    },
+    
 
     getGridBox: function(index) {
         if ( Ext.isEmpty( index ) ) { index = 0; }
@@ -2563,7 +2567,7 @@ Ext.define("TSEstimationEffort", {
             limit: this.timebox_limit,
             pageSize: this.timebox_limit,
             fetch: ['Name',start_field,end_field],
-            filters: [{property:start_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
+            filters: [{property:end_field, operator: '<=', value: Rally.util.DateTime.toIsoString(new Date)}],
             sorters: [{property:end_field, direction:'DESC'}],
             context: {
                 projectScopeUp: false,
