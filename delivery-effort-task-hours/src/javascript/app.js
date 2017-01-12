@@ -7,7 +7,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
             "This dashboard shows how many hours are being spent on accepted stories during timeboxes,  " +
             "compared to the estimated hours and hours left to-do." +
             "<p/>" +
-            "Click on a bar to see a table with the tasks from that timebox." +
+            "Click on a point to see a table with the tasks from that timebox." +
             "<p/> " +
             "<ul/>" +
             "<li>The columns show the count of actual hours on the tasks associated " +
@@ -18,9 +18,10 @@ Ext.define("TSDeliveryEffortTaskHours", {
         "<strong>Delivery Effort Full Time Equivalents</strong><br/>"+
             "<br/>" +
             "This dashboard shows the number of actual FTEs spent on accepted stories during timeboxes,  " +
-            "compared to the estimated FTEs and FTEs left to-do." +
+            "compared to the estimated FTEs and FTEs left to-do.  FTE is calculated from the number of hours as the rounding of: <br/>" + 
+            "( number of task hours  ) / ( .8 x 8 hours x number of workdays in sprint)" +
             "<p/>" +
-            "Click on a bar to see a table with the tasks from that timebox." +
+            "Click on a point to see a table with the tasks from that timebox." +
             "<p/> " +
             "<ul/>" +
             "<li>The columns show the count of actual hours on the tasks associated " +
@@ -493,9 +494,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
     _getSeries: function(artifacts_by_timebox) {
         var series = [],
             allowed_types = this.allowed_types;
-        
-        console.log('--', artifacts_by_timebox);
-    
+            
         var name = "Actual Hours";
         series.push({
             name: name,
@@ -525,9 +524,7 @@ Ext.define("TSDeliveryEffortTaskHours", {
     _getBottomSeries: function(artifacts_by_timebox) {
         var series = [],
             allowed_types = this.allowed_types;
-        
-        console.log('--', artifacts_by_timebox);
-    
+            
         var name = "Actual FTEs";
         series.push({
             name: name,
@@ -614,16 +611,18 @@ Ext.define("TSDeliveryEffortTaskHours", {
             var records = value.records.all || [];
             var size = Ext.Array.sum(
                 Ext.Array.map(records, function(record){
-                    return record.get(hours_field) || 0;
+                    return record.get(hours_field) || 0 ;
                 })
             );
             
+            console.log(hours_field,size, value.records.SprintDaysExcludingWeekend);
+            
             //calculate full time equivalent ( number of hours in velocity / ( .8 * 8 * number of workdays in sprint) )
             if(size > 0){
-                size = (value.records.SprintDaysExcludingWeekend * 8) / ( .8 * 8 * size);
+                size = ( size ) / ( .8 * 8 * value.records.SprintDaysExcludingWeekend);
             }
-
-            return parseInt(size,10)
+            
+            return Math.round(size,10)
     },
     
     _getCategories: function(artifacts_by_timebox) {
