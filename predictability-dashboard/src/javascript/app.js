@@ -14,7 +14,9 @@ Ext.define("PredictabilityApp", {
             "<br/>" +
             "The orange line graph displays the % difference between planned and actual velocity for the sprint.<br/>" +
             "The green box represents the target variability of ±7.5%<br/>" +
-            "The target variability can be set using the app settings."              
+            "The target variability can be set using the app settings."   +
+            "NOTE: If the planned is 0, the variability is infinite, so the chart will not display a variability " +
+            "value on the orange line.  So, a break in the line indicates a missing planned velocity."
     ],
     
     integrationHeaders : {
@@ -279,7 +281,7 @@ Ext.define("PredictabilityApp", {
             },
             function() { 
                 return me._getStoriesFromSnapShotStore(type,timeboxes);
-            },
+            }
         ],this).then({
             success: function(results) {
                 deferred.resolve(results);
@@ -365,7 +367,7 @@ Ext.define("PredictabilityApp", {
      *    and timebox
      * as in
      * { "iteration 1": { "records": { "av": [o,o,o] } , { "pv": [o,o,o] } } }
-     * where as av is accepted velocity and pv is planned velocity (In this case, the sum of estimates on first day of sprint)
+     * where as av is accepted velocity and pv is planned velocity.
      */
 
     _collectArtifactsByTimebox: function(items) {
@@ -546,7 +548,7 @@ Ext.define("PredictabilityApp", {
                     style: {
                         textShadow: '0 0 3px black'
                     },
-                    format: '{y}',
+                    format: '{y}'
                 },                
                 column: {
                     grouping: false,
@@ -633,16 +635,20 @@ Ext.define("PredictabilityApp", {
                 pv_value += child.get('PlannedVelocity') || 0;
             });
             
-            
-            y_value = pv_value > 0 ? ((av_value - pv_value) / pv_value ) * 100 : 0;
+            if ( pv_value > 0 ) {
+                y_value = ((av_value - pv_value) / pv_value ) * 100;
+                y_value = Math.round(y_value);
+            } else {
+                y_value = null;
+            }
 
             data.push({ 
-                y: Math.round(y_value)
+                y: y_value
             });
 
         });
 
-        return data
+        return data;
     },   
     
     _getExtremeFromSeries: function(series) {
@@ -705,7 +711,7 @@ Ext.define("PredictabilityApp", {
                     color: CA.apps.charts.Colors.orange,
                     dataLabels: {
                         enabled: true,
-                        format: '{y} %',
+                        format: '{y} %'
                     },                    
                     pointStart: 0,
                     marker: {
@@ -960,6 +966,6 @@ Ext.define("PredictabilityApp", {
             }
         });
         return deferred;
-    },
+    }
     
 });

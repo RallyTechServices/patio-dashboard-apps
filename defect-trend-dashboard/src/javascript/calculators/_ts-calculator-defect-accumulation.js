@@ -39,12 +39,20 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             'display': 'line'
         },
         // added for delta series:
+//        {
+//            'field': 'isOpen',
+//            'as': 'Open',
+//            'f': 'sum',
+//            'display': 'column'
+//        },
         {
-            'field': 'isOpen',
+            'filterField': 'isOpen',
             'as': 'Open',
-            'f': 'sum',
+            'f': 'filteredCount',
+            'filterValues': [1],
             'display': 'column'
-        }];
+        }
+        ];
         
     },
     
@@ -77,9 +85,15 @@ Ext.define('CA.techservices.calculator.DefectAccumulation', {
             {
                 as: 'isOpen',
                 f: function(snapshot) {
+                	if ( snapshot.FormattedID = "60083719920" ) {
+                		console.log(snapshot);
+                	}
                     if ( !Ext.Array.contains(me.closedStateValues, snapshot.State) ) {
                         if ( me._matchesPriority(snapshot) ) { 
-                            return 1;
+//                        	if ( snapshot._ValidTo == "9999-01-01T00:00:00.000Z" ) {
+//                        		console.log(1,snapshot.FormattedID,snapshot._ValidTo);
+//                        	}
+                        	return 1;
                         }
                         return 0;
                     }

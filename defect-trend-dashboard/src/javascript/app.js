@@ -463,12 +463,13 @@ Ext.define("TSDefectTrendDashboard", {
             find: {
                 _TypeHierarchy: 'Defect',
                 _ProjectHierarchy: this.getContext().getProject().ObjectID,
-                "$or": [
-                    { _ValidFrom: { "$gte": start_date } },
-                    { __At: start_date }
-                ]
+//                "$or": [
+//                    { _ValidFrom: { "$gte": start_date } },
+//                    { __At: start_date }
+//                ]
            },
            removeUnauthorizedSnapshots: true,
+           compress: true,
            fetch: ['ObjectID','State','Priority','CreationDate','FormattedID','Name'],
            hydrate: ['State','Priority'],
            sort: {
