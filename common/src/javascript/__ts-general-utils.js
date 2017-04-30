@@ -9,7 +9,13 @@ Ext.define('TSUtilities', {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+        
+        var full_config =  Ext.Object.merge(default_config,config);
+        var store_class_name = 'Rally.data.wsapi.Store';
+        if ( full_config.models ) {
+            store_class_name = 'Rally.data.wsapi.artifact.Store';
+        }
+        Ext.create(store_class_name, full_config).load({
             callback : function(records, operation, successful) {
                 if (successful){
                     if ( returnOperation ) {
@@ -336,6 +342,6 @@ Ext.define('TSUtilities', {
             }
         });
         return deferred.promise;
-    },
+    }
 
 });
