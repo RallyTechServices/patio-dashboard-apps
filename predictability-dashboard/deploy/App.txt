@@ -3,11 +3,11 @@
 <head>
     <title>Predictability</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 21 2017 17:21:08 GMT-0700 (PDT) -->
+    <!--  Build Date: Sun Apr 30 2017 11:27:19 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 21 2017 17:21:08 GMT-0700 (PDT)";
-        var CHECKSUM = 205466711191;
+        var APP_BUILD_DATE = "Sun Apr 30 2017 11:27:19 GMT-0700 (PDT)";
+        var CHECKSUM = 206930713176;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -28,7 +28,13 @@ Ext.define('TSUtilities', {
             model: 'Defect',
             fetch: ['ObjectID']
         };
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+        
+        var full_config =  Ext.Object.merge(default_config,config);
+        var store_class_name = 'Rally.data.wsapi.Store';
+        if ( full_config.models ) {
+            store_class_name = 'Rally.data.wsapi.artifact.Store';
+        }
+        Ext.create(store_class_name, full_config).load({
             callback : function(records, operation, successful) {
                 if (successful){
                     if ( returnOperation ) {
@@ -355,7 +361,7 @@ Ext.define('TSUtilities', {
             }
         });
         return deferred.promise;
-    },
+    }
 
 });
 /**
@@ -2681,13 +2687,12 @@ Ext.define("PredictabilityApp", {
         filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '>=', value: 'Accepted'});
 
         var config = {
-            model:'HierarchicalRequirement',
+            models: ['Defect', 'DefectSuite', 'UserStory'],
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
                 'PlanEstimate','Project','Release','AcceptedDate', start_field,end_field]
         };
-
         
         Deft.Chain.sequence([
             function() { 
@@ -2737,8 +2742,8 @@ Ext.define("PredictabilityApp", {
         var deferred = Ext.create('Deft.Deferred');
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement"
-                    };
+            "_TypeHierarchy": { "$in": ["HierarchicalRequirement","Defect"] }
+        };
 
         var start_field = "StartDate";
         if ( type == "Release" ) {
@@ -2801,18 +2806,18 @@ Ext.define("PredictabilityApp", {
             }
         };
 
-        Ext.Array.each(items[0], function(item){
+        var current_items = items[0];
+        var snapshot_items = items[1];
+        
+        Ext.Array.each(current_items, function(item){
             var timebox = item.get(timebox_type).Name;
-            
             if ( Ext.isEmpty(hash[timebox])){
-                
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
             hash[timebox].records.av.push(item);
-          
         });
 
-        Ext.Array.each(items[1], function(item){
+        Ext.Array.each(snapshot_items, function(item){
             var timebox = item.get(timebox_type).Name;
             
             if ( Ext.isEmpty(hash[timebox])){

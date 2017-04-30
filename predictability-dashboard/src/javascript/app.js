@@ -267,13 +267,12 @@ Ext.define("PredictabilityApp", {
         filters = Rally.data.wsapi.Filter.and(filters).and({property: 'ScheduleState', operator: '>=', value: 'Accepted'});
 
         var config = {
-            model:'HierarchicalRequirement',
+            models: ['Defect', 'DefectSuite', 'UserStory'],
             limit: Infinity,
             filters: filters,
             fetch: ['FormattedID','Name','ScheduleState','Iteration','ObjectID','Defects',
                 'PlanEstimate','Project','Release','AcceptedDate', start_field,end_field]
         };
-
         
         Deft.Chain.sequence([
             function() { 
@@ -323,8 +322,8 @@ Ext.define("PredictabilityApp", {
         var deferred = Ext.create('Deft.Deferred');
 
         var find = {
-                        "_TypeHierarchy": "HierarchicalRequirement"
-                    };
+            "_TypeHierarchy": { "$in": ["HierarchicalRequirement","Defect"] }
+        };
 
         var start_field = "StartDate";
         if ( type == "Release" ) {
@@ -387,18 +386,18 @@ Ext.define("PredictabilityApp", {
             }
         };
 
-        Ext.Array.each(items[0], function(item){
+        var current_items = items[0];
+        var snapshot_items = items[1];
+        
+        Ext.Array.each(current_items, function(item){
             var timebox = item.get(timebox_type).Name;
-            
             if ( Ext.isEmpty(hash[timebox])){
-                
                 hash[timebox] = Ext.Object.merge({}, Ext.clone(base_hash) );
             }
             hash[timebox].records.av.push(item);
-          
         });
 
-        Ext.Array.each(items[1], function(item){
+        Ext.Array.each(snapshot_items, function(item){
             var timebox = item.get(timebox_type).Name;
             
             if ( Ext.isEmpty(hash[timebox])){
