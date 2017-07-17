@@ -15,7 +15,7 @@
 Ext.define('CA.techservices.picker.FieldValuePicker', {
     extend: 'Ext.form.field.Picker',
     alias: 'widget.tsmultifieldvaluepicker',
-    
+
     inheritableStatics: {
         defaultRowTextCls: 'rui-picker-option-text'
     },
@@ -48,19 +48,19 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         selectionKey: 'StringValue',
 
         /**
-         * 
+         *
          * @cfg {String} (Required)
          * The name of a model that a field belongs to.
          */
         model: 'UserStory',
-        
+
         /**
-         * 
+         *
          * @cfg {String} (Required)
-         * The name of a field on the model 
+         * The name of a field on the model
          */
         field: null,
-        
+
         /**
          * @cfg {String}
          * The key of the value in a record.
@@ -72,7 +72,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
          * The DataStore configuration
          */
         storeConfig: {
-            autoLoad: false,
+            autoLoad: true,
             fetch: ["StringValue"],
             pageSize: 200,
             remoteGroup: false,
@@ -177,7 +177,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
          * Values that will always show selected in the bound list
          */
         alwaysSelectedValues: [],
-        
+
         /**
          * @cfg {String}
          * Text to use for the '-- No Entry --' option.
@@ -704,18 +704,18 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
     createStore: function () {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
-        
+
         Rally.data.ModelFactory.getModel({
             type: me.model,
             success: function(model) {
                 me.store = model.getField(me.field).getAllowedValueStore(Ext.merge({requester: this}, me.storeConfig));
-                
+
                 me.relayEvents(me.store, ['datachanged']);
                 deferred.resolve();
 //                model.getField(me.field).getAllowedValueStore().load({
 //                    callback: function(records, operation, success) {
 //                        Ext.Array.each(records, function(allowedValue) {
-//                            //each record is an instance of the AllowedAttributeValue model 
+//                            //each record is an instance of the AllowedAttributeValue model
 //                            console.log(allowedValue.get('StringValue'));
 //                        });
 //                    }
@@ -724,12 +724,12 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
             failure: function() {
                 deferred.reject("Problem getting model allowed value store");
             }
-            
+
         });
 
         return deferred.promise;
     },
-    
+
     _createStoreAndExpand: function () {
         this.createStore().then({
             success: this.expand,
@@ -943,7 +943,7 @@ Ext.define('CA.techservices.picker.FieldValuePicker', {
         this._fireSelectionChange();
     },
 
-    onListItemDeselect: function (record, event, itemEl) {        
+    onListItemDeselect: function (record, event, itemEl) {
         var key = this._getKey(record);
         this.selectedValues.remove(this.selectedValues.get(key));
         this._syncSelection();
