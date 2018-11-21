@@ -1,11 +1,11 @@
 Ext.define("PVNApp", {
     extend: 'CA.techservices.app.ChartApp',
 
-     
+
     integrationHeaders : {
         name : "PVNApp"
     },
-    
+
     config: {
         defaultSettings: {
             showPatterns: false,
@@ -13,15 +13,15 @@ Ext.define("PVNApp", {
             model: 'UserStory'
         }
     },
-         
+
     description: "",
 
     modelsNamesFromType: {
         'HierarchicalRequirement':'Stories',
-        'UserStory':'Stories', 
+        'UserStory':'Stories',
         'Defect':'Defects'
     },
-    
+
     _getDescriptions: function(){
         var me = this;
         var model = this.modelsNamesFromType[this.getSetting('model')];
@@ -31,13 +31,15 @@ Ext.define("PVNApp", {
             metric = 'number of items accepted';
             type = 'Throughput';
         }
-        
+
         this.logger.log('Settings:', this.getSettings());
-        
+
         return  Ext.String.format("<strong>Productivity {0} ({1})</strong><br/>" +
             "<br/>" +
-            "This Chart displays the {2} item in each timebox." + 
-            "Click on a bar to see a table with the stories for the team in that timebox." +
+            "This Chart displays the {2} in each timebox.<br/>" +
+            " -- Velocity for a team is the rolling average of the number of points accepted in each iteration.<br/>" +
+            " -- Throughput counts the number of items accepted in a given period of time.<br/>" +
+            "<br/>Click on a bar to see a table with the stories for the team in that timebox." +
             "<p/>" +
             "<strong>Notes:</strong>" +
             "<br/>(1) This app only looks at data in the selected project (Team).  Parent/Child scoping and data aggregation (rollups) are not supported.",
@@ -50,10 +52,10 @@ Ext.define("PVNApp", {
     launch: function() {
         this.description = this._getDescriptions();
         this.callParent();
-        
+
         this.timebox_limit = 10;
         this.timebox_type = 'Iteration';
-        
+
         this._addSelectors();
         this._updateData();
     },
@@ -67,7 +69,7 @@ Ext.define("PVNApp", {
             fieldLabel: 'Timebox Limit',
             value: 10,
             maxValue: 20,
-            minValue: 1,            
+            minValue: 1,
             margin: '0 0 0 50',
             width: 150,
             allowBlank: false,  // requires a non-empty value
@@ -95,7 +97,7 @@ Ext.define("PVNApp", {
                     name      : 'timeBoxType',
                     inputValue: 'Iteration',
                     id        : 'radio1',
-                    checked   : true                    
+                    checked   : true
                 }, {
                     boxLabel  : 'Release',
                     name      : 'timeBoxType',
@@ -111,13 +113,24 @@ Ext.define("PVNApp", {
                 scope:this
             }
         });
+/*
+        this.addToBanner({
+            xtype: 'rallybutton',
+            text: 'Export',
+            margin: '5 5 5 5',
+            defaultAlign: 'right',
+            listeners: {
+                scope: this,
+                click: this._export
+            }
+        });
+*/
+    },
 
-    }, 
-    
     _updateData: function() {
         var me = this;
         this.metric = "size";
-        
+
         Deft.Chain.pipeline([
             this._fetchTimeboxes,
             this._sortTimeboxes,
@@ -139,26 +152,26 @@ Ext.define("PVNApp", {
                 Ext.Msg.alert('--', msg);
             }
         });
-        
+
     },
- 
+
     _getSafeIterationName: function(name) {
-        return name.replace(/\./,'&#46;'); 
+        return name.replace(/\./,'&#46;');
     },
-    
+
     _fetchTimeboxes: function() {
 
         this.logger.log("_fetchTimeboxes");
 
         var me = this,
             deferred = Ext.create('Deft.Deferred');
-                
+
         this.setLoading("Fetching timeboxes...");
-        
+
         var start_date_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
 
-        
+
         var config = {
             model:  this.timebox_type,
             limit: this.timebox_limit,
@@ -173,69 +186,69 @@ Ext.define("PVNApp", {
         };
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     _sortTimeboxes: function(timeboxes) {
 
-        if (timeboxes === 'undefined' || timeboxes.length === 0) { 
+        if (timeboxes === 'undefined' || timeboxes.length === 0) {
             Ext.Msg.alert('', 'The project you selected does not have any ' + this.timebox_type + 's');
-            this.setLoading(false);  
+            this.setLoading(false);
             return [];
         }
 
         this.setLoading("Fetching timeboxes...");
         this.logger.log("_sortTimeboxes IN", timeboxes);
-       
+
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-      
+
         Ext.Array.sort(timeboxes, function(a,b){
             if ( a.get(end_date_field) < b.get(end_date_field) ) { return -1; }
             if ( a.get(end_date_field) > b.get(end_date_field) ) { return  1; }
             return 0;
-        }); 
-        
+        });
+
         this.timeboxes = timeboxes;
         return timeboxes;
 
     },
 
     _sortObjectsbyTBDate: function(records) {
-        
+
         var end_date_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
 
-        for (i=0; i < records.length; i++) { 
+        for (i=0; i < records.length; i++) {
             records[i].sort_field = records[i]['data'][this.timebox_type][end_date_field];
         };
-     
-        Ext.Array.sort(records, function(a,b){          
+
+        Ext.Array.sort(records, function(a,b){
             if ( a.sort_field < b.sort_field ) { return -1; }
             if ( a.sort_field > b.sort_field ) { return  1; }
             return 0;
-        }); 
-        
+        });
+
         return records;
 
     },
-    
+
     _fetchArtifactsInTimeboxes: function(timeboxes) {
         if ( timeboxes.length === 0 ) { return; }
- 
+
         var type = this.timebox_type;
-        
+
         var start_field = TSUtilities.getStartFieldForTimeboxType(this.timebox_type);
         var end_field = TSUtilities.getEndFieldForTimeboxType(this.timebox_type);
-        
+
         var deferred = Ext.create('Deft.Deferred');
         var first_date = timeboxes[0].get(start_field);
         var last_date = timeboxes[timeboxes.length - 1].get(end_field);
-        
+
         var filters = [
             {property: type + '.' + start_field, operator: '>=', value:first_date},
             {property: type + '.' + end_field, operator: '<=', value:last_date},
             {property:'AcceptedDate', operator: '!=', value: null }
         ];
-        
+
         var model_name = this.getSetting('model');
-        
+
         var config = {
             model:model_name,
             limit: Infinity,
@@ -244,45 +257,45 @@ Ext.define("PVNApp", {
                 'PlanEstimate','Project','Release','InProgressDate','AcceptedDate',
                 'StartDate','EndDate','ReleaseStartDate','ReleaseDate']
         };
-        
+
         TSUtilities.loadWsapiRecords(config).then({
-            success: function(results) {                    
-                deferred.resolve(Ext.Array.flatten(results));                             
+            success: function(results) {
+                deferred.resolve(Ext.Array.flatten(results));
             },
             failure: function(msg) {
                 deferred.reject(msg);
             }
         });
-          
+
         return deferred.promise;
     },
-    
-    /* 
+
+    /*
      * returns a hash of hashes -- key is iteration name value is
      * another hash where the records key holds a hash
-     *    the records hash has a key for each allowed value 
-     *    which then provides an array of items that match the allowed value 
+     *    the records hash has a key for each allowed value
+     *    which then provides an array of items that match the allowed value
      *    and timebox
      * as in
      * { "iteration 1": { "records": { "all": [o,o,o], "SPIKE": [o,o], "": [o] } } }
      */
-     
-    _collectArtifactsByTimebox: function(items) {     
 
-        // console.log('>>>>items',items);   
+    _collectArtifactsByTimebox: function(items) {
+
+        // console.log('>>>>items',items);
         var me = this;
         var hash = {},
             timebox_type = this.timebox_type;
 
-        
+
         //if ( items.length === 0 ) { return hash; }
-        
+
         var base_hash = {
             records: {
                 all: []
             }
         };
-        
+
         // create all the hash keys
         Ext.Array.each(this.timeboxes, function(timebox){
             hash[timebox.get('Name')] = Ext.Object.merge({}, Ext.clone(base_hash) );
@@ -292,31 +305,31 @@ Ext.define("PVNApp", {
             var timebox = item.get(timebox_type).Name;
             hash[timebox].records.all.push(item);
         });
-        
+
         return hash;
 
     },
-        
+
     _makeChart: function(artifacts_by_timebox) {
         console.log('artifacts_by_timebox>>>>',artifacts_by_timebox);
         var me = this;
-        
+
         var model_names = {'UserStory':'Stories', 'Defect':'Defects'};
         var model_name = this.modelsNamesFromType[this.getSetting('model')];
-        
+
         var type = "Velocity";
         if ( me.getSetting('showCount') ) { type = "Throughput"; }
-        
+
         var title = Ext.String.format('Productivity {0} ({1})',
             type,
             model_name
         );
-        
+
         var name = me.getSetting('showCount') ? 'Counts':'Points';
         var categories = this._getCategories(artifacts_by_timebox);
-        var series = this._getSeries(artifacts_by_timebox);        
+        var series = this._getSeries(artifacts_by_timebox);
         var colors = CA.apps.charts.Colors.getConsistentBarColors();
-        
+
         if ( this.getSetting('showPatterns') ) {
             colors = CA.apps.charts.Colors.getConsistentBarPatterns();
         }
@@ -325,11 +338,11 @@ Ext.define("PVNApp", {
             chartData: {
                 categories: categories,
                 series: [{
-                    name: name, 
+                    name: name,
                     data: series
                 }]
             },
-            chartConfig: { 
+            chartConfig: {
                 chart: {type: 'column'},
                 title: {text: title},
                 xAxis: {},
@@ -343,11 +356,11 @@ Ext.define("PVNApp", {
                 tooltip: {
                     formatter: function() {
                     return '<b>'+ Ext.util.Format.number(this.point.y, '0')+ '</b>';
-                        } 
+                        }
                     }
                 },
-            chartColors: colors                                 
-                       
+            chartColors: colors
+
         });
         this.setLoading(false);
     },
@@ -356,7 +369,7 @@ Ext.define("PVNApp", {
         console.log('_getCategories', artifacts_by_timebox);
         return Ext.Object.getKeys(artifacts_by_timebox);
     },
-    
+
     _getSeries: function(artifacts_by_timebox) {
         var me = this;
         var name = me.getSetting('showCount') ? 'Counts':'Points';
@@ -371,7 +384,7 @@ Ext.define("PVNApp", {
                     value += story.get('PlanEstimate');
                 });
             }
-        
+
             datapoints.push({
                 y: value,
                 _records: records,
@@ -379,13 +392,22 @@ Ext.define("PVNApp", {
                    click: function () {
                        me.showDrillDown(this._records.all,  "Stories for " + key + " - Total "+name+": " + Ext.util.Format.number(this.y, '0'));
                    }
-                }              
+                }
             });
         });
-            
+
         return datapoints;
     },
-    
+
+/*
+    _export: function(){
+        var file_util = Ext.create('Rally.technicalservices.FileUtilities',{});
+        var csv = file_util.convertDataArrayToCSVText(this.gridRows, this.export_columns);
+        var export_file_name = this.getContext().getProject().Name + "_" + this.start_rls.getRecord().get('Name') + "_" + this.end_rls.getRecord().get('Name') + ".csv"
+        file_util.saveCSVToFile(csv, export_file_name);
+    },
+*/
+
     getSettingsFields: function() {
         var artifact_name_store = Ext.create('Ext.data.Store', {
             fields: ['Name','Model'],
@@ -393,10 +415,10 @@ Ext.define("PVNApp", {
                 { Name: 'User Story', Model: 'HierarchicalRequirement'},
                 { Name:'Defect', Model:'Defect'}
             ]
-        });        
+        });
 
         return [
-        { 
+        {
             name: 'showPatterns',
             xtype: 'rallycheckboxfield',
             boxLabelAlign: 'after',
@@ -410,7 +432,7 @@ Ext.define("PVNApp", {
             boxLabelAlign: 'after',
             fieldLabel: '',
             margin: '0 0 25 25',
-            boxLabel: 'Show by Count<br/><span style="color:#999999;"><i>Tick to use story count.  Otherwise, uses story points.</i></span>'
+            boxLabel: 'Show by Count<br/><span style="color:#999999;"><i>Tick for Throughput Report (Item Count).  Clear for Velocity Report (Item Points).</i></span>'
         },
         {
             name: 'model',
@@ -424,7 +446,7 @@ Ext.define("PVNApp", {
         }
         ];
     },
-    
+
     getDrillDownColumns: function(title) {
         var columns = [
             {
@@ -451,21 +473,21 @@ Ext.define("PVNApp", {
                 flex: 3
             }
         ];
-       
+
         if ( /\(multiple\)/.test(title)) {
             columns.push({
                 dataIndex: 'Name',
                 text: 'Count of Moves',
                 renderer: function(value, meta, record) {
-                    
+
                     return value.split('[Continued]').length;
                 }
             });
         }
-        
-        
+
+
         return columns;
     }
- 
-    
+
+
 });
