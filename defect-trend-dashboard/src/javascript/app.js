@@ -75,7 +75,7 @@ Ext.define("TSDefectTrendDashboard", {
 
         var closedStates = this.getSetting('closedStateValues');
         this.logger.log('closed states:', closedStates);
-        
+
         if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
 
         this.descriptions[0] += "<strong>Notes:</strong><br/>" +
@@ -193,6 +193,10 @@ Ext.define("TSDefectTrendDashboard", {
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
 
         this.setChartLoading(0,"Loading");
+
+        this.logger.log('closedStates:', closedStates);
+        this.logger.log('Snapshot:', this._getChartStoreConfig());
+
 
         this.setChart({
             xtype: 'rallychart',
@@ -498,6 +502,7 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         return {
             chart: {
+//                type: 'column',
                 zoomType: 'xy'
             },
             title: {
@@ -535,7 +540,7 @@ Ext.define("TSDefectTrendDashboard", {
                         enabled: false
                     }
                 },
-                area: {
+                column: {
                     stacking: 'normal'
                 }
             }

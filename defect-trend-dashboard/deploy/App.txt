@@ -3,13 +3,13 @@
 <head>
     <title>Defect Trend Dashboard</title>
     <!--  (c) 2015,2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jul 17 2017 15:54:35 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Nov 08 2018 11:44:42 GMT-0800 (PST) -->
     
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jul 17 2017 15:54:35 GMT-0700 (PDT)";
-        var BUILDER = "marjo60";
-        var CHECKSUM = 438287708732;
+        var APP_BUILD_DATE = "Thu Nov 08 2018 11:44:42 GMT-0800 (PST)";
+        var BUILDER = "bedch02";
+        var CHECKSUM = 439363430231;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -4152,7 +4152,7 @@ Ext.define("TSDefectTrendDashboard", {
 
         var closedStates = this.getSetting('closedStateValues');
         this.logger.log('closed states:', closedStates);
-        
+
         if ( Ext.isArray(closedStates) ) { closedStates = closedStates.join(', '); }
 
         this.descriptions[0] += "<strong>Notes:</strong><br/>" +
@@ -4270,6 +4270,10 @@ Ext.define("TSDefectTrendDashboard", {
         if ( !Ext.isArray(closedStates) ) { closedStates = closedStates.split(/,/); }
 
         this.setChartLoading(0,"Loading");
+
+        this.logger.log('closedStates:', closedStates);
+        this.logger.log('Snapshot:', this._getChartStoreConfig());
+
 
         this.setChart({
             xtype: 'rallychart',
@@ -4575,6 +4579,7 @@ Ext.define("TSDefectTrendDashboard", {
         var me = this;
         return {
             chart: {
+//                type: 'column',
                 zoomType: 'xy'
             },
             title: {
@@ -4612,7 +4617,7 @@ Ext.define("TSDefectTrendDashboard", {
                         enabled: false
                     }
                 },
-                area: {
+                column: {
                     stacking: 'normal'
                 }
             }
